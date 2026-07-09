@@ -1,0 +1,10 @@
+User noted that the current frequency response is still a capacitance/RC model and asked whether FEniCS can do a full RF model for comparison. They also asked to add plate and tube material, defaulting to copper, with necessary physical parameters.
+
+Implemented a web/model parameter pass:
+- Added plate_material and tube_material controls, defaulting to copper.
+- Added conductor conductivity sigma and relative permeability mu_r controls for both plates and tube.
+- Added an RF comparison frequency control and skin-depth readouts for plate and tube conductors.
+- Added an RF material metric strip that makes clear these are material estimates only and that the RF backend is planned.
+- Added an RF Model Path slide distinguishing lumped RC, quasi-static frequency-domain admittance, and full-wave Maxwell FEM.
+- Added the new conductor parameters to hardware/geometry/default-parameters.json, backend sanitization, and exported geometry summaries.
+- Documented that the current FD backend remains electrostatic and treats conductors as equipotential boundaries.

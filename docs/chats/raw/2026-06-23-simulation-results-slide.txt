@@ -1,0 +1,7 @@
+User asked to add a slide after Simulation Focus about simulation results.
+
+Implemented direction:
+- Added a Simulation Results slide immediately after Simulation Focus.
+- The slide reports the current screening field result, peak E-field, peak r-z location, solver sweeps, adaptive-grid note, and washer/epoxy dielectric margin summaries.
+- The slide canvas uses the same browser-side geometry/material/field functions as the Designer field view, at a bounded preview resolution so slide redraws remain responsive.
+- The slide explicitly states that this is a screening result and that final breakdown decisions need the conforming axisymmetric FEA backend.

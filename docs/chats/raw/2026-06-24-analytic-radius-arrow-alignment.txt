@@ -1,0 +1,7 @@
+# Raw Conversation Record: Analytic Radius Arrow Alignment
+
+Date: 2026-06-24
+
+User: Noted that on the analytic checks graphic, the double arrow labeling the edge radius should run between the center of the circle and the radius, and that it was drawn a little high.
+
+Assistant outcome: Moved the edge-radius double arrow in the analytic checks slide onto the dashed fillet-circle centerline for both the core-side ground inner fillet and the tube-side HV outer fillet diagrams.

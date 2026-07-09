@@ -1,0 +1,9 @@
+User asked to make the default core diameter 2 mm so that the core radius matches the plate radius.
+
+Assistant outcome:
+
+- Updated the browser default `core_od_mm` from 4 mm to 2 mm.
+- Updated stored default geometry in `hardware/geometry/default-parameters.json`.
+- Updated backend fallback sanitization to use 2 mm when no core OD is supplied.
+- Updated the browser script cache key so the local and hosted pages load the new defaults.
+- Updated the RC-network knowledge note. With the unchanged 2.1 mm core-ground radial gap, the default ground plate inner diameter is now 6.2 mm.

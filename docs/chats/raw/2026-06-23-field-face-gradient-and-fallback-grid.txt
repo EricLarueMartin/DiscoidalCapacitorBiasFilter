@@ -1,0 +1,15 @@
+User reported that the maximum electric-field display appeared as a plate-hugging region and that the middle plate gaps looked wrong. The expected behavior is that the washer overlap away from edges should be close to V divided by the axial plate gap, with local maxima at rounded conductor tips.
+
+Diagnosis:
+- The solved potential in the Python backend already gave about 6.0 kV/mm in the washer overlap for a 6 kV bias and 1 mm axial plate gaps.
+- The old field extraction used central differences. Near fixed conductor nodes, that can differentiate through conductor regions and paint misleading high-field stripes along plate surfaces.
+- The local browser page was falling back to the JavaScript solver, whose default grid and iteration count were coarser than the Python backend defaults. That produced a spurious JS maximum near a middle-gap/core-side region.
+
+Changes:
+- Switched both JavaScript and Python field extraction to dielectric-side one-cell face gradients. Conductors now contribute as adjacent boundary values, not as regions to differentiate through.
+- Raised the JavaScript fallback defaults to the backend defaults: 90 radial nodes, 150 axial nodes, 700 sweeps, and 0.01 V tolerance.
+- Filled exact generated conductor profiles over the field map and added a maximum-field marker on the main field plot. This keeps the visual field map tied to the CAD profile instead of only the structured grid cells.
+
+Verification:
+- Browser fallback after reload reported 14.603 kV/mm at r = 3.98 mm, z = 8.50 mm, matching the Python solve for the current defaults.
+- Python gap probes in the washer overlap at r = 6, 10, and 14 mm across the first, middle, and final gaps stayed at about 6.0 kV/mm.

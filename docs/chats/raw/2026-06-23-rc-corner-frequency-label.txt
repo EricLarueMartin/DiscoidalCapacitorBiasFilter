@@ -1,0 +1,9 @@
+Reconstructed user-facing context for 2026-06-23 RC corner frequency label.
+
+User request:
+- Label the RC corner frequency too.
+
+Implemented intent:
+- Changed the RC diagram text from terse `fc` wording to `RC corner`.
+- Added a separate vertical marker on the attenuation plot at the RC corner frequency, distinct from the `|Xcpar| = Rstage` parasitic takeover marker.
+- Bumped the web script cache tag so the browser loads the updated canvas drawing.

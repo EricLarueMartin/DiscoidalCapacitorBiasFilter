@@ -1,0 +1,7 @@
+# Raw Conversation Record: Conductive-Core Field Region Correction
+
+Date: 2026-06-23
+
+User: Clarified that the actual conductive core is conductive for electrostatic simulation purposes. The current draw is low enough that voltage drop along the conductive core should be on the order of 1 V, so the core should be treated as an equipotential. The previously labeled core-adjacent Emax / margin belongs in the epoxy region, because the dielectric around the conductive core is epoxy/fill.
+
+Assistant outcome: Removed the separate core breakdown and core-adjacent dielectric-margin bucket from the web UI. The browser field solver now classifies solved dielectric nodes between the conductive core surface and the ground-plate inner radius as epoxy, while the core itself remains a fixed HV conductor. Added normalization so old backend results that report `core` or `core_adjacent` dielectric peaks are folded into the epoxy bucket. Updated the repository-native Python screening solver to use epoxy relative permittivity in the core-to-ground free dielectric gap. Updated notes to state that core material epsr is only a rough circuit/parasitic parameter, not a field-breakdown dielectric region.

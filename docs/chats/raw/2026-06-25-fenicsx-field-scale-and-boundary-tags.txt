@@ -1,0 +1,21 @@
+User noticed that the electric-field graphic showed the inter-plate field far below the expected 6 kV/mm for a 6 kV bias across a 1 mm washer gap and asked whether the plot scale had actually been changed or just relabeled.
+
+Findings:
+- The deployed finite-difference backend passed the flat-gap sanity check: mid-gap washer samples were approximately 6000 V/mm in all default gaps.
+- The deployed FEniCSx backend failed the same check before the fix, returning alternating mid-gap samples in the few-to-few-tens of V/mm range.
+- Direct FEniCSx potential samples showed one side of several conductor faces was not receiving the intended Dirichlet boundary condition.
+- The cause was exact coordinate classification of Gmsh/DOLFINx boundary nodes. Some boundary coordinates landed infinitesimally outside ideal conductor intervals such as a plate face, so the exact classifier missed the HV or ground tag on that face.
+
+Fixes:
+- Added a tiny tolerance to FEniCSx boundary-node classification for HV and ground Dirichlet conditions.
+- Changed the web field-map colors to use one absolute V/mm scale shared with the colorbar.
+- Kept material breakdown strengths as reference ticks and dielectric margin readouts only, not as per-material color normalizers.
+- Bumped the web app cache key to `2026-06-25-field-scale-and-fenics-bc`.
+
+Verification:
+- Local JavaScript syntax check passed with the bundled Node runtime.
+- Local Python AST parsing passed for `axisymmetric_model.py`, `field_backend.py`, and `fenicsx_solver.py`.
+- Local backend tests passed: 5 tests OK.
+- Deployed corrected files to the Pi and restarted `codex-sites.service`.
+- Deployed FEniCSx mid-gap samples after the fix were about 5999.99 to 6000.00 V/mm in all four default washer gaps.
+- The corrected deployed FEniCSx peak field for the default geometry was about 11.7 kV/mm.

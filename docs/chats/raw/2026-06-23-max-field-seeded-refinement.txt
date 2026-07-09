@@ -1,0 +1,10 @@
+User asked whether maximum electric field finding starts from only one initial location and could therefore miss a local maximum. They suggested using reasonable starting positions radially away from plate edges in dielectric, and a between-plate position so washer-region maxima are also checked.
+
+Clarification: the current finite-difference solvers do not use a single-start local optimizer. They solve the potential on a nonuniform r-z grid, compute field magnitude at all dielectric grid nodes, and report the global maximum over those sampled nodes. The risk is not local optimizer trapping; it is under-sampling a narrow maximum if the initial grid is too coarse.
+
+Implemented deterministic seeded refinement before the adaptive high-field pass:
+- Existing rounded conductor-edge refinement remains.
+- Added dielectric-side probes radially away from HV outer plate edges in epoxy.
+- Added dielectric-side probes radially inward from ground inner plate edges in epoxy.
+- Added washer-gap probes at several radial samples centered between adjacent plate faces.
+- Added mesh metadata for dielectric probe center counts in both browser JS and Python backend.

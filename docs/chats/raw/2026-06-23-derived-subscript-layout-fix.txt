@@ -1,0 +1,5 @@
+User reported that derived-value labels such as Ebd and Rtotal were rendering with the base symbol and subscript on separate lines.
+
+Cause: the `.derived-dimensions span` rule used CSS grid, so inline text nodes and `<sub>` elements became separate grid items.
+
+Fix: changed derived-dimension labels to normal block containers and made the numeric `<strong>` value the block element. Bumped the stylesheet cache key in `presentations/web/index.html`.

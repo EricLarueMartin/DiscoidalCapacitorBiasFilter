@@ -1,0 +1,9 @@
+# Raw Conversation Record: Radial Gap Label Clarification
+
+Date: 2026-06-23
+
+User: Noted that the web UI label `Core-ground gap` was ambiguous. If the value meant radius difference it was fine, but if it had been calculated from diameter difference it would be off by a factor of 2. User suspected radius because the control was derived from diameters, but wanted to make sure.
+
+Assistant outcome: Checked the web app math and confirmed the gap controls are radial surface-to-surface clearances. The derived geometry uses `ground_plate_inner_diameter_mm = core_od_mm + 2 * core_to_ground_gap_mm` and `hv_plate_od_mm = tube_id_mm - 2 * hv_to_tube_gap_mm`. Updated the visible web labels to `Core-ground radial gap`, `HV-tube radial gap`, and `Plate axial gap`, and changed the edge metric heading from `Edge gap` to `Edge clearance`. The edge approximation readout now distinguishes axial plate clearance from radial core-ground and radial HV-tube clearance.
+
+Follow-up geometry-display note: User noticed that when core-ground gap, HV-tube gap, plate axial gap, and plate thickness were all set to 1 mm, the axial dimensions looked about twice the radial gaps. The derivation was still radial-gap-correct, but the 2D r-z geometry and field canvases used independent x and y scales. Updated `canvasMetrics` to use one equal mm-to-pixel scale for both axial z and radial r, centered inside the available canvas. Browser verification with all four controls at 1 mm showed `Ground ID = 8 mm` for a 6 mm core and `HV OD = 34 mm` for a 36 mm tube.

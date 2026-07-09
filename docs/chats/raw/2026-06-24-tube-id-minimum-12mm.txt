@@ -1,0 +1,7 @@
+User asked to make the Tube ID control go down to 12 mm.
+
+Assistant outcome:
+
+- Changed the Designer `Tube ID` range minimum from 24 mm to 12 mm.
+- Bumped the web script cache key so browsers load the updated range.
+- Verified that the existing geometry normalizer allows 12 mm with the current defaults. With core OD 2 mm and core-ground radial gap 2.1 mm, a 12 mm tube ID keeps ground ID at 6.2 mm. The HV-tube radial gap clamps from 2.0 mm to 1.9 mm at this limit, deriving HV OD 8.2 mm and preserving the 1 mm minimum radial overlap.

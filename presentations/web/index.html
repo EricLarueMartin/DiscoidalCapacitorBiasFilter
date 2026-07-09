@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SHV Bias Filter</title>
+    <link rel="stylesheet" href="style.css?v=2026-07-07-spice-ladder-backend">
+    <script defer src="app.js?v=2026-07-09-fea-cpar-explain"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Axisymmetric high-voltage filter</p>
+        <h1>SHV Bias Filter</h1>
+      </div>
+      <nav class="tabs" aria-label="Views">
+        <button class="tab active" type="button" data-view="designer">Designer</button>
+        <button class="tab" type="button" data-view="slides">Slides</button>
+        <button class="tab" type="button" data-view="artifacts">Artifacts</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="view active" id="designer" aria-label="Interactive geometry and field designer">
+        <aside class="controls" aria-label="Design parameters">
+          <div class="control-tabs" role="tablist" aria-label="Design setting groups">
+            <button class="control-tab active" type="button" role="tab" aria-selected="true" data-control-tab="electrical">Electrical</button>
+            <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="geometry">Geometry</button>
+            <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="solver">Solver</button>
+            <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="files">Files</button>
+          </div>
+
+          <div class="control-group control-panel active" data-control-panel="electrical">
+            <h2>Electrical</h2>
+            <label>Bias voltage <output id="bias_voltage_v_out"></output><input id="bias_voltage_v" type="range" min="1000" max="10000" step="250"></label>
+            <label id="core_resistivity_control" title="Log slider: resistance is derived as resistivity times core length divided by core area"><span>Core volume resistivity</span><output id="core_volume_resistivity_log10_ohm_cm_out"></output><input id="core_volume_resistivity_log10_ohm_cm" type="range" min="-3" max="12" step="0.1"></label>
+            <label id="melf_stage_resistance_control" hidden title="Stage resistance is entered directly instead of derived from bulk resistivity and geometry"><span>Direct stage R</span><output id="melf_stage_resistance_mohm_out"></output><input id="melf_stage_resistance_mohm" type="range" min="1" max="12" step="0.1"></label>
+            <label title="Series resistance before the first bias plate. Zero ohms makes the first plate an ideal driven node."><span>Input series R</span><output id="input_series_resistance_mohm_out"></output><input id="input_series_resistance_mohm" type="range" min="0" max="12" step="0.1"></label>
+            <label class="check" title="Set input series resistance equal to the current stage resistance."><input id="input_series_matches_stage" type="checkbox"> Input R = stage R</label>
+            <label title="Series resistance after the final bias plate and before the cable/load. Zero ohms connects the load directly to the final plate."><span>Output series R</span><output id="output_series_resistance_mohm_out"></output><input id="output_series_resistance_mohm" type="range" min="0" max="12" step="0.1"></label>
+            <label class="check" title="Set output series resistance equal to the current stage resistance."><input id="output_series_matches_stage" type="checkbox"> Output R = stage R</label>
+            <label title="Load conductance for the admittance estimate is Iload / Vbias."><span>Load current</span><output id="load_current_na_out"></output><input id="load_current_na" type="range" min="0" max="10" step="0.01"></label>
+            <label title="Coax length connected at the filter output. The loaded ladder treats this as lumped cable capacitance."><span>Load cable length</span><output id="load_cable_length_m_out"></output><input id="load_cable_length_m" type="range" min="0" max="30" step="0.5"></label>
+            <label title="Characteristic impedance used to infer lumped cable capacitance from length and velocity factor."><span>Load cable Z<sub>0</sub></span><output id="load_cable_impedance_ohm_out"></output><input id="load_cable_impedance_ohm" type="range" min="25" max="125" step="1"></label>
+            <label title="Coax velocity factor used for C = length / (Z0 vf c)."><span>Load cable VF</span><output id="load_cable_velocity_factor_out"></output><input id="load_cable_velocity_factor" type="range" min="0.3" max="0.95" step="0.01"></label>
+            <label title="Detector capacitance connected at the filter output."><span>Detector C</span><output id="detector_capacitance_pf_out"></output><input id="detector_capacitance_pf" type="range" min="0" max="100" step="0.5"></label>
+            <label>Core material
+              <select id="core_material">
+                <option value="type61">Fair-Rite 61 NiZn</option>
+                <option value="nizn">NiZn ferrite</option>
+                <option value="mmb0204_melf">MELF 0204 10M</option>
+                <option value="mmb0207_melf">MELF 0207 12M</option>
+                <option value="epoxy_chain">MELF chain in 9510</option>
+                <option value="conductive_epoxy">Conductive epoxy</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label class="check" title="Use entered per-stage resistance. MELF presets estimate Cpar from effective ceramic/film geometry; non-MELF direct models can still use the resistor/package Cpar input."><input id="use_direct_stage_circuit" type="checkbox"> Direct stage RC inputs</label>
+            <label>Washer material
+              <select id="washer_material">
+                <option value="fr4">FR4/G10</option>
+                <option value="macor">Macor</option>
+                <option value="alumina">Alumina</option>
+                <option value="rutile_tio2">Rutile TiO₂</option>
+                <option value="strontium_titanate">Strontium titanate SrTiO₃</option>
+                <option value="zirconia">Zirconia/ZTA</option>
+                <option value="high_k">High-K screen only</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label>Epoxy material
+              <select id="epoxy_material">
+                <option value="mg_9510">MG Chemicals 9510</option>
+                <option value="generic_potting">Generic potting epoxy</option>
+                <option value="low_k_epoxy">Low-&kappa; epoxy</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label>Plate material
+              <select id="plate_material">
+                <option value="copper">Copper</option>
+                <option value="aluminum">Aluminum</option>
+                <option value="brass">Brass</option>
+                <option value="stainless_316">316 stainless</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label>Tube material
+              <select id="tube_material">
+                <option value="copper">Copper</option>
+                <option value="aluminum">Aluminum</option>
+                <option value="brass">Brass</option>
+                <option value="stainless_316">316 stainless</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label id="core_epsr_control"><span>Conductor &epsilon;<sub>r</sub></span><output id="ferrite_epsr_out"></output><input id="ferrite_epsr" type="range" min="2" max="120" step="0.1"></label>
+            <label id="melf_stage_parasitic_control" hidden title="Entered non-MELF resistor/package bias-to-bias capacitance. MELF 0204/0207 presets instead use the effective ceramic/film geometry model."><span>Resistor C<sub>par</sub></span><output id="melf_stage_parasitic_pf_out"></output><input id="melf_stage_parasitic_pf" type="range" min="0.01" max="5" step="0.01"></label>
+            <label id="melf_substrate_epsr_control" hidden title="Ceramic substrate permittivity for the geometric MELF capacitance model. Alumina is a reasonable default."><span>MELF substrate &epsilon;<sub>r</sub></span><output id="melf_substrate_epsr_out"></output><input id="melf_substrate_epsr" type="range" min="3" max="30" step="0.1"></label>
+            <label id="melf_metal_fill_factor_control" hidden title="Fractional metal-film shielding estimate. Effective core permittivity is substrate epsr divided by 1 - fill factor."><span>MELF film fill</span><output id="melf_metal_fill_factor_out"></output><input id="melf_metal_fill_factor" type="range" min="0" max="0.9" step="0.01"></label>
+            <label><span>Washer &epsilon;<sub>r</sub></span><output id="washer_epsr_out"></output><input id="washer_epsr" type="range" min="2" max="200" step="0.1"></label>
+            <label><span>Epoxy &epsilon;<sub>r</sub></span><output id="epoxy_epsr_out"></output><input id="epoxy_epsr" type="range" min="2" max="8" step="0.1"></label>
+            <label><span>RF compare frequency</span><output id="rf_compare_frequency_log10_mhz_out"></output><input id="rf_compare_frequency_log10_mhz" type="range" min="-3" max="4" step="0.1"></label>
+            <label><span>Plate &sigma;</span><output id="plate_conductivity_log10_s_per_m_out"></output><input id="plate_conductivity_log10_s_per_m" type="range" min="5" max="8.2" step="0.05"></label>
+            <label><span>Plate &mu;<sub>r</sub></span><output id="plate_relative_permeability_out"></output><input id="plate_relative_permeability" type="range" min="1" max="50" step="0.1"></label>
+            <label><span>Tube &sigma;</span><output id="tube_conductivity_log10_s_per_m_out"></output><input id="tube_conductivity_log10_s_per_m" type="range" min="5" max="8.2" step="0.05"></label>
+            <label><span>Tube &mu;<sub>r</sub></span><output id="tube_relative_permeability_out"></output><input id="tube_relative_permeability" type="range" min="1" max="50" step="0.1"></label>
+            <div class="derived-dimensions electrical-derived" aria-label="Derived electrical values">
+              <span>Core R<sub>total</sub> <strong id="core_resistance_gohm_out">--</strong></span>
+            </div>
+            <div class="derived-dimensions dielectric-strengths" aria-label="Dielectric strength placeholders">
+              <span>Washer E<sub>bd</sub> <strong id="washer_breakdown_out">--</strong></span>
+              <span>Epoxy E<sub>bd</sub> <strong id="epoxy_breakdown_out">--</strong></span>
+            </div>
+            <div class="derived-dimensions conductor-derived" aria-label="Conductor RF values">
+              <span>Plate &delta; <strong id="plate_skin_depth_out">--</strong></span>
+              <span>Tube &delta; <strong id="tube_skin_depth_out">--</strong></span>
+            </div>
+          </div>
+
+          <div class="control-group control-panel" data-control-panel="geometry" hidden>
+            <h2>Geometry</h2>
+            <label>Core OD <output id="core_od_mm_out"></output><input id="core_od_mm" type="range" min="2" max="14" step="0.1"></label>
+            <label>HV OD <output id="hv_plate_od_mm_out"></output><input id="hv_plate_od_mm" type="range" min="12" max="56" step="0.5"></label>
+            <label title="Ground ID = Core OD + 2 x this radial gap">Core-ground radial gap <output id="core_to_ground_gap_mm_out"></output><input id="core_to_ground_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
+            <label title="Tube ID = HV OD + 2 x this radial gap">HV-tube radial gap <output id="hv_to_tube_gap_mm_out"></output><input id="hv_to_tube_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
+            <label title="Washer thickness between adjacent plate faces">Washer thickness <output id="plate_gap_mm_out"></output><input id="plate_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
+            <label title="Ceramic washer inner diameter. Default follows the ground plate ID.">Washer ID <output id="washer_id_mm_out"></output><input id="washer_id_mm" type="range" min="2" max="40" step="0.1"></label>
+            <label class="check"><input id="washer_id_matches_ground" type="checkbox"> Washer ID = ground ID</label>
+            <label title="Ceramic washer outer diameter. Default follows the bias plate OD.">Washer OD <output id="washer_od_mm_out"></output><input id="washer_od_mm" type="range" min="4" max="60" step="0.1"></label>
+            <label class="check"><input id="washer_od_matches_bias" type="checkbox"> Washer OD = bias OD</label>
+            <label>Bias plate thickness <output id="bias_plate_thickness_mm_out"></output><input id="bias_plate_thickness_mm" type="range" min="0.4" max="4" step="0.1"></label>
+            <label>Ground plate thickness <output id="ground_plate_thickness_mm_out"></output><input id="ground_plate_thickness_mm" type="range" min="0.4" max="4" step="0.1"></label>
+            <label class="check"><input id="ground_matches_bias_thickness" type="checkbox"> Ground thickness = bias thickness</label>
+            <label>Edge diameter <output id="edge_diameter_percent_out"></output><input id="edge_diameter_percent" type="range" min="0" max="100" step="5"></label>
+            <label>Plate pairs <output id="plate_pairs_out"></output><input id="plate_pairs" type="range" min="1" max="6" step="1"></label>
+            <label class="check"><input id="include_ground_tube" type="checkbox"> Ground tube</label>
+            <div class="derived-dimensions" aria-label="Derived diameters">
+              <span>Ground ID <strong id="ground_plate_inner_diameter_mm_out">--</strong></span>
+              <span>Tube ID <strong id="tube_id_mm_out">--</strong></span>
+              <span>Ground OD <strong id="ground_plate_od_mm_out">--</strong></span>
+            </div>
+          </div>
+
+          <div class="control-group control-panel" data-control-panel="solver" hidden>
+            <h2>Solver</h2>
+            <label title="Browser JS runs locally. Backend adaptive FD is the Python finite-difference worker. FEniCSx uses the conforming Gmsh/DOLFINx solve when selected.">
+              <span>Field solver</span>
+              <select id="field_solver">
+                <option value="backend_auto">Backend auto</option>
+                <option value="backend_fd">Backend adaptive FD</option>
+                <option value="backend_fenicsx">FEniCSx required</option>
+                <option value="browser_js">Browser JS adaptive</option>
+              </select>
+            </label>
+            <label title="FEniCSx/Gmsh fine mesh target near rounded edges: ratio times edge radius, capped by the smallest gap divided by 8.">
+              <span>FEA mesh / edge r</span>
+              <output id="mesh_edge_radius_ratio_out"></output>
+              <input id="mesh_edge_radius_ratio" type="range" min="0.05" max="0.5" step="0.01">
+            </label>
+            <p class="control-note">Backend auto uses FEniCSx when ready and falls back to the adaptive finite-difference solver otherwise.</p>
+            <div class="actions solver-actions">
+              <button id="solve" type="button">Solve field</button>
+            </div>
+          </div>
+
+          <div class="actions control-panel" data-control-panel="files" hidden>
+            <button id="reset" type="button">Reset</button>
+            <button id="exportSettings" type="button">Export JSON</button>
+            <button id="importSettings" type="button">Import JSON</button>
+            <input id="settingsFile" type="file" accept="application/json,.json" hidden>
+            <p id="settingsStatus" class="settings-status" aria-live="polite"></p>
+          </div>
+        </aside>
+
+        <section class="workbench">
+          <div class="metric-strip" aria-label="Simulation results">
+            <div>
+              <span title="Neighborhood-supported peak field. A separate raw point maximum is shown below when isolated solver spikes are present.">Supported E<sub>max</sub></span>
+              <strong id="maxField">Not solved</strong>
+              <small id="rawMaxField">raw point not solved</small>
+            </div>
+            <div>
+              <span title="Sphere-limit field bound for minimum conductor radius r and minimum opposite-conductor gap d: Emax = V(r + d)/(r d).">r,d bound</span>
+              <strong id="edgeApprox">--</strong>
+              <small id="radiusGapBound">E = V(r + d)/(r d)</small>
+            </div>
+            <div>
+              <span>Bound factor</span>
+              <strong id="edgeFactor">--</strong>
+            </div>
+            <div>
+              <span>Min gap</span>
+              <strong id="edgeGap">--</strong>
+            </div>
+            <div>
+              <span>Location</span>
+              <strong id="maxLocation">--</strong>
+            </div>
+            <div>
+              <span title="For the JS fallback, this is full relaxation sweeps on the locally refined structured r-z screening grid. A future FEA backend may report its own solver iterations.">Solver sweeps</span>
+              <strong id="iterations">--</strong>
+            </div>
+            <div>
+              <span>Model</span>
+              <strong id="modelStatus">JS screening</strong>
+            </div>
+          </div>
+
+          <div class="metric-strip" aria-label="RC ladder estimates">
+            <div>
+              <span title="Capacitance of one adjacent HV-ground plate gap through one washer.">Gap C</span>
+              <strong id="pairCapacitance">--</strong>
+              <small>one HV-ground gap</small>
+            </div>
+            <div>
+              <span>C vs FR4</span>
+              <strong id="washerGain">--</strong>
+            </div>
+            <div>
+              <span title="Capacitance from one bias plate to its two adjacent ground plates. This is the Cg used by the stage attenuation estimate.">Stage C<sub>g</sub></span>
+              <strong id="shuntCapacitance">--</strong>
+              <small>2 x gap C</small>
+            </div>
+            <div>
+              <span title="Total two-terminal capacitance from all HV plates/core to grounded plates/tube. Uses FEniCSx energy extraction after a FEniCS solve; otherwise uses 2N x the washer-gap estimate.">Total C<sub>g</sub></span>
+              <strong id="totalGroundCapacitance">--</strong>
+              <small id="totalGroundCapSource">estimate</small>
+            </div>
+            <div>
+              <span title="Parasitic capacitance between adjacent bias plates. MELF presets use effective ceramic/film core capacitance plus epoxy; other direct-stage models can use entered package Cpar plus epoxy.">Stage C<sub>par</sub></span>
+              <strong id="parasiticCapacitance">--</strong>
+              <small>resistor/core + epoxy</small>
+            </div>
+            <div>
+              <span title="FEA three-bias energy-difference estimate of capacitance between adjacent bias stages.">FEA C<sub>par</sub></span>
+              <strong id="feaParasiticCapacitance">--</strong>
+              <small id="feaParasiticCapacitanceSource">adjacent stages</small>
+            </div>
+            <div>
+              <span title="Load resistance inferred from the DC bias voltage and the selected load current.">Load R</span>
+              <strong id="loadResistance">--</strong>
+              <small id="loadCurrentSummary">Iload = --</small>
+            </div>
+            <div>
+              <span title="External load capacitance at the filter output: coax capacitance plus detector capacitance.">Load C</span>
+              <strong id="loadCapacitance">--</strong>
+              <small id="loadCapacitanceSummary">cable + detector</small>
+            </div>
+            <div>
+              <span title="Two-terminal shunt admittance at the RF comparison frequency: Iload/Vbias + j omega (filter Ctotal + load C).">Y @ RF</span>
+              <strong id="loadAdmittance">--</strong>
+              <small id="loadAdmittancePhase">--</small>
+            </div>
+            <div>
+              <span>C<sub>par</sub>/C<sub>g</sub></span>
+              <strong id="parasiticRatio">--</strong>
+            </div>
+            <div>
+              <span title="Single-stage voltage-noise attenuation at 50 Hz, using the same Rstage, Cg, and Cpar model as the RC ladder slide.">Stage atten 50 Hz</span>
+              <strong id="stageAttenuation50Hz">--</strong>
+              <small>-20 log<sub>10</sub>|V<sub>out</sub>/V<sub>in</sub>|</small>
+            </div>
+            <div>
+              <span title="High-frequency single-stage attenuation limit when parasitic capacitance dominates the bias-to-bias path.">HF atten limit</span>
+              <strong id="stageAttenuationHighFrequency">--</strong>
+              <small>C<sub>par</sub>/C<sub>g</sub> limit</small>
+            </div>
+            <div>
+              <span title="Resistance of the core section between adjacent bias plates.">Stage R</span>
+              <strong id="stageResistance">--</strong>
+            </div>
+            <div>
+              <span>RC corner</span>
+              <strong id="stageCorner">--</strong>
+            </div>
+            <div>
+              <span title="Frequency where the parasitic-capacitance reactance equals the bias-to-bias ohmic stage resistance. Above this, parasitic capacitance increasingly bypasses the resistor.">Parasitic takeover</span>
+              <strong id="parasiticTakeover">--</strong>
+              <small>|X<sub>C,par</sub>| = R<sub>stage</sub></small>
+            </div>
+          </div>
+
+          <div class="metric-strip" aria-label="RF material estimates">
+            <div>
+              <span>RF comparison</span>
+              <strong id="rfFrequency">--</strong>
+              <small>material values only</small>
+            </div>
+            <div>
+              <span>Plate material</span>
+              <strong id="plateMaterialSummary">--</strong>
+              <small id="plateConductorSummary">--</small>
+            </div>
+            <div>
+              <span>Tube material</span>
+              <strong id="tubeMaterialSummary">--</strong>
+              <small id="tubeConductorSummary">--</small>
+            </div>
+            <div>
+              <span>RF backend</span>
+              <strong id="rfBackendStatus">Planned</strong>
+              <small>compare to lumped RC</small>
+            </div>
+          </div>
+
+          <div class="metric-strip dielectric-margin-strip" aria-label="Dielectric breakdown margins">
+            <div>
+              <span>Washer E<sub>max</sub> / margin</span>
+              <strong id="washerDielectricMargin">--</strong>
+              <small id="washerDielectricBreakdown">E<sub>bd</sub> --</small>
+            </div>
+            <div>
+              <span title="Includes the core-to-ground dielectric gap around the conductive core and the outer epoxy fill.">Epoxy E<sub>max</sub> / margin</span>
+              <strong id="epoxyDielectricMargin">--</strong>
+              <small id="epoxyDielectricBreakdown">E<sub>bd</sub> --</small>
+            </div>
+          </div>
+
+          <div class="viewer-shell" aria-label="Design viewers">
+            <div class="viewer-tabs" role="tablist" aria-label="Design viewer tabs">
+              <button class="viewer-tab active" type="button" data-viewer-panel="cadPanel" role="tab" aria-selected="true">CAD mesh</button>
+              <button class="viewer-tab" type="button" data-viewer-panel="geometryPanel" role="tab" aria-selected="false">Geometry half-section</button>
+              <button class="viewer-tab" type="button" data-viewer-panel="fieldPanel" role="tab" aria-selected="false">Electric field</button>
+            </div>
+
+            <figure class="viewer-panel cad-figure active" id="cadPanel" role="tabpanel">
+              <div class="figure-head">
+                <figcaption>Interactive generated CAD mesh</figcaption>
+                <div class="mini-actions" aria-label="CAD view controls">
+                  <button id="cadReset" type="button" title="Reset CAD view">Reset view</button>
+                  <button id="cadCutaway" type="button" title="Toggle cutaway view">Cutaway</button>
+                </div>
+              </div>
+              <canvas id="cadCanvas" width="900" height="440"></canvas>
+              <div class="cad-legend" aria-label="CAD material legend">
+                <span><i style="--swatch:#b73e3e"></i>HV</span>
+                <span><i style="--swatch:#557a38"></i>Cu ground</span>
+                <span><i style="--swatch:#8a5b30"></i>Core</span>
+                <span><i style="--swatch:#d6b75d"></i>Washer</span>
+                <span><i style="--swatch:#d9e4e2"></i>Epoxy</span>
+              </div>
+            </figure>
+
+            <figure class="viewer-panel" id="geometryPanel" role="tabpanel" hidden>
+              <figcaption>Geometry half-section</figcaption>
+              <canvas id="geometryCanvas" width="900" height="440"></canvas>
+            </figure>
+
+            <figure class="viewer-panel" id="fieldPanel" role="tabpanel" hidden>
+              <figcaption>Electric field magnitude</figcaption>
+              <canvas id="fieldCanvas" width="900" height="440"></canvas>
+            </figure>
+          </div>
+        </section>
+      </section>
+
+      <section class="view slides" id="slides" aria-label="Presentation slides">
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <p class="eyebrow">Detector bias filtering</p>
+            <h2>SHV Bias Filter</h2>
+            <p>A compact, axisymmetric high-voltage low-current filter for LEGEND-style detector biasing and related experiments.</p>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCadCanvas" width="1100" height="620"></canvas>
+            <figcaption>Current generated CAD cutaway</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>Simulation Focus</h2>
+            <ul>
+              <li>Rounded inner edge of each ground plate.</li>
+              <li>Rounded outer edge of each high-voltage plate.</li>
+              <li>Field effects from the optional outer grounded tube.</li>
+              <li>Dielectric boundaries between the conductive core, washer material, and epoxy fill.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideMaterialCanvas" width="1100" height="620"></canvas>
+            <figcaption>Current dielectric and conductor regions</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>Simulation Results</h2>
+            <ul>
+              <li>Report peak electric field in the dielectric, not inside conductor cells.</li>
+              <li>Show where the peak occurs in the r-z half-section.</li>
+              <li>Compare washer and epoxy peak fields to material breakdown placeholders.</li>
+              <li>State whether the slide is showing the latest solved result or a preview solve.</li>
+              <li>Use this as a screening result until the conforming FEA backend is validated.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideResultsCanvas" width="1100" height="620"></canvas>
+            <figcaption>Current field screening result and dielectric margin summary</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>Analytic Sanity Checks</h2>
+            <ul>
+              <li>Use V/d for each local clearance as the baseline stress.</li>
+              <li>Use r as the minimum exposed conductor radius and d as the minimum gap.</li>
+              <li>Bound the screening field by E<sub>max</sub> = V(r + d)/(r d).</li>
+              <li>Keep local 2D and coax checks as lower-order comparisons.</li>
+              <li>Show R<sub>maj</sub>/r so toroidal-curvature limits are visible.</li>
+              <li>Compare both radial sides: HV disc to tube and ground disc to HV core.</li>
+              <li>Use FEA to confirm the actual ring geometry respects the radius and gap assumptions.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideEdgeCanvas" width="1100" height="620"></canvas>
+            <figcaption>Rounded-edge circle cross-section screening estimate</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>Radius-Gap Limit</h2>
+            <ul>
+              <li>Let r be the minimum radius on any exposed conductor feature.</li>
+              <li>Let d be the minimum dielectric gap to the opposite conductor.</li>
+              <li>The limiting geometry is a radius-r sphere inside a radius-(r + d) grounded sphere.</li>
+              <li>Use E<sub>max</sub> = V(r + d)/(r d) as the screening field bound.</li>
+              <li>Use FEA to check the actual geometry and catch any smaller-radius features.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideDeformationCanvas" width="1100" height="620"></canvas>
+            <figcaption>Minimum-radius and minimum-gap electric-field bound</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>Field-Limited Packing</h2>
+            <ul>
+              <li>Assume plate thickness is 2r and dielectric gap is d.</li>
+              <li>Use the radius-gap limit for the most limiting geometry: E<sub>max</sub> = V(r + d)/(r d).</li>
+              <li>Use gap capacitance proportional to 1/d.</li>
+              <li>Use stack pitch L = d + 2r.</li>
+              <li>Figure of merit: FOM = C/(L E<sub>max</sub>).</li>
+              <li>The shape optimum is r/d = 1/&radic;2.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slidePackingCanvas" width="1100" height="620"></canvas>
+            <figcaption>Capacitance per length per electric-field stress</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>RC Ladder</h2>
+            <ul>
+              <li>Estimate HV-ground capacitance from the washer overlap area.</li>
+              <li>Estimate bias-to-bias parasitic capacitance through the selected core material and epoxy around the core.</li>
+              <li>Track the high-frequency capacitive feedthrough ratio C<sub>par</sub>/C<sub>g</sub>.</li>
+              <li>Mark where parasitic reactance equals the bias-to-bias resistance.</li>
+              <li>Plot voltage-noise attenuation in dB using 20 log<sub>10</sub>.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideRcCanvas" width="1100" height="620"></canvas>
+            <figcaption>Per-stage RC and parasitic divider model</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>FEA Capacitance Sanity Check</h2>
+            <ul>
+              <li>Compare analytic washer-overlap C<sub>g,total</sub> to FEA energy-extracted C<sub>g,total</sub>.</li>
+              <li>Compare analytic adjacent-bias C<sub>par</sub> to the FEA three-bias energy-difference estimate.</li>
+              <li>Keep attenuation validation on the loaded RC and SPICE ladder slides.</li>
+              <li>MELF C<sub>par</sub> uses an effective ceramic core: &epsilon;<sub>eff</sub> = &epsilon;<sub>substrate</sub>/(1 - FF).</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideFeaSanityCanvas" width="1100" height="620"></canvas>
+            <figcaption>FEA capacitance comparison against analytic estimates</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>Loaded RC Ladder</h2>
+            <ul>
+              <li>Solve the RC ladder as individual R, C<sub>g</sub>, and C<sub>par</sub> elements.</li>
+              <li>Place the expected load only at the output node.</li>
+              <li>Use G<sub>load</sub> = I<sub>load</sub>/V<sub>bias</sub>.</li>
+              <li>Use C<sub>load</sub> = C<sub>detector</sub> + length/(Z<sub>0</sub> v<sub>f</sub> c) for lumped coax capacitance.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideLoadedLadderCanvas" width="1100" height="620"></canvas>
+            <figcaption>Full nodal ladder compared with the resistor-section one-stage approximation</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>SPICE Ladder Backend</h2>
+            <ul>
+              <li>Backend solves a SPICE-style small-signal AC netlist.</li>
+              <li>RC ladder uses individual R, C<sub>g</sub>, and C<sub>par</sub> elements.</li>
+              <li>Coax is treated as a lossless transmission line with Z<sub>0</sub>, delay, detector C, and load conductance.</li>
+              <li>Compare full transmission-line solve against lumped coax capacitance and resistor-section one-stage estimates.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
+            <figcaption>Pi backend SPICE-style AC solve with transmission-line load</figcaption>
+          </figure>
+        </article>
+        <article class="slide">
+          <h2>Prototype Materials</h2>
+          <ul>
+            <li>Alumina washer dielectric is the preferred prototype target.</li>
+            <li>FR4/G10 remains the easiest fallback if suitable alumina washers are unavailable.</li>
+            <li>MG Chemicals 9510 heat-cure epoxy as the first potting-fill option.</li>
+            <li>Selectable core/conductor material presets, with Fair-Rite type 61 NiZn ferrite as the first sample set.</li>
+            <li>Copper is the default plate and ground-tube material for RF-loss and skin-depth estimates.</li>
+            <li>Conductive epoxy joints between core discs and bias plates.</li>
+          </ul>
+        </article>
+        <article class="slide">
+          <h2>Construction Plan</h2>
+          <ul>
+            <li>Stack ferrite slices, polished copper bias discs, ground discs, ceramic washers, and mechanical spacers with epoxy flow holes.</li>
+            <li>Use conductive epoxy at ferrite-to-bias-disc contacts before final potting fixes the stack.</li>
+            <li>Fill with heat-cured epoxy, then use repeated vacuum and pressure dwell cycles to reduce trapped voids.</li>
+            <li>Degas controller subproject: two relay-driven valves switch a pressure vessel between vacuum pump and pressure source.</li>
+            <li>Controller inputs: high pressure, low pressure, pressure bands, dwell time at each band, and repeat count.</li>
+            <li>Pressure-cure integration in an oven is possible later, but outside the first prototype scope.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="view artifacts" id="artifacts" aria-label="Generated artifacts">
+        <h2>Generated Files</h2>
+        <p>The repository script writes compact geometry and field outputs to <code>simulations/axisymmetric/outputs/</code>.</p>
+        <ul>
+          <li><code>latest-geometry.json</code></li>
+          <li><code>latest-geometry.svg</code></li>
+          <li><code>latest-summary.json</code></li>
+          <li><code>latest-field.svg</code></li>
+        </ul>
+        <p>It also writes CAD and mesh exports to <code>hardware/geometry/generated/</code>.</p>
+        <ul>
+          <li><code>latest-model.scad</code></li>
+          <li><code>latest-model.obj</code></li>
+          <li><code>latest-model.mtl</code></li>
+          <li><code>latest-model.stl</code></li>
+        </ul>
+        <pre><code>python software/bias_filter/axisymmetric_model.py export
+python software/bias_filter/axisymmetric_model.py solve
+python software/bias_filter/axisymmetric_model.py cad</code></pre>
+      </section>
+    </main>
+  </body>
+</html>

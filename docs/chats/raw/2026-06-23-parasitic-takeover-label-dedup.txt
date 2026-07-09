@@ -1,0 +1,3 @@
+User reported that the designer metric box repeated the X_C,par = R_stage condition twice.
+
+Fix: changed the metric title to "Parasitic takeover" and kept the smaller explanatory line with absolute value bars: |X_C,par| = R_stage.

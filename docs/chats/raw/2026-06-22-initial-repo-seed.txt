@@ -1,0 +1,62 @@
+Date: 2026-06-22
+Topic: Initial repository seed and design intent
+
+User intent:
+
+Create a Git repository with AGENT.md guidance at every level, an appropriate folder structure, raw and markdown chat storage, hierarchical AI-readable knowledge, a web-based presentation section, and a public-GitHub-friendly project organization.
+
+Technical concept:
+
+A bias filter initially designed for LEGEND, adaptable for any experiment where high voltage and low current are used to bias detectors. The standard connector is SHV, limiting the initial design to about 6 kV, though other connectors could change this.
+
+The filter uses a discoidal capacitor arrangement. Outer ground rings are separate, allowing a tube around them to adjust ground separation between input and output. The center core is a large resistance in the 100 Mohm to low Gohm range. Detector bias currents for LEGEND-like experiments are sub-nA.
+
+The input and output section will begin as simple screw terminals for the first prototype and may later directly connect to an SHV bulkhead connector.
+
+Filtering-section features:
+
+- Plate thickness.
+- Edge radius on rounded edges.
+- Alternating center-connected and ground-connected plates.
+- Center-connected HV plate with an outside diameter, possibly with an inner hole in early prototypes.
+- HV plate outer edge radiused and diameter shorter than total filter diameter to leave space to ground.
+- Ground-connected discs with flat outer diameter connected to ground tube.
+- Ground plate inner diameter gapped from center high-voltage section with rounded edge.
+- Dielectric between plates for capacitance from HV to ground.
+- Possibly different dielectric outside the plate overlap and near the center core.
+
+Dielectric intuition:
+
+Best performance likely uses high permittivity dielectric in the HV-to-ground overlap region and low permittivity dielectric near the core, where capacitance around the resistive element becomes parasitic. Initial prototype may use NiZn ferrite because its volume resistivity may give the desired 100 Mohm scale series resistance at reasonable diameter. Ferrite noise is a concern, and MELF resistors may be substituted later.
+
+Simulation intent:
+
+The device has cylindrical symmetry. Simulate electric fields in the basic alternating-plate geometry, especially rounded edges and important nearby geometry.
+
+Inner radiused edge case:
+
+- Single ground plate.
+- HV plate on either side.
+
+Outer radiused edge case:
+
+- Single HV plate.
+- Two surrounding ground plates.
+- Include cases with and without outer tube.
+
+Parameters to vary:
+
+- Core OD.
+- Tube ID / ground plate OD.
+- HV plate OD.
+- Gap between plates.
+- Plate thickness.
+- Edge radius, usually half the plate thickness initially.
+- Dielectric permittivity between plates.
+- Dielectric permittivity around outside beyond plate overlap.
+- Dielectric permittivity around inside near core beyond plate overlap.
+
+Open dielectric-boundary question:
+
+The dielectrics may usually end where the plates overlap. Fringing patterns are remembered as field lines bowing outward from between the plates rather than inward, which may mean the low-permittivity dielectric does not need to intrude into the overlap region. This should be verified with simulation.
+

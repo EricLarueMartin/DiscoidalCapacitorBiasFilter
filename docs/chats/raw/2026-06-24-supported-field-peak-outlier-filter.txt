@@ -1,0 +1,8 @@
+User observed that the reported maximum electric field was dominated by a local anomaly: the edge of a smooth radius should show a reasonably consistent high-field band, not one isolated point far above the rest of the edge.
+
+Implementation note:
+- Keep the raw point maximum as a diagnostic.
+- Report a neighborhood-supported Emax for design screening.
+- The supported value uses the 75th percentile of the same-material 3x3 dielectric neighborhood around each candidate point.
+- If the raw point maximum is much larger than the supported value, flag it as outlier-suspect in the web UI.
+- Use the supported peak for color scaling and dielectric margin readouts; use the raw point maximum to debug mesh/FEA artifacts.

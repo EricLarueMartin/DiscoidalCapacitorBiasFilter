@@ -1,0 +1,23 @@
+# Raw Conversation Record: Epoxy Material And Epsilon UI
+
+Date: 2026-06-23
+
+This is a reconstructed raw collaboration record from the user-visible chat context. It omits shell commands, browser automation, and routine intermediate assistant progress.
+
+## Conversation
+
+User: Noted that the interface said `9510 epsr` instead of `epoxy epsr`. Asked why `epsr` was shown and whether HTML could display epsilon sub r. User also said epoxy should be another dropdown with options, because MG Chemicals 9510 is just the one epoxy currently under consideration.
+
+Assistant outcome: Kept the internal `epsr` suffix for JavaScript, JSON, Python, and future API compatibility, but changed the visible web labels to display relative permittivity as `epsilon_r` using HTML entities: `&epsilon;<sub>r</sub>`. Added an `Epoxy material` dropdown with MG Chemicals 9510 as the default candidate, plus generic potting epoxy, low-k epoxy, and custom options. Renamed visible `9510` region labeling to `Epoxy` where it referred to the generic fill region. Added `epoxy_material` to the default parameter JSON.
+
+## Verification Note
+
+Browser verification showed:
+
+- Default epoxy material is `MG Chemicals 9510` with epoxy `epsilon_r = 3.4`.
+- Selecting generic potting epoxy sets epoxy `epsilon_r = 3.2`.
+- Selecting low-k epoxy sets epoxy `epsilon_r = 2.8`.
+- Manually moving the epoxy `epsilon_r` slider switches the epoxy material selector to custom.
+- The CAD legend now says `Epoxy`, not `9510`.
+- Reset returns to `MG Chemicals 9510`, and `Solve field` still completes through the JavaScript fallback.
+

@@ -1,0 +1,27 @@
+2026-06-25 MELF default merge and resistor-stress correction
+
+User note:
+
+- Another chat updated the MELF resistor work and changed defaults.
+- Merge that work and document it.
+- Correct the repeated conceptual error that the MELF resistors need to withstand the full 6 kV DC bias.
+
+Merged implementation:
+
+- The web app already had `MMB0207 10M MELF` using direct-stage `Stage R = 10 Mohm` and `Stage Cpar = 0.3 pF`.
+- The potted `MELF chain in 9510` preset remains a deliberate chain-like direct stage at `Stage R = 240 Mohm` and `Stage Cpar = 0.5 pF`.
+- This merge aligned `hardware/geometry/default-parameters.json` and the backend sanitization fallback to `melf_stage_resistance_log10_ohm = 7.0`, matching the 10 Mohm single-MELF default.
+- The direct-stage RC checkbox remains independent of core material selection; selecting a MELF preset checks it by default.
+
+Resistor voltage-stress correction:
+
+- Do not size the MELF or resistive-core path as if each resistor must hold the full 6 kV detector-bias supply in normal operation.
+- Detector load is below 1 nA, so resistor voltage drop is approximately `I * R`, not the full supply voltage.
+- Full-bias breakdown remains a dielectric/spacing issue and a pulse-energy issue. If a breakdown happens, the available energy is approximately `0.5 C V^2`, usually with pF-scale capacitance in this geometry.
+- Resistors should still be chosen with low noise, leakage/surface tracking, pulse robustness, potting compatibility, and local field geometry in mind.
+
+Durable notes:
+
+- Added `docs/knowledge/resistor-voltage-stress.md`.
+- Added a root `AGENT.md` guardrail telling future agents to read that note before making resistor voltage-rating arguments.
+- Updated `docs/knowledge/design-requirements.md`, `docs/knowledge/materials.md`, and `hardware/materials/resistive-core.md`.

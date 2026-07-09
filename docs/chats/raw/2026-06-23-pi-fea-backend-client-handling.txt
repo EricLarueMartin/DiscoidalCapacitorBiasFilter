@@ -1,0 +1,16 @@
+# Raw Conversation Record: Pi FEA Backend Client Handling
+
+Date: 2026-06-23
+
+This is a reconstructed raw collaboration record from the user-visible chat context. It omits shell commands, browser automation, and routine intermediate assistant progress.
+
+## Conversation
+
+User: Asked whether the Pi server will be able to keep multiple clients straight once the FEA backend is added. User wants approximations to remain JavaScript-based in the browser, with the `Solve field` button eventually trying to use the FEA backend.
+
+Assistant outcome: Inspected the current static web app and solver path. Noted that the current browser page solves locally in `presentations/web/app.js`, while the existing Python CLI writes shared `latest-*` outputs that would not be safe as the direct web backend path for multiple clients. Added a documented Pi backend plan using per-solve job IDs and per-job results rather than shared output files. Updated the web app so `Solve field` first attempts a future `/api/field-solve` endpoint and falls back to the current local JavaScript finite-difference solver if the endpoint is unavailable. Verified in the in-app browser that the fallback works and the Model metric reports `JS fallback` when no backend is present.
+
+## Design Note
+
+The multi-client answer is yes, provided the Pi backend is built as a stateless job service. The server should not maintain one global "current solve" or rely on shared `latest-summary.json` style files for browser requests. Each button press should submit a complete parameter snapshot and receive either a completed result or a `job_id`; each browser tab then tracks its own job until completion.
+

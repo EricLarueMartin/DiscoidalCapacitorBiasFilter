@@ -1,0 +1,5 @@
+User request:
+User accepted the local analytic rounded-edge check as an order-of-magnitude cross-check, but noted that without toroidal geometry it can fail badly when the tube or core diameter is not much larger than the edge diameter. User explicitly asked not to call it conservative.
+
+Assistant outcome:
+Removed conservative-language from the analytic-check slide and edge-effects note for the local 2D edge-cylinder approximation. The slide now calls the value a local 2D estimate / largest quick check, reports `Rmaj/r_edge`, and warns that it is not conservative because it ignores toroidal curvature. The deformation slide was renamed from "Conservative Deformation" to "Deformation Check" and described as intuition rather than a proof. The knowledge note now states that the approximation can underpredict when `R_major / r_edge` is not large and that axisymmetric FEA is required near design limits.

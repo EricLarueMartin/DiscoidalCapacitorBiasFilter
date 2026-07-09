@@ -1,0 +1,35 @@
+# Raw Conversation Record: Pi Host Deployment
+
+Date: 2026-06-23
+
+User corrected the Raspberry Pi address, said the agent account was ready, and asked to host the project in the agent user space as a service. User requested no port number in the URL and a landing page that redirects to this project, because the host may eventually serve multiple projects. The actual address and paths are local deployment details and belong in ignored `.secrets/` notes.
+
+Assistant first prepared a static service, then paused when the user said they had done work at home and asked to check context files. The repo context showed a newer dependency-free backend scaffold in `software/bias_filter/field_backend.py`, with job IDs, `/api/field-solve`, `/api/field-solve/{job_id}`, `/api/health`, and browser fallback behavior. Deployment was adjusted to use that backend instead of a plain static `http.server`.
+
+Deployment outcome:
+
+- Copied the repository code to `PROJECT_DIR`.
+- Copied the browser app to `STATIC_DIR`.
+- Copied the landing page to `STATIC_ROOT/index.html`.
+- Installed the rendered service file under `/etc/systemd/system/SERVICE_NAME`.
+- Enabled and started `SERVICE_NAME`.
+- The service runs as the agent user and binds port 80 using `CAP_NET_BIND_SERVICE`.
+- The service command is:
+
+```text
+/usr/bin/python3 PROJECT_DIR/software/bias_filter/field_backend.py --host 0.0.0.0 --port 80 --static-dir STATIC_ROOT --job-dir PROJECT_DIR/simulations/axisymmetric/jobs --workers 1
+```
+
+Verification:
+
+- `systemctl is-active SERVICE_NAME` returned `active`.
+- `systemctl is-enabled SERVICE_NAME` returned `enabled`.
+- `http://PI_ADDRESS/` returned HTTP 200 and contains a meta refresh to the app path.
+- `http://PI_ADDRESS/APP_PATH` returned HTTP 200 after adding directory-index handling to the backend static server.
+- `http://PI_ADDRESS/api/health` returned an `ok` health payload.
+- A smoke `POST /api/field-solve` request returned a queued job ID, and polling that job returned `complete` with source `fea-backend-axisymmetric-fd` and a positive max field.
+- The backend unit tests passed on the Pi with `python3 -m unittest software/bias_filter/test_field_backend.py`.
+
+Local Windows note:
+
+The same backend tests failed in the Codex Windows sandbox because `tempfile.TemporaryDirectory()` created job directories under the Windows user temp path, where this sandbox could not create per-job child directories. The sanitizer and Pi-hosted test run were successful.

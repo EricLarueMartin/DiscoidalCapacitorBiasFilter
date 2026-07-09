@@ -1,0 +1,16 @@
+# Raw Conversation Record: Gap-Parameterized Geometry Controls
+
+Date: 2026-06-23
+
+This is a reconstructed raw collaboration record from the user-visible chat context. It omits shell commands, browser automation, and routine intermediate assistant progress.
+
+## Conversation
+
+User: Liked that raising Ground OD also raises Tube ID to keep up, but noted the reverse behavior was poor: lowering Tube ID simply hit a limit instead of pulling Ground OD down. User said Ground OD and Tube ID should always be the same anyway. User wanted the interface to specify gaps where appropriate, such as Tube ID plus HV plate OD-to-Tube ID gap, and Core OD plus Ground ID-to-Core OD gap.
+
+Assistant outcome: Reworked the web geometry controls so the user-facing sliders are gap-based for dependent diameters. The interface now exposes `Core OD`, `Tube ID`, `Core-ground gap`, and `HV-tube gap`. The app derives `ground_plate_od_mm = tube_id_mm`, `hv_plate_od_mm = tube_id_mm - 2 * hv_to_tube_gap_mm`, and `ground_plate_inner_diameter_mm = core_od_mm + 2 * core_to_ground_gap_mm`. The old independent HV OD, Ground ID, and Ground OD sliders were removed and replaced with derived readouts. The Python parameter loader now also derives legacy diameters from the new gap fields when present.
+
+## Verification Note
+
+Browser verification showed that lowering Tube ID from 36 mm to 30 mm kept the 5 mm radial HV-tube gap and changed the derived dimensions to Ground OD = 30 mm and HV OD = 20 mm. Changing the HV-tube gap and core-ground gap recalculated HV OD and Ground ID directly. The page was reset to defaults afterward, and the field solve still completed using the JavaScript fallback.
+

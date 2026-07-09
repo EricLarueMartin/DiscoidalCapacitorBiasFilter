@@ -1,0 +1,17 @@
+# Raw Conversation Record: Pi Backend Scaffold
+
+Date: 2026-06-23
+
+User: Said the Raspberry Pi is on the office desk and not connected from home, and that a VPN will be used next time. Asked to stage the code for the FEA backend that will go on the Pi, and to take time with several verification cycles.
+
+Assistant outcome: Added a dependency-free Python HTTP backend at `software/bias_filter/field_backend.py`. It serves the existing web app and implements `POST /api/field-solve`, `GET /api/field-solve/{job_id}`, and `GET /api/health`. The backend stores each request as an independent job with a unique job ID, writes per-job input and result files, and uses a single worker by default so multiple clients cannot overwrite each other's results. The current worker still calls the repository axisymmetric finite-difference screening solver, returning `source = fea-backend-axisymmetric-fd`; it is staged so the worker can later be replaced by a higher-fidelity FEA engine without changing the browser API.
+
+Verification performed: Python syntax checks passed for `axisymmetric_model.py`, `field_backend.py`, and `test_field_backend.py`. JavaScript syntax check passed for the existing web app. JSON validation passed for `hardware/geometry/default-parameters.json`. The backend unit/API test suite passed: it submitted two independent jobs, confirmed distinct job IDs, verified a completed result with the browser-facing result shape, checked `/api/health`, confirmed static `index.html` serving, and confirmed path traversal is blocked. A foreground startup smoke test reached the expected `Serving SHV bias-filter backend` state. No attempt was made to contact the office Pi. Detached Windows process launching from this sandbox was unreliable, so live browser-through-backend testing should be repeated on the Pi or a normal terminal session when the VPN/Pi are available.
+
+Follow-up symmetry note: User pointed out that the field calculation can exploit mirror symmetry across the middle plate. The backend scaffold now exposes solver strategy names `full_stack` and `mirror_half`, returns a `symmetryPlan` in backend results, and marks mirror-half symmetry as exact for the idealized uniform stack. The current finite-difference worker still returns a full-stack grid for browser compatibility.
+
+Follow-up validation note: User said a full simulation should be run and checked against the symmetry-exploiting solution before relying on it. Added backend `symmetryValidation` metadata and documentation requiring full-stack comparison before accepting `mirror_half`. This is a code/regression check, not a physics approximation check, because the mirror symmetry is exact in the idealized geometry.
+
+Follow-up simplification note: User clarified that the repeated-section simplification can be dropped. If a smaller representative calculation is desired, the user can set the web UI to two plate pairs. Removed the special `interior_two_pair` backend strategy and the repeated-cell approximation language.
+
+Follow-up meshing note: User asked whether the future FEA package will use adaptive meshing, because the radiused plate edges need much finer resolution than the bulk dielectric. Added adaptive meshing / explicit local refinement as a production solver requirement. Rounded conductor edges, nearby dielectric boundaries, and tube-facing high-field regions should be refined, with several elements across the physical edge radius and documented convergence checks for peak field and peak location.

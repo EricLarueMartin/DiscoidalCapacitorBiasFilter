@@ -1,0 +1,12 @@
+User noted that the solver appeared to have no grounded tube in the geometry and said the tube should also be copper.
+
+Clarification: the JS and Python solvers already classify nodes between tube ID and tube OD as fixed ground when `include_ground_tube` is enabled. The misleading part was visualization/metadata:
+- The field view only outlined plates, not the grounded tube.
+- The CAD legend said "Ground" rather than copper ground.
+- Exported conductor metadata did not explicitly state the ground tube boundary condition.
+
+Implemented:
+- Field view now outlines the conductive core and the grounded tube in addition to plates.
+- CAD/material legend now says "Cu ground".
+- Generated component names include the selected plate/tube conductor material.
+- Python geometry summaries now include `ground_tube_included` and `ground_tube_boundary`.

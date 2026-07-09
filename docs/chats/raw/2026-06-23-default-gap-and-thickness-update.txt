@@ -1,0 +1,10 @@
+Reconstructed user-facing context for 2026-06-23 default gap and thickness update.
+
+User request:
+- Change defaults to 1 mm axial gaps and thickness with 2 mm radial gaps.
+
+Implemented intent:
+- Updated browser defaults to `plate_gap_mm = 1`, `plate_thickness_mm = 1`, `core_to_ground_gap_mm = 2`, and `hv_to_tube_gap_mm = 2`.
+- `plate_thickness_mm` and `core_to_ground_gap_mm` were already at the requested values, so only stale axial-gap and HV-to-tube radial-gap defaults changed there.
+- Updated derived default values: `hv_plate_od_mm = 32` for the current 36 mm tube ID, and `core_resistance_gohm ~= 0.318` for the shorter stack.
+- Updated the repository default-parameter JSON, backend fallback defaults, backend test fixture, and RC-network default estimate note.

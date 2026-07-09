@@ -1,0 +1,7 @@
+User asked to specify HV OD instead of Tube ID in the designer geometry controls, with a 12 mm minimum.
+
+Implementation note:
+- HV OD is now the editable web control.
+- Tube ID is derived as HV OD + 2 * HV-to-tube radial gap.
+- Ground plate OD follows the derived Tube ID so the ground discs remain in contact with the grounded tube.
+- Backend parameter normalization prefers HV OD plus the HV-to-tube radial gap, while translating legacy tube-only requests when needed.

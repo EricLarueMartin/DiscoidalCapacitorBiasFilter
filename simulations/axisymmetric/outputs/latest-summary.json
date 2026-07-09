@@ -1,0 +1,87 @@
+{
+  "iterations_run": 700,
+  "last_delta_v": 1.0545443184216765,
+  "max_field_v_per_mm": 13408.844009040995,
+  "max_field_kv_per_mm": 13.408844009040996,
+  "max_location_mm": {
+    "r": 3.98125,
+    "z": 8.5
+  },
+  "adaptive": {
+    "enabled": true,
+    "probeSweeps": 90,
+    "addedR": 30,
+    "addedZ": 30,
+    "highFieldPoints": 5
+  },
+  "mesh": {
+    "type": "nonuniform-structured-fd",
+    "base_r_count": 90,
+    "base_z_count": 150,
+    "edge_refinement_centers": 10,
+    "dielectric_probe_centers": 22,
+    "adaptive_r_added": 30,
+    "adaptive_z_added": 30,
+    "final_r_count": 164,
+    "final_z_count": 297
+  },
+  "geometry": {
+    "units": "mm",
+    "length_mm": 9.0,
+    "plates": [
+      {
+        "kind": "ground",
+        "z_center_mm": 0.5
+      },
+      {
+        "kind": "hv",
+        "z_center_mm": 2.5
+      },
+      {
+        "kind": "ground",
+        "z_center_mm": 4.5
+      },
+      {
+        "kind": "hv",
+        "z_center_mm": 6.5
+      },
+      {
+        "kind": "ground",
+        "z_center_mm": 8.5
+      }
+    ],
+    "radii_mm": {
+      "core": 2.0,
+      "ground_inner": 4.0,
+      "hv_outer": 16.0,
+      "ground_outer": 18.0,
+      "tube_inner": 18.0,
+      "tube_outer": 19.0
+    },
+    "dielectrics": {
+      "conductive_core_epsr_parameter": 12.0,
+      "core_adjacent_epoxy_epsr": 3.4,
+      "washer_overlap_epsr": 10.0,
+      "epoxy_fill_epsr": 3.4
+    },
+    "conductors": {
+      "plate_material": "copper",
+      "plate_conductivity_log10_s_per_m": 7.7634,
+      "plate_relative_permeability": 1.0,
+      "tube_material": "copper",
+      "tube_conductivity_log10_s_per_m": 7.7634,
+      "tube_relative_permeability": 1.0,
+      "ground_tube_included": true,
+      "ground_tube_boundary": "0 V Dirichlet conductor when included",
+      "rf_compare_frequency_log10_mhz": 0.0
+    },
+    "notes": [
+      "Axisymmetric r-z model.",
+      "HV flow holes are omitted from this first-order field model.",
+      "All HV conductors are held at the full bias voltage for local field screening.",
+      "Current electrostatic solver treats conductors as equipotential boundaries; conductivity and permeability fields are carried for future RF/quasi-static backends.",
+      "Ground plate OD is intended to contact the ground tube ID when the tube is included.",
+      "HV plate rounding applies to the outer radial edge; ground plate rounding applies to the inner radial edge."
+    ]
+  }
+}

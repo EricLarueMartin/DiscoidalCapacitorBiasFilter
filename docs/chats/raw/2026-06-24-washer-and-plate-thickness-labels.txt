@@ -1,0 +1,7 @@
+User asked to rename the Geometry controls so `Thickness` becomes `Plate thickness` and `Plate axial gap` becomes `Washer thickness`.
+
+Assistant outcome:
+
+- Updated the Designer Geometry labels in `presentations/web/index.html`.
+- Kept the underlying parameter names unchanged (`plate_thickness_mm` and `plate_gap_mm`) so solver, backend, and saved parameter compatibility are not disturbed.
+- Bumped the web script cache key.

@@ -1,0 +1,8 @@
+# Raw Conversation Record: Analytic Edge Slide Update
+
+Date: 2026-06-23
+
+User asked to keep the slide-deck analytic check for edge radius and ground plane, but make the slide explicitly show that the approximation uses a circle for the rounded edge. User also asked to add the continuous deformation argument from a sphere inside a grounded sphere toward the filter geometry, with nearest ground distance preserved or increased and maximum field expected to decrease. User asked whether an analytic solution exists for a circular cross-section ring/torus inside a square cross-section grounded ring and to use it if available.
+
+Assistant outcome: Searched for toroidal analytic solutions. Standard toroidal-coordinate/toroidal-harmonic treatments exist for circular toroidal coordinate surfaces, but no simple closed-form solution was identified for a torus inside a square or rectangular cross-section grounded ring. Updated the slide deck to keep the cylinder/ground-plane analytic check, explicitly draw the circle cross-section used for the local rounded rim, and add a new conservative-deformation slide showing sphere shell -> stretched conductor -> filter edge. Updated `docs/knowledge/edge-effects.md` with the toroidal analytic-search note.
+

@@ -1,0 +1,11 @@
+User asked to add per-stage attenuation at 50 Hz and the high-frequency parasitic-capacitance-dominated limit to the Designer tab.
+
+Assistant outcome:
+
+- Added two RC-ladder metric cards to the Designer tab:
+  - `Stage atten 50 Hz`, using the one-stage divider from `R_stage`, `C_g`, and `C_par`.
+  - `HF atten limit`, using the existing `C_par / C_g` high-frequency feedthrough ratio convention.
+- Added shared JavaScript helpers for single-stage transfer magnitude and attenuation in dB.
+- Refactored the RC ladder slide to use the same helper functions for the 50 Hz marker and high-frequency capacitance-ratio limit, so the slide and Designer stay numerically tied together.
+- Bumped the web script cache key.
+- Verified locally in the browser with current 2 mm core defaults: `Stage atten 50 Hz = 23.6 dB`, `HF atten limit = 42.4 dB`.

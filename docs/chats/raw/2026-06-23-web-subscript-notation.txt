@@ -1,0 +1,6 @@
+﻿User asked to avoid notation like r_edge in the web display and use actual subscripts instead.
+
+Implemented direction:
+- Converted visible HTML labels such as Cpar/Cg, X_Cpar, Rstage, and Rmaj/r_edge to use <sub> markup.
+- Added a canvas text helper that renders smaller lowered subscript segments for slide/circuit labels.
+- Replaced analytic and RC slide canvas labels that previously used flattened or underscore notation.

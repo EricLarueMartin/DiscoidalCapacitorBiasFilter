@@ -1,0 +1,5 @@
+User request:
+User liked having separate core-side and tube-side analytic checks, but noted that the approximation should use the radius of the edge and that the displayed check appeared not to match the supplied geometry.
+
+Assistant outcome:
+Updated the analytic-check slide graphics so the core-side and tube-side panels are local r-z zooms generated from the current parameters instead of fixed-size cartoons. The panels now draw the actual supplied core radius, ground inner radius, HV outer radius, tube radius, local gap, plate thickness, and fillet radius. The dashed edge circle and blue dimension label now show `r_edge` from the supplied edge-diameter/thickness control. The comparison table now separates `edge cyl` from `axis coax` so it is clear that the rounded-edge approximation uses the fillet radius while the coaxial-cylinder value is only a separate radial baseline.

@@ -1,0 +1,8 @@
+User observed nonzero electric-field color where the outer grounded tube should force ground potential, and asked for a level/scale indicating what electric-field values the colors represent.
+
+Clarification/fix:
+- The solver already ignored conductor cells when reporting the maximum field, but the field image colored every cell from finite-difference gradients, including fixed conductor cells. That could make the grounded tube region look like it had a real electric field.
+- Changed the JS and Python classifiers so when the grounded tube is included, everything at and outside the tube ID is fixed ground in the interior axisymmetric model.
+- Changed field rendering to color only dielectric cells by |E|. HV and ground cells are now drawn with conductor colors.
+- Added an electric-field colorbar to the main field view with 0, half-scale, and max-scale labels.
+- Updated generated field SVG export to use the same conductor masking.

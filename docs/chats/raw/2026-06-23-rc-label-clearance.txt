@@ -1,0 +1,12 @@
+Reconstructed user-facing context for 2026-06-23 RC label clearance update.
+
+User request:
+- Move the Cg label off the capacitor.
+- Move the Cpar label off the dotted parasitic connection.
+- Make the Cpar branch look like a capacitor connected with dotted lines.
+- Keep labels off to the side instead of obscuring circuit elements.
+
+Implemented intent:
+- Added a parasitic capacitor drawing helper that connects the two bias nodes with dashed leads and a capacitor plate symbol.
+- Added a label helper with a small background pad, and placed Cg and Cpar labels to the side of their circuit elements.
+- Bumped the web script cache tag so the updated canvas drawing loads cleanly.

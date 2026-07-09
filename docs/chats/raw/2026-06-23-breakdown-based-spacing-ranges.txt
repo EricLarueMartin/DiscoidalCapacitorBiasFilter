@@ -1,0 +1,26 @@
+# Raw Conversation Record: Breakdown-Based Spacing Ranges
+
+Date: 2026-06-23
+
+This is a reconstructed raw collaboration record from the user-visible chat context. It omits shell commands, browser automation, web-search details, and routine intermediate assistant progress.
+
+## Conversation
+
+User: Asked that the gaps and thickness minimum be based on the breakdown strength of the washer material, and that the range go up to a reasonable design factor, suggested as 10. For custom material, user suggested keeping the range as `0.4 mm` to `4 mm`.
+
+Assistant outcome: Added provisional dielectric-strength placeholders to the washer material presets in the web app. The clearance-like controls now derive their slider range from the active washer preset and bias voltage: `minimum = ceil((bias_kV / dielectric_strength_kV_per_mm) to nearest 0.1 mm)` and `maximum = 10 * minimum`. The affected controls are `Core-ground gap`, `HV-tube gap`, `Plate gap`, and `Thickness`. The custom and generic high-K screening cases use a fixed `0.4 mm` to `4 mm` range. Documentation was updated to mark these as screening placeholders, not qualification limits.
+
+## Verification Note
+
+Browser verification showed:
+
+- Alumina at 6 kV gives `0.5 mm` to `5 mm` for the affected controls.
+- Custom gives `0.4 mm` to `4 mm`.
+- Alumina at 10 kV gives `0.8 mm` to `8 mm`.
+- Reset returned the app to the default 6 kV alumina setup.
+- `Solve field` still completed through the JavaScript fallback.
+
+## Caveat
+
+Dielectric strength is strongly dependent on thickness, electrode geometry, surface finish, voids, interfaces, humidity, defects, and test protocol. The web ranges are intended for early design screening and should be replaced or overridden by datasheet values and coupon tests before hardware decisions are frozen.
+

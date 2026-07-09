@@ -1,0 +1,8 @@
+User clarified that the washer is a flat annular piece between plate faces. It should not fill the spaces around rounded plate edges in the cutaway or field simulation. Epoxy fills those rounded-edge pockets.
+
+Implementation note:
+- Keep simplified capacitance calculations using the washer overlap approximation because this correction is a small capacitance effect.
+- Use a z-dependent dielectric material map for field simulations:
+  - washer material only within axial gaps between adjacent plate faces and between ground ID and HV OD,
+  - epoxy in core-adjacent gaps, tube-side gaps, and rounded-edge recesses.
+- The web CAD/cutaway view should show separate flat washer slabs instead of a continuous washer envelope through the stack.

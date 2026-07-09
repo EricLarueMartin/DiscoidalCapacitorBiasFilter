@@ -1,0 +1,9 @@
+User asked to update the RC ladder slide for a single stage of attenuation by labeling the value at 50 Hz and labeling the upper high-frequency attenuation limit from the capacitance ratio.
+
+Assistant outcome:
+
+- Updated `presentations/web/app.js` so the RC attenuation plot computes and labels the 50 Hz attenuation point directly from the same ladder transfer function used for the curve.
+- Added a dashed horizontal high-frequency limit line using the existing single-stage `C_parasitic / C_g_stage` feedthrough ratio and labels it in dB.
+- Moved the parasitic-takeover label downward so it does not overlap the new high-frequency limit label.
+- Bumped the `app.js` cache key in `presentations/web/index.html` so browsers load the updated slide code.
+- Verified the updated slide in the in-app browser.

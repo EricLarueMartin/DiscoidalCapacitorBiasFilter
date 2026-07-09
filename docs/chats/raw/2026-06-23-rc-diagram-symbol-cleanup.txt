@@ -1,0 +1,11 @@
+Reconstructed user-facing context for 2026-06-23 RC diagram cleanup.
+
+User request:
+- Keep the parasitic crossover label consistent between the attenuation plot and the circuit diagram.
+- Improve the RC circuit diagram, especially the resistor shape and capacitor vertical centering.
+- Add straight line leads to the ends of the resistors.
+
+Implemented intent:
+- Standardized the crossover label to `|Xcpar| = Rstage` in the plot, circuit diagram, and Designer metric label.
+- Replaced the quick resistor sketch with a helper that draws straight leads on both ends and a centered zig-zag body.
+- Replaced the capacitor sketch with a helper that centers the capacitor plates between the bias node and ground rail.

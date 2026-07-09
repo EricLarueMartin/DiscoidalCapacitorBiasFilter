@@ -1,0 +1,8 @@
+Reconstructed user-facing context for 2026-06-23 designer X_Cpar frequency label.
+
+User request:
+- Add the X_Cpar = R frequency to the Designer tab too.
+
+Implemented intent:
+- The underlying frequency was already computed and connected to the Designer RC metric strip.
+- The label was made explicit as `X_Cpar = R freq`, with a small `|X_Cpar| = Rstage` note so it is visible as the same parasitic-takeover marker used on the RC slide plot.

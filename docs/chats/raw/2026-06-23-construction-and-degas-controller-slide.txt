@@ -1,0 +1,15 @@
+User requested a construction slide.
+
+Requested content:
+- Filter assembled from ferrite slices, polished copper discs, ceramic washers, spacers with flow holes, and heat-cured epoxy.
+- Epoxy applied with vacuum/pressurizing degas cycles to reduce voids.
+- Degas controller needed as a subproject.
+- Controller should operate two relay-switched valves: chamber to vacuum pump, and chamber to pressure source such as vent or nitrogen.
+- Controller should monitor chamber pressure.
+- User controls should include high pressure, low pressure, hysteresis/band around those pressures, dwell time at each pressure band, and cycle count.
+- Oven pressure cure integration could be useful later, but is outside the first prototype scope.
+
+Implemented:
+- Added a Construction Plan slide to the web presentation.
+- Added `hardware/degas-controller/` with AGENT and README files.
+- Updated hardware README and Prototype 0 assembly notes.

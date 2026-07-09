@@ -1,0 +1,15 @@
+Reconstructed user-facing context for 2026-06-23 RC attenuation update.
+
+User request:
+- On the simplified RC model with parasitic capacitance, show the frequency where the parasitic capacitance reactance equals the ohmic resistance, illustrating where parasitic capacitance takes over.
+- Generate an attenuation plot using dB for power-style reporting, with a factor-of-10 voltage-noise reduction corresponding to 20 dB.
+
+Implemented intent:
+- Added a `|Xcpar| = R` estimate to the dashboard using `f = 1 / (2 pi R_stage C_parasitic)`.
+- Added a frequency-domain RC ladder transfer estimate for the simplified bias-plate network, with adjacent nodes coupled by `R_stage || C_parasitic` and each bias node shunted to ground by `C_ground`.
+- Added an attenuation plot to the RC slide using `-20 log10(|Vout / Vin|)`, so voltage-noise ratios are displayed in the dB convention requested by the user.
+- Marked the parasitic takeover frequency on the plot with a vertical guide.
+
+Assumptions:
+- The attenuation plot is still a first-pass lumped circuit model derived from the same web parameters as the simple capacitance and resistance estimates.
+- The plot is not yet capacitance-extracted from the FEM geometry; a later FEA-backed extraction should replace or calibrate the lumped capacitance estimates.

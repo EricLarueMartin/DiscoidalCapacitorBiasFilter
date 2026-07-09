@@ -1,0 +1,14 @@
+Reconstructed user-facing context for 2026-06-23 backend adaptive field grid.
+
+User request:
+- Asked whether the Python-backed electric-field picture uses fixed pixel sizes or a fine mesh.
+- Noted that the mesh does not look fine enough near rounded edges.
+- Wanted adaptive mesh behavior that refines both around small geometric features and around high-field regions.
+
+Implemented intent:
+- Clarified in code and docs that the browser draws field cells from solver grid coordinates, not from a fixed pixel raster.
+- Updated the Python backend solver from a uniform finite-difference grid to a nonuniform structured finite-difference grid.
+- Added deterministic coordinate refinement around rounded HV outer edges and ground inner edges, with local spacing targeted at about one tenth of the rounded edge radius.
+- Added a high-field probe pass that identifies high-field dielectric nodes and inserts midpoint coordinates around separated hot spots before the final solve.
+- Returned `rCoords`, `zCoords`, mesh metadata, and adaptive-pass metadata to the browser.
+- Kept terminology honest: this is adaptive structured-grid finite-difference screening, not a conforming adaptive FEM.

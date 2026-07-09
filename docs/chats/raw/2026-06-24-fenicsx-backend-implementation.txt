@@ -1,0 +1,22 @@
+User observed that the finite-difference field calculation still looked physically suspicious, with high field appearing between plates near bias-plate edges rather than cleanly at rounded tips. User asked to implement the FEniCS-based backend if it was not already done and then compare.
+
+Assistant outcome:
+
+- Implemented the first real FEniCSx/DOLFINx electrostatic backend in `software/bias_filter/fenicsx_solver.py`.
+- Installed the Pi package stack: `fenicsx`, `gmsh`, `python3-gmsh`, `python3-dolfinx`, `python3-ufl`, `python3-mpi4py`, and `python3-petsc4py`.
+- Verified Pi readiness: DOLFINx 0.9.0, UFL 2024.2.0, mpi4py 4.0.3, petsc4py 3.22.4, and Gmsh 4.13.1 were available.
+- The FEniCSx solver builds a conforming Gmsh/OpenCASCADE r-z dielectric domain between the conductive core and grounded tube, removes HV/ground conductor regions as holes, applies Dirichlet boundary conditions by geometry classification, solves the axisymmetric weak form with the cylindrical `r` weighting, projects `|grad(V)|`, and samples the result onto the browser grid.
+- Added a `--solve-stdin` JSON entry point so the web backend can call the FEniCSx solve as a subprocess.
+- Updated `field_backend.py` so explicit FEniCSx jobs run out-of-process. This avoids Gmsh signal-handler failures inside the threaded web worker and keeps PETSc/MPI state isolated from the server.
+- Added tolerance-based cleanup for clipped conductor polygons before passing profiles to Gmsh, removing zero-length edges produced by repeated tangent points in the rounded-edge profiles.
+- Updated backend result shape to preserve material and conductor labels so browser plots can continue to mask and color regions correctly.
+
+First deployed API comparison on the Pi with default geometry:
+
+- `solver = fd`: completed with `source = fea-backend-axisymmetric-fd`, `Emax = 14002.73 V/mm`, at `r = 4.07375 mm`, `z = 8.55 mm`. Region peak was epoxy.
+- `solver = fenicsx`: completed with `source = fea-backend-fenicsx`, `Emax = 21801.97 V/mm`, at `r = 9.7 mm`, `z = 6.04027 mm`. Region peak was washer.
+
+Interpretation:
+
+- The finite-difference point maximum remains a screening value and can be dominated by structured-grid artifacts near conductor boundaries.
+- The FEniCSx location is more physically plausible for the HV outer rounded edge, but it is still an initial conforming solve. It needs a local refinement / convergence loop before using the point maximum as a dielectric-breakdown acceptance number.

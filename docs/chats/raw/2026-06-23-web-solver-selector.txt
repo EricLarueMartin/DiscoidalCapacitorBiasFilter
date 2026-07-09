@@ -1,0 +1,12 @@
+User asked what "Backend adaptive FD" means and expected a dropdown for selecting FEniCSx or another Python-package backend.
+
+Clarification captured:
+- "Backend adaptive FD" means the Python/Pi backend answered the job, but the worker is still the nonuniform finite-difference screening solver.
+- It is not FEniCSx and should not be presented as production FEM.
+- The Designer should expose solver choice directly so the user can request browser JS, backend finite difference, backend auto, or explicit FEniCSx.
+
+Implemented direction:
+- Added Designer "Field solver" dropdown.
+- Browser sends a top-level solver request to POST /api/field-solve.
+- Backend stores the requested solver per job instead of relying only on the service-level --solver flag.
+- Explicit FEniCSx requests fail visibly until dependencies and the conforming FEA worker are ready.

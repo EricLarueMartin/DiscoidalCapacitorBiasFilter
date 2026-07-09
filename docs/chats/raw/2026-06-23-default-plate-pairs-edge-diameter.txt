@@ -1,0 +1,7 @@
+# Raw Conversation Record: Default Plate Pairs And Edge Diameter
+
+Date: 2026-06-23
+
+User: Asked that the default plate-pair count be 2 and the default edge diameter be 100%.
+
+Assistant outcome: Updated the browser default plate-pair count from 3 to 2. The browser default edge diameter was already 100%, and the repository JSON default already had the equivalent 0.5 mm edge radius for 1 mm plate thickness. Updated the repository default parameters, backend fallback default, and RC-network note so defaults remain consistent.

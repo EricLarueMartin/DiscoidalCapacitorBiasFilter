@@ -1,0 +1,8 @@
+User request:
+User asked to add a FEniCS-based FEA backend, and asked whether FEniCS supports adaptive meshing or whether there is a reason not to use it.
+
+Assistant outcome:
+Checked current FEniCSx/DOLFINx documentation and the Raspberry Pi package metadata. DOLFINx exposes mesh creation, marking, and refinement functions, so adaptive refinement is possible, but it is not a complete black-box AMR workflow. The recommended design is an explicit Gmsh/DOLFINx loop: generate a conforming r-z mesh, refine initially around rounded conductor edges and dielectric-interface endpoints, solve the axisymmetric electrostatic weak form, mark high-field/error cells, refine or remesh, and stop on peak-field convergence. The Pi has Debian trixie arm64 candidates for fenicsx, python3-dolfinx, gmsh, python3-gmsh, python3-mpi4py, and python3-petsc4py.
+
+Repository changes:
+Added `software/bias_filter/fenicsx_solver.py` as an optional FEniCSx dependency/readiness probe and future solver entry point. Updated `software/bias_filter/field_backend.py` with a solver selector: `--solver fd`, `--solver auto`, and `--solver fenicsx`. The default remains the current finite-difference screening worker. `auto` will only select FEniCSx once the conforming worker reports ready, and explicit `fenicsx` fails loudly until dependencies and the true conforming solver are ready. Added `docs/knowledge/fenicsx-fea.md` and updated Pi/backend docs.

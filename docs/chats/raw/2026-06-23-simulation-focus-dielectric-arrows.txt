@@ -1,0 +1,7 @@
+User noted that the alumina washer and MG 9510 epoxy fill arrows on the Simulation Focus slide appeared to point at the ground plate rather than the dielectric regions.
+
+Fix:
+- The slide had been targeting an axial coordinate near 55 percent of the stack length.
+- With the current default stack, that coordinate lands inside the middle ground plate.
+- Moved the material-arrow target to the first axial plate gap, at plate thickness plus half the axial gap.
+- Kept the radial endpoints centered in the washer overlap region and the outer epoxy fill region.

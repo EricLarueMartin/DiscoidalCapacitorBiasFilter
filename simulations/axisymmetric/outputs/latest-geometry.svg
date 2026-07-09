@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="560" viewBox="0 0 980 560">
+<rect width="100%" height="100%" fill="#f7f5ef"/>
+<line x1="44" y1="516.0" x2="936" y2="516.0" stroke="#333" stroke-width="1"/>
+<rect x="44.0" y="484.3414634146341" width="892.0000000000001" height="31.658536585365862" fill="#8a5b30" opacity="0.65"/>
+<rect x="44.0" y="187.90243902439016" width="102.13740458015269" height="233.12195121951223" rx="4" fill="#557a38" opacity="0.9"/>
+<rect x="241.46564885496184" y="245.46341463414632" width="102.13740458015269" height="238.87804878048786" rx="4" fill="#b73e3e" opacity="0.9"/>
+<rect x="438.9312977099237" y="187.90243902439016" width="102.13740458015269" height="233.12195121951223" rx="4" fill="#557a38" opacity="0.9"/>
+<rect x="636.3969465648855" y="245.46341463414632" width="102.13740458015269" height="238.87804878048786" rx="4" fill="#b73e3e" opacity="0.9"/>
+<rect x="833.8625954198474" y="187.90243902439016" width="102.13740458015269" height="233.12195121951223" rx="4" fill="#557a38" opacity="0.9"/>
+<rect x="44.0" y="159.12195121951214" width="892.0000000000001" height="28.780487804878053" fill="#384b2b" opacity="0.8"/>
+<text x="44" y="28" font-family="Arial" font-size="18" fill="#1c2630">Axisymmetric half-section geometry</text>
+</svg>

@@ -1,0 +1,5 @@
+User request:
+User noticed that the core-side and tube-side rounded-edge estimates give the same result, and correctly inferred that the approximation is using an infinite cylinder and plane/shell rather than a torus in cylindrical coordinates.
+
+Assistant outcome:
+Confirmed the interpretation. The `local 2D` edge-cylinder estimate uses only the supplied fillet radius and local clearance, so equal `s/r_edge` gives equal values. Updated the analytic slide and notes to make that explicit. The comparison table now includes `Rmaj`, the approximate torus center radius for each radial edge, and the slide states that toroidal curvature is not included in the local 2D term. The separate `axis coax` value remains as a radial baseline, and the future axisymmetric FEA backend is identified as the correct toroidal/cylindrical-coordinate check.

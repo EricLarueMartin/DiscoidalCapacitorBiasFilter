@@ -1,0 +1,5 @@
+User request:
+On the analytic checks, the slide had a side for the bias disc to ground but not one for the ground disc to the bias core. The user noted that this can be more limiting because the core diameter is smaller than the tube diameter when the radial gaps are identical.
+
+Assistant outcome:
+Updated the web analytic check model to evaluate named cases instead of only the nearest scalar clearance: axial plate gap, ground inner edge to HV core, and HV outer edge to ground tube. Added a coaxial-cylinder radial baseline for the two radial cases, so equal radial gaps correctly show the core-side field as higher because it is evaluated at the smaller energized core radius. Updated the analytic-check slide graphic to show both radial side sketches and a comparison table, and updated the edge-effects knowledge note with the case definitions and formula.

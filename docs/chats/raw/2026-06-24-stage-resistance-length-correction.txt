@@ -1,0 +1,7 @@
+# Raw Conversation Record: Stage Resistance Length Correction
+
+Date: 2026-06-24
+
+User: Asked how the web app got `Stage R = 318.3 Mohm` for the default M8x20x1 washer geometry. User pointed out that the bias-to-bias gap is 3 mm, the core area is `4 pi mm^2`, and volume resistivity is `1e8 ohm-cm = 1e9 ohm-mm`, giving about `238.7 Mohm`.
+
+Assistant outcome: Confirmed the bug: the app used the HV-to-HV center pitch, `2 * (plate_thickness + plate_gap) = 4 mm`, for `Stage R`. Corrected `Stage R` to use the face-to-face bias separation through gap + ground plate + gap, `plate_thickness + 2 * plate_gap = 3 mm`, matching the parasitic-capacitance separation. Updated the RC-network note and default estimate numbers.

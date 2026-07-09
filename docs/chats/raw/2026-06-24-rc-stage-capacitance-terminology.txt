@@ -1,0 +1,7 @@
+# Raw Conversation Record: RC Stage Capacitance Terminology
+
+Date: 2026-06-24
+
+User: Clarified that the single-stage capacitance should mean the capacitance from one bias plate to its two adjacent ground plates. User noted that the value labeled `Bias-ground C` was being used in the slide attenuation calculation and asked what it meant. User also gave a concrete example with alumina washers of ID 8.2 mm, OD 20 mm, thickness 1 mm, a 4 mm core, and a 24 mm tube ID. Expected estimates: stage ground capacitance `2 * 10 * epsilon0 * pi * (10^2 - 4.1^2) / 1`, and parasitic capacitance `12 * epsilon0 * pi * 2^2 / 3 + 3.4 * epsilon0 * pi * (4.1^2 - 2^2) / 3`.
+
+Assistant outcome: Confirmed that the implementation already used `shuntCapPf = 2 * pairCapPf` for the stage attenuation calculation, so the slide used the capacitance from one bias plate to two adjacent ground plates. Renamed visible UI quantities to reduce ambiguity: `Pair C` became `Gap C`, `Bias-ground C` became `Stage Cg`, `Bias-bias C` became `Stage Cpar`, and `Bias-bias R` became `Stage R`. Updated notes to use `C_gap`, `C_g_stage`, and `C_parasitic`, and added the user's 8.2 mm ID / 20 mm OD washer example with approximate values.

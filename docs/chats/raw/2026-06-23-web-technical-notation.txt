@@ -1,0 +1,8 @@
+User asked to replace ASCII-style notation across the web page with proper symbols, superscripts, and subscripts where appropriate.
+
+Implemented direction:
+- Core volume resistivity now renders as mantissa × 10^exponent with an HTML superscript and Ω·cm units.
+- Resistance formatting uses Ω, kΩ, MΩ, GΩ, and TΩ.
+- Dielectric breakdown labels use E with bd subscript, and peak labels use E with max subscript.
+- Multiplication-style factors now use × instead of x.
+- RC attenuation slide uses log with 10 as a subscript and Vout/Vin with out/in subscripts.

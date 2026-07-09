@@ -1,0 +1,45 @@
+2026-06-25 MELF direct stage controls
+
+User note:
+
+- User updated the project from work and asked that when MELF is selected, the web interface should enter per-stage resistance directly instead of using bulk resistivity and core geometry.
+- User also asked that the core parasitic capacitance be entered directly instead of entering relative permittivity and calculating it from geometry.
+
+Implementation interpretation:
+
+- Ferrite-like presets still use `core_volume_resistivity_log10_ohm_cm` and `ferrite_epsr` for the first-pass geometry-derived RC estimate.
+- MELF-like presets (`mmb0207_melf` and `epoxy_chain`) now use direct RC ladder controls:
+  - `melf_stage_resistance_log10_ohm`
+  - `melf_stage_parasitic_pf`
+- When a MELF-like preset is active, the browser hides/disables the bulk core resistivity and conductor-epsilon controls, and shows the direct MELF stage controls.
+- The electrostatic field model still treats the central path as an equipotential conductor. The direct `Stage Cpar` input affects the lumped RC ladder estimate, attenuation plot, high-frequency feedthrough estimate, and parasitic takeover frequency.
+
+Default direct MELF values:
+
+- `MMB0207 10M MELF`: `Stage R = 10 Mohm`, matching one 10 Mohm part per direct stage; `Stage Cpar = 0.3 pF`.
+- `MELF chain in 9510`: `Stage R = 240 Mohm`; `Stage Cpar = 0.5 pF`.
+
+Follow-up correction:
+
+- User changed the requirement so the direct-stage method is controlled by a separate checkbox rather than being permanently tied to MELF material selection.
+- Added `use_direct_stage_circuit` / `Direct stage RC inputs`.
+- When checked, the app uses direct `Direct stage R` and `Direct stage Cpar` for the RC ladder. The internal parameter names remain `melf_stage_resistance_log10_ohm` and `melf_stage_parasitic_pf` for compatibility.
+- When unchecked, the app uses bulk core resistivity plus geometry and the core-plus-epoxy capacitance approximation.
+- Selecting a MELF preset checks this box by default, but the box can be changed independently afterward. Non-MELF presets default it off.
+
+Merge correction from other chat:
+
+- The web app already changed the single `MMB0207 10M MELF` preset from the earlier 240 Mohm chain value to `10 Mohm`.
+- This merge aligns `hardware/geometry/default-parameters.json` and backend sanitization fallback with the 10 Mohm default.
+- The 240 Mohm value remains only for the potted MELF-chain preset or a deliberate chain-sizing scenario.
+
+Files updated:
+
+- `presentations/web/index.html`
+- `presentations/web/app.js`
+- `hardware/geometry/default-parameters.json`
+- `software/bias_filter/field_backend.py`
+- `software/bias_filter/axisymmetric_model.py`
+- `docs/knowledge/rc-network.md`
+- `docs/knowledge/materials.md`
+- `hardware/materials/resistive-core.md`

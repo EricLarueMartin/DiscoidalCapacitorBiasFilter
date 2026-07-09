@@ -1,0 +1,18 @@
+# Reconstructed Raw Conversation Record: Pi Access Check
+
+Date: 2026-06-30
+
+User: Said the Raspberry Pi will be used for more purposes and the current folder is becoming the master project. Asked to use the existing SHVBiasFilter subfolder for context, try connecting to the Pi, and make sure access works.
+
+Assistant outcome: Inspected the SHVBiasFilter repository guidance, deployment notes, and local ignored credential note. Confirmed the configured Pi target, SSH account, project checkout, and hosted service. These current deployment values should remain in ignored `.secrets/` notes.
+
+Verification performed:
+
+- `http://PI_ADDRESS/api/health` responded with status `ok`.
+- SSH login with host-key pinning succeeded as `codex`.
+- Remote host reported hostname, working directory, and uptime.
+- `systemctl is-active SERVICE_NAME` returned `active`.
+- A local-on-Pi `curl http://127.0.0.1/api/health` returned status `ok`.
+- Health reported the finite-difference solver as the requested/effective default and FEniCSx/DOLFINx/Gmsh readiness as available.
+
+Notes: The credential itself was not copied into this record. The SHVBiasFilter git working tree already had many staged and untracked files before this note was added, and `git status` warned about an existing `.git/index.lock`; no cleanup was attempted during this access check.

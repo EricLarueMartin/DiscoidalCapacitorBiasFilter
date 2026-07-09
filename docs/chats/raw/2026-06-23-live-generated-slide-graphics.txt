@@ -1,0 +1,21 @@
+# Raw Conversation Record: Live Generated Slide Graphics
+
+Date: 2026-06-23
+
+This is a reconstructed raw collaboration record from the user-visible chat context. It omits shell commands, browser automation, and routine intermediate assistant progress.
+
+## Conversation
+
+User: Said the slides should use graphics, and suggested generating those from the designer page so the slide graphics show details of how the current design is constructed.
+
+Assistant outcome: Added generated canvases to the Slides tab. The slides now include a live CAD cutaway, a parameterized r-z geometry half-section, a dielectric/material-region callout graphic, a rounded-edge screening diagram, and an RC ladder diagram. The drawing code now renders the existing designer geometry into either designer canvases or slide canvases, so parameter changes update the slide graphics from the current design state.
+
+## Verification Note
+
+Browser verification showed:
+
+- The Slides tab renders the CAD cutaway graphic.
+- Geometry, material, edge, and RC slide canvases are present and produce nontrivial screenshots.
+- The RC ladder slide displays current calculated values, including stage resistance, capacitance, parasitic capacitance, ratio, and corner frequency.
+- No browser console errors were reported during slide rendering.
+

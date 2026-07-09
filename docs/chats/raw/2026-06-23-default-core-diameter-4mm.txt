@@ -1,0 +1,10 @@
+Reconstructed user-facing context for 2026-06-23 default core diameter update.
+
+User request:
+- Change the default core diameter to 4 mm.
+
+Implemented intent:
+- Updated the browser default `core_od_mm` from 6 mm to 4 mm.
+- Updated derived defaults for the current 2 mm core-ground radial gap: `ground_plate_inner_diameter_mm = 8 mm`.
+- Updated derived default core resistance to approximately 0.716 Gohm for the same resistivity and shorter 9 mm stack.
+- Updated repository default parameters, backend fallback default, and the RC-network note.

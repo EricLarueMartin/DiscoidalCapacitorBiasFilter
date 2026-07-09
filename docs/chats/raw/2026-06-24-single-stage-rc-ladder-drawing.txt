@@ -1,0 +1,7 @@
+# Raw Conversation Record: Single-Stage RC Ladder Drawing
+
+Date: 2026-06-24
+
+User: Asked that the RC ladder drawing show just one stage, without the second resistor and third capacitor.
+
+Assistant outcome: Simplified the web slide RC diagram from three bias nodes with two series resistors to two bias nodes with one series stage resistor. The diagram still shows the two shunt capacitances to ground for the stage and the bias-to-bias parasitic capacitance across the one stage.

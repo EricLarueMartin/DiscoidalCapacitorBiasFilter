@@ -1,0 +1,9 @@
+# Raw Conversation Record: Dielectric Breakdown Margins
+
+Date: 2026-06-23
+
+User: Asked to add breakdown voltage of the different dielectrics, solve the maximum field found in each dielectric, and give a design margin of breakdown voltage divided by maximum field.
+
+Assistant outcome: Added dielectric-strength metadata to the web material presets and added UI readouts for core-adjacent, washer, and epoxy breakdown field placeholders. The browser field solver now classifies free dielectric nodes by material region and reports the maximum sampled electric field in each region. The workbench shows `Emax / margin`, where margin is `E_breakdown / E_max`. Washer presets reuse the existing provisional dielectric-strength placeholders, epoxy presets use a provisional `15 kV/mm` until current datasheet or coupon data is entered, and ferrite-like conductive core presets leave the margin unset because that region is not treated as an ordinary insulating dielectric limit. A Node VM smoke test loaded the actual app code without initialization side effects and verified a default solve with separate core, washer, and epoxy peak fields and finite washer/epoxy margins.
+
+Follow-up correction: The separate core-adjacent field bucket was later removed. The conductive core is an equipotential for field screening, and the free dielectric around it is epoxy/fill. See `2026-06-23-conductive-core-field-region-correction.txt`.

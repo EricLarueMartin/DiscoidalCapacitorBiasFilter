@@ -1,0 +1,23 @@
+2026-06-25 slide simulation result source and breakdown scale
+
+User note:
+
+- On the Slides tab, change the Simulation Results slide to update to what was actually run, so if a better backend simulation is done it displays that.
+- Include a blurb about which result is displayed.
+- Change the simulation color scale maximum to dielectric breakdown voltage.
+- If possible, use two scales for the two dielectrics; otherwise use the higher breakdown voltage and mark the lower one on the legend.
+
+Implementation interpretation:
+
+- Each completed field solve now stores a parameter snapshot and comparable parameter key.
+- The Simulation Results slide uses the latest solved field result when that result matches the current design parameters.
+- If the current design has no matching solved result, the slide falls back to the reduced browser JS preview solve and says so.
+- The slide blurb labels the displayed source, such as Browser JS, backend adaptive FD, backend FEniCSx, or slide preview.
+- Field-map colors now scale dielectric cells by their own material breakdown value where available, so washer and epoxy regions can effectively use separate breakdown-normalized scales.
+- The colorbar uses the highest available dielectric breakdown value as the maximum and draws breakdown marker lines for each dielectric, including the lower-breakdown material.
+
+Files updated:
+
+- `presentations/web/app.js`
+- `docs/chats/markdown/2026-06-22-initial-design-summary.md`
+- `docs/chats/raw/2026-06-25-slide-simulation-result-source-and-breakdown-scale.txt`

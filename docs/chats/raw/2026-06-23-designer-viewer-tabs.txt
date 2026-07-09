@@ -1,0 +1,11 @@
+Reconstructed user-facing context for 2026-06-23 Designer viewer tabs.
+
+User request:
+- Geometry half-section and electric-field graphics on the Designer page are too small.
+- Ask whether they can be displayed as tabs with the CAD mesh view, and whether the CAD drag-to-pan feature would conflict.
+
+Implemented intent:
+- Replaced the Designer page's old multi-canvas grid with a single large tabbed viewer containing CAD mesh, geometry half-section, and electric field tabs.
+- Kept the CAD mesh as a normal canvas rather than using an iframe, because the existing pan/rotate handlers are bound directly to the CAD canvas and do not conflict with sibling viewer tabs.
+- Added viewer-tab JavaScript that redraws the active canvas when switching tabs.
+- Increased the displayed size of geometry and field canvases by giving each the full viewer width.

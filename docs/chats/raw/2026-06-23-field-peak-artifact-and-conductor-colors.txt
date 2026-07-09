@@ -1,0 +1,11 @@
+User asked whether the maximum electric field was an FEA artifact because it changed too rapidly near a rounded plate feature, and asked why the inside of copper plates was red while the HV core was brown.
+
+Clarification:
+- The red fill in the field plot is a conductor/equipotential cue, not electric-field magnitude inside copper.
+- In the electrostatic solve the ferrite/resistive core is held at the HV bias potential, so it should use the same HV color cue as the HV copper plates in the field view. The material/CAD view can still show the core as ferrite/brown.
+- A mesh sweep showed the single-node maximum from the structured finite-difference solver is grid-sensitive near rounded conductor boundaries. The washer overlap gap checks remain close to V/gap, but the reported point maximum should be treated as a screening value until the conforming axisymmetric FEA path is available.
+
+Changes:
+- Field-view conductor overlays now color the core as HV red while preserving ferrite/brown material coloring in the CAD/material views.
+- Field extraction now ignores conductor-face gradients across very small near-boundary sliver intervals, reducing false maxima caused by the nonconformal structured grid sampling right next to conductors.
+- The max-field metric label now says "Screening Emax" and includes a note that the value is grid-sensitive near rounded conductors.

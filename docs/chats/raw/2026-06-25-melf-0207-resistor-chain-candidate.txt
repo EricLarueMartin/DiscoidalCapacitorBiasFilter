@@ -1,0 +1,60 @@
+2026-06-25 MELF 0207 resistor-chain candidate
+
+User note:
+
+- Strongly considering a version using MELF 0207 resistor MMB0207MC1005FB200.
+
+Context and interpretation:
+
+- Treat this as a possible resistor-chain fallback or alternate to the ferrite resistive core.
+- A quick search did not resolve the exact typed string `MMB0207MC1005FB200`.
+- Official Vishay MMB 0207 ordering examples include a version digit after 0207 and separate TCR, resistance, tolerance, and packaging fields. For a 10 Mohm, 50 ppm/K, 1%, B2 reel part, a likely code shape is close to `MMB02070C1005FB200`, but this must be verified before ordering.
+
+Official Vishay MMB 0207 professional-family data used for first-pass sizing:
+
+- Resistance range: up to 15 Mohm for MMB 0207.
+- 10 Mohm is available in the 50 ppm/K, 1% range.
+- The 25 ppm/K, 0.5% MMB 0207 range only reaches 1 Mohm.
+- Rated operating voltage: 350 V AC RMS/DC per resistor.
+- Rated dissipation: 1 W in power operation, 0.4 W in standard low-drift operation, provided film-temperature limits are maintained.
+- Body size: about 5.8 mm long by 2.2 mm diameter.
+
+Superseded early assistant sizing assumption:
+
+- The earlier note incorrectly treated resistor count as if the full 6 kV DC detector-bias supply were dropped across the MELF resistor string in normal operation.
+- That assumption is wrong for this bias-filter concept. The steady resistor drop is set by detector load current times resistance.
+- A 24-part, 10 Mohm chain remains a possible 240 Mohm resistance scenario, but not because it is required to divide 6 kV across resistor voltage ratings.
+
+Follow-up modeling needs:
+
+- Add a discrete-resistor-chain option to the web model only after deciding the intended physical routing.
+- Estimate distributed parasitic capacitance from the chain to ground and across a stage; it may no longer match the simple conductive-cylinder core approximation.
+- Include local field enhancement around end caps, solder/conductive-epoxy joints, and folded-chain turns in the FEA plan.
+- Test potting compatibility, surface leakage, and stability after heat cure.
+
+Source:
+
+- Vishay Beyschlag, "MMU 0102, MMA 0204, MMB 0207 - Professional", document 28713, revision 20-Jan-2026: https://www.vishay.com/docs/28713/melfprof.pdf
+
+Additional user note later the same day:
+
+- User wants the web interface to retain a record of another option besides the ferrite/resistive-core approach.
+- Candidate part: 0207 MELF resistor `MMB0207MC1005FB200`.
+- Length is just under 6 mm, with about 3.2 mm between the end caps.
+- The user sees a 1.5 mm thick plate and washer stack as mechanically plausible for this part.
+- In the model, approximate this as a 2.2 mm diameter core with effective volume resistivity `633 kOhm-cm`.
+- Advantages: no ferrite discs to cut, no ferrite-to-disc epoxy joints, soldering can be used instead, and the resistor is expected to be low noise while ferrite noise is suspect.
+- Possible issue: stray capacitance may be significant if the winding/film structure occupies much of the resistor body. Counterpoint: the substrate is likely lower permittivity than ferrite, and ferrite relative permittivity is about 13, so the MELF option may still have lower capacitance.
+
+Follow-up correction:
+
+- For the `MMB0207 10M MELF` web preset, direct `Stage R` should be `10 Mohm`, not the earlier 24-part-chain value of `240 Mohm`.
+- Use `0.3 pF` as the default direct stage parasitic capacitance for the 0207 MELF preset.
+- The 24-part / 240 Mohm value remains a chain-sizing scenario, not the direct single-MELF stage default.
+
+Resistor-voltage-stress correction:
+
+- Do not size the MELF resistor or resistor chain as if the full 6 kV detector-bias supply appears across it in steady operation.
+- Detector current is below 1 nA, so the resistor drop is approximately `I * R`; for 10 Mohm this is about 10 mV at 1 nA.
+- Full-bias breakdown is a dielectric/spacing and pulse-energy issue. If a breakdown happens, the available energy is roughly `0.5 C V^2`, usually with pF-scale capacitance.
+- Durable note added: `docs/knowledge/resistor-voltage-stress.md`.

@@ -1,0 +1,80 @@
+# Raw Conversation Record: Web Materials, Edge, And RC Continuation
+
+Date: 2026-06-23
+
+This file is a reconstructed raw collaboration record from the user-visible chat context, created after the fact because the conversation was not exported verbatim as it happened. It intentionally omits shell commands, browser automation, tool output, and routine intermediate assistant progress. Some user turns were written while prior implementation work was only partially complete or had just been changed in the browser, so the sequence can read like non sequiturs. That is expected: the thread was being used as a live design notebook across locations.
+
+## Context
+
+The user is working from multiple locations using a OneDrive-backed project folder and wants markdown files kept current so later work by the user, collaborators, and multiple AI models has continuity.
+
+The active browser page during the session was:
+
+```text
+http://127.0.0.1:8765/index.html
+```
+
+## Conversation
+
+User: Working from the office too, using a OneDrive folder. Keep markdown files updated for communication between multiple locations and later perhaps multiple people using multiple AI models. Concerned about edge effects from sharp capacitor plate edges. SMD capacitors use very thin foils, so edges may not be as bad as a sharp point, but edge behavior may be logarithmic rather than `1/r`. Full FEA probably is not needed for the web page yet; JavaScript embedded page is okay for now. Want approximate formulas and later FEA verification.
+
+Assistant outcome: Added durable notes around edge-field approximations and the plan to use analytic screening before FEA.
+
+User: For the sliced view, make the default view show the inside without rotating. For edge radius, specify diameter instead, as a percentage of plate thickness from 0 to 100%.
+
+Assistant outcome: Changed the web CAD default to a cutaway view showing the interior, and changed the rounded-edge control to edge diameter percentage of plate thickness.
+
+User: Seeing an approximation for electric field at the edge of a disc as a `1 - z / sqrt(R^2 + z^2)` dependence. That makes sense; recalled a similar calculation that was not logarithmic.
+
+User: Correction/question: It is not a uniformly charged disc; it is equal potential across it. Are we looking for the right thing?
+
+User: The earlier expression was central-axis thinking, not the edge. Wants edge effects; locally it should look somewhat like a cylinder, probably closer to a log function. Need suitable approximation now and test geometries for FEA later.
+
+User: Asked whether the approximation accounts for geometry with a parallel plate or some nearest-ground-distance approximation; expected something like a ground surrounding at equal distance.
+
+User: The approximation is not bad but might be an overestimate. User reasoned about deforming geometry to show the field is not worse than a ball of edge radius in a sphere at minimum gap, though likely very conservative.
+
+Assistant outcome: Added edge-effect notes and web estimates using nearest opposite-conductor clearance, local cylinder-over-plane and cylinder-inside-ground-shell style approximations, plus a conservative sphere-shell benchmark idea. Added simulation benchmark notes for later FEA.
+
+User: Add per-plate-pair capacitance and resistance between bias plates because this forms the RC filter network stage. Need parasitic capacitance between bias plates. Parallel-plate formula is probably good enough for now. Main concern is parasitic capacitance from the core epoxy and ferrite sections. At high frequency, parasitic capacitance to capacitance-to-ground ratio forms the divider rather than the resistance and capacitance to ground.
+
+Assistant outcome: Added RC ladder estimates to the web page and notes: pair capacitance, bias-ground capacitance, bias-bias parasitic capacitance, `Cpar/Cg`, bias-bias resistance, and RC corner frequency.
+
+User: The 3D rendering looked like just surfaces; make the plates higher opacity.
+
+Assistant outcome: Increased conductor opacity and improved the cutaway visibility.
+
+User: Material selection. Planned alumina for the washer, MG Chemicals 9510 One-Part Epoxy Potting Compound, Heat Cure, and likely NiZn ferrite. Fair-Rite type 61 seemed suitable. User has 4 mm, 5 mm, and 6 mm diameter samples to test, can diamond-saw them into discs and polish them. Proposed gluing the assembly with conductive epoxy between ferrite discs and bias plates, using spacers to position everything, then filling with epoxy and aggressively vacuum degassing with many pressure/vacuum cycles using nitrogen and a vacuum pump to remove voids.
+
+Assistant outcome: Added materials and prototype notes for alumina washer, MG 9510, Fair-Rite type 61 NiZn ferrite, conductive epoxy contacts, spacers, vacuum/nitrogen pressure cycling, and risks including voids, surface leakage, shrinkage stress, and contact stability.
+
+User: Include an FR4 option for washers for prototype, because suitable alumina washers may not be obtainable and alumina is too hard to machine. Performance can be estimated from capacitance improvement for a better dielectric. Asked for suggestions and needs a high-permittivity ceramic available as washers.
+
+Assistant outcome: Added washer material presets to the web app: FR4/G10, Macor, alumina, zirconia/ZTA, high-K screening, custom. Added `C vs FR4` metric. Documented FR4/G10 as fallback, alumina as ceramic baseline, and high-K electroceramics as requiring careful testing.
+
+User: Pointed out that the browser cannot just say "type 61 epsr"; it has to be conductor epsr still. Suggested a pulldown for values for materials under consideration.
+
+Assistant outcome: Corrected the web app to use generic `Core material` plus `Conductor epsr`. Fair-Rite 61 NiZn became one selectable core preset rather than the label for the numeric parameter. Updated generated artifacts to use generic `core_region` / `core_epsr` terminology.
+
+User: Piezoelectric dielectrics are probably a no-go because microphonics could be a problem. Indications so far show a corner frequency well under 50 Hz from easily obtainable geometry using alumina, so leaning toward alumina. Main reason is low micro-discharge expectations. User asked whether alumina has the lowest voids for such issues, while acknowledging uncertainty.
+
+Assistant outcome: Moved alumina back to the preferred washer default in the web app and notes, with FR4/G10 as fallback. Marked piezoelectric or ferroelectric high-K dielectrics as screening-only / likely no-go because of microphonics, voltage coefficient, loss, and temperature dependence. Added notes that dense alumina is a sensible low-partial-discharge-risk ceramic, but the likely PD initiators are interface gaps, epoxy bubbles, cracks, chipped edges, contamination, and sharp conductor features rather than nominal alumina bulk alone.
+
+Current verified web defaults after this segment:
+
+```text
+Washer material: Alumina
+Washer epsr: 10
+Core material: Fair-Rite 61 NiZn
+Conductor epsr: 12
+Pair C: 16 pF
+Bias-ground C: 32 pF
+Bias-bias C: 0.75 pF
+Cpar/Cg: 2.35%
+Bias-bias R: 318.2 Mohm
+RC corner: 15.61 Hz
+```
+
+User: Reminder/instruction to save results of all conversation to raw conversation files. Intermediate steps are unnecessary. User noted they are adding instructions based on partially finished tasks, so the raw record may be confusing; make note of that so people understand non sequiturs. This should have been implied from the work-office markdown instructions, but perhaps it did not take.
+
+Assistant outcome: Added this reconstructed raw conversation file and strengthened `AGENT.md`, `docs/chats/AGENT.md`, and `docs/chats/raw/AGENT.md` to require raw conversation records at the end of substantive sessions.

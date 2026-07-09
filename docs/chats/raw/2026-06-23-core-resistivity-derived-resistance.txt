@@ -1,0 +1,7 @@
+# Raw Conversation Record: Core Resistivity Derived Resistance
+
+Date: 2026-06-23
+
+User: Asked to add default values for core volume resistivity, add a slider for it, and calculate core resistance from volume resistivity and geometry instead of directly specifying total core resistance.
+
+Assistant outcome: Replaced the visible `Core R total` slider with a log-scale `Core volume resistivity` slider in ohm-cm. The app now derives total core resistance with `R = rho L / A` using the current stack length and core cross-sectional area. The adjacent bias-to-bias stage resistance is derived from the same resistivity and the HV-to-HV pitch. Core material presets now include placeholder resistivity values, with Fair-Rite type 61 and generic NiZn defaulting to `1e8 ohm-cm`. The derived total resistance remains available as a readout and as the legacy `core_resistance_gohm` parameter for compatibility.

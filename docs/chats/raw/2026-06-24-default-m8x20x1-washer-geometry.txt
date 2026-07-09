@@ -1,0 +1,7 @@
+# Raw Conversation Record: Default M8x20x1 Washer Geometry
+
+Date: 2026-06-24
+
+User: Asked to set the default geometry for an easily sourced M8x20x1 alumina washer: ID 8.2 mm, OD 20 mm, thickness 1 mm, and tube ID 24 mm. User specified not to change the web page input parameters, only the default geometry.
+
+Assistant outcome: Kept the existing web controls and changed their defaults so the derived geometry matches the sourced washer: 4 mm core OD, 2.1 mm core-ground radial gap for 8.2 mm ground ID, 24 mm tube ID, 2 mm HV-tube radial gap for 20 mm HV OD, 1 mm plate gap / washer thickness, and 1 mm plate thickness. Updated browser defaults, repository JSON defaults, backend fallback defaults, and RC-network notes.
