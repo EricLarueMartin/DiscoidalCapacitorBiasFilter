@@ -1,5 +1,5 @@
 [Unit]
-Description=Codex project landing pages and SHV field backend
+Description=Agent project landing pages and SHV field backend
 After=network-online.target
 Wants=network-online.target
 

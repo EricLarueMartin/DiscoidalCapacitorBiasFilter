@@ -17,9 +17,51 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import field_backend
+import fenicsx_solver
+import axisymmetric_model
+import spice_ladder
 
 
 class FieldBackendTests(unittest.TestCase):
+    def test_adjacent_pair_capacitance_energy_polarization_cancels_ground_terms(self) -> None:
+        # Middle Cg = 33 pF, neighbor Cg total = 68 pF, and each of two
+        # adjacent mutual capacitances is 0.4 pF.
+        result = fenicsx_solver._adjacent_pair_capacitance_from_energies(
+            middle_only_pf=33.8,
+            neighbors_only_pf=68.8,
+            all_bias_pf=101.0,
+            neighbor_count=2,
+        )
+        self.assertAlmostEqual(result, 0.4)
+
+    def test_parallel_plate_cpar_reference_matches_type61_limiting_case(self) -> None:
+        params = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        params.update({
+            "core_material": "type61",
+            "ferrite_epsr": 12.0,
+            "use_direct_stage_circuit": False,
+            "core_od_mm": 2.0,
+            "core_to_ground_gap_mm": 2.0,
+            "hv_plate_od_mm": 8.0,
+        })
+        self.assertAlmostEqual(
+            fenicsx_solver._analytic_parallel_plate_cpar_pf(params),
+            0.25358071031137513,
+        )
+
+    def test_direct_stage_resistance_and_capacitance_modes_are_independent(self) -> None:
+        params = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        calculated = spice_ladder.circuit_estimates(params)
+        entered = spice_ladder.circuit_estimates(axisymmetric_model.normalize_parameters({
+            **params,
+            "use_direct_stage_capacitance": True,
+            "melf_stage_parasitic_pf": 0.3,
+        }))
+
+        self.assertEqual(calculated["stageResistanceOhm"], 12e6)
+        self.assertAlmostEqual(calculated["parasiticPf"], 0.36632062406919774)
+        self.assertAlmostEqual(entered["parasiticPf"], 0.5129042943308157)
+
     def test_sanitized_parameters_derive_geometry_and_clamp_solver_cost(self) -> None:
         params = field_backend.sanitized_parameters(
             {
@@ -44,6 +86,7 @@ class FieldBackendTests(unittest.TestCase):
         self.assertLessEqual(params["solver_iterations"], field_backend.MAX_SOLVER_ITERATIONS)
         self.assertAlmostEqual(params["edge_radius_mm"], params["plate_thickness_mm"] / 2.0)
         self.assertEqual(params["load_current_na"], 123.0)
+        self.assertFalse(params["use_direct_stage_capacitance"])
 
     def test_http_queue_returns_distinct_jobs_and_completed_result(self) -> None:
         with self._temporary_job_dir() as temp_dir:

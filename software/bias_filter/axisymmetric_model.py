@@ -33,6 +33,13 @@ def load_parameters(path: Path) -> dict[str, Any]:
 
 def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
     """Derive legacy fields from the current gap and resistivity controls."""
+    if "use_direct_stage_capacitance" not in p:
+        p["use_direct_stage_capacitance"] = bool(
+            p.get("use_direct_stage_circuit")
+            and not str(p.get("core_material", "")).startswith("mmb020")
+        )
+    else:
+        p["use_direct_stage_capacitance"] = bool(p["use_direct_stage_capacitance"])
     if "bias_plate_thickness_mm" not in p:
         p["bias_plate_thickness_mm"] = p.get("plate_thickness_mm", 1.0)
     if p.get("ground_matches_bias_thickness", False):

@@ -42,22 +42,58 @@ Adjacent-bias `Cpar` is not extracted from that solve because all bias plates ar
 
 ```text
 Solve A: middle bias = 1 V, neighboring bias plates = 0 V, grounds = 0 V
-Solve B: all three bias plates = 1 V, grounds = 0 V
+Solve B: middle bias = 0 V, both neighboring bias plates = 1 V, grounds = 0 V
+Solve C: all three bias plates = 1 V, grounds = 0 V
 
-C_middle_to_all_zero = 2 U_A
-C_bias_to_ground_per_plate ~= 2 U_B / 3
-Cpar_adjacent ~= (C_middle_to_all_zero - C_bias_to_ground_per_plate) / 2
+C_middle = 2 U_A
+C_neighbors = 2 U_B
+C_all_bias = 2 U_C
+Cpar_adjacent = (C_middle + C_neighbors - C_all_bias) / 4
 ```
 
-The final division by two is because the middle bias plate couples to two adjacent bias plates in the local symmetric model. This is an energy-difference estimate rather than a full capacitance-matrix charge extraction. It should be treated as a useful first-draft sanity check; a later production model should assemble conductor charges on individual plate boundaries and report the capacitance matrix directly.
+This is the polarization identity for the mutual-capacitance block between the middle plate and its two neighbors; division by four accounts for the energy cross term and the two adjacent plates. Unlike subtracting an estimated per-plate ground capacitance, it cancels ground terms algebraically and does not assume the middle and edge plates have identical ground capacitance. It remains an energy-based estimate rather than a full capacitance-matrix charge extraction. A later production model should assemble conductor charges on individual plate boundaries and report the capacitance matrix directly.
 
-For MELF presets, the three-bias solve includes the core as dielectric rather than tying the whole core surface to HV. The MELF core permittivity is modeled as:
+For MELF presets, all three Cpar solves include the inter-plate core volume as dielectric rather than tying the whole core surface to HV. Each individual bias plate extends across the core cross-section in the capacitance-only geometry and receives its specified Dirichlet voltage. This represents the full-area stage-node electrode assumed by the analytic `epsilon A/d` core calculation while leaving the core between stage nodes dielectric. The MELF core permittivity is modeled as:
 
 ```text
 eps_eff = eps_substrate / (1 - film_fill_factor)
 ```
 
 The default 0207 values are `eps_substrate = 9.8` and `film_fill_factor = 0.50`, giving `eps_eff = 19.6`. This approximates the shielding/capacitance increase from a spiral metal-film resistor without explicitly modeling the proprietary trim path.
+
+### 2026-07-10 Cpar correction and convergence check
+
+The first three-bias estimate subtracted `C_all_bias_to_ground / 3` from the middle-only self capacitance. In the default case it obtained `0.1486 pF` by subtracting `33.7663 pF` from `34.0636 pF`, then dividing by two. That method is ill-conditioned because a roughly one-percent difference between edge and middle ground capacitance is comparable to the entire desired mutual-capacitance signal.
+
+The polarization method above removes that equal-ground-capacitance assumption. The capacitance-only geometry also extends each bias-stage electrode across the core cross-section while retaining dielectric core segments between stages. With the default MELF 0207 model, the corrected adjacent-stage result converges as follows:
+
+| Edge-radius mesh ratio | Fine target | FEA Cpar |
+|---:|---:|---:|
+| 0.20 | 0.1500 mm | 0.1983 pF |
+| 0.10 | 0.0750 mm | 0.2005 pF |
+| 0.05 | 0.0375 mm | 0.2009 pF |
+
+A separate permittivity sweep confirmed that the core is active dielectric: before the cross-sectional-electrode correction, changing core relative permittivity from `1.0` to `19.6` changed Cpar from `0.0660 pF` to `0.1851 pF`. The remaining difference from the larger analytic `epsilon A/d` estimate is therefore primarily geometric. The simple epoxy term assumes uniform axial field across the annulus inside the ground-plate hole. In the default geometry the hole radius is about `3.3 mm` while adjacent bias stages are separated by about `4.3 mm`, and the intervening grounded inner edge intercepts much of that field. FEA includes this shielding; the parallel-plate estimate does not.
+
+### Type 61 large-gap limiting-geometry check
+
+The analytic calculation is most reliable when the ground-plate hole radius is much larger than the adjacent-bias stage spacing, so most of the field in the core and epoxy is axial. This makes a radial-gap sweep a useful solver consistency test. Using a `2.0 mm` Type 61 NiZn core (`eps_r = 12`), `eps_r = 3.4` epoxy, `4.3 mm` bias-stage spacing, and `1.0 mm` radial ground/HV overlap gave:
+
+| Core-ground radial gap | Hole radius / stage spacing | Analytic Cpar | FEA Cpar | FEA / analytic |
+|---:|---:|---:|---:|---:|
+| 2 mm | 0.70 | 0.2536 pF | 0.1056 pF | 0.417 |
+| 5 mm | 1.40 | 0.8474 pF | 0.5101 pF | 0.602 |
+| 10 mm | 2.56 | 2.7169 pF | 2.0576 pF | 0.757 |
+| 20 mm | 4.88 | 9.7551 pF | 8.4585 pF | 0.867 |
+| 25 mm | 6.05 | 14.9237 pF | 13.3084 pF | 0.892 |
+| 40 mm | 9.53 | 37.0280 pF | 34.4548 pF | 0.931 |
+| 50 mm | 11.86 | 57.2627 pF | 54.0549 pF | 0.944 |
+
+The monotonic convergence toward unity is the expected limiting behavior. At small gaps, the grounded inner edge intercepts a large fraction of the non-axial field and the simple parallel-plate calculation overestimates adjacent-stage coupling. At large gaps, edge and shielding contributions become small relative to the axial field energy. Re-run this check on the Pi with:
+
+```bash
+python3 software/bias_filter/fenicsx_solver.py --validate-cpar-gap-sweep
+```
 
 ## Regression Checks
 

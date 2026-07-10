@@ -1,6 +1,8 @@
 # Pi Package Requirements
 
-This file is for the setup agent. Install these packages on Raspberry Pi OS 64-bit or Debian arm64 before starting `codex-sites.service`.
+This file is for the setup agent. Install these packages on Raspberry Pi OS 64-bit or Debian arm64 before starting `agent-sites.service`.
+
+Before installing packages, verify `uname -m` reports `aarch64` and inspect `/etc/os-release`. These commands assume an APT-based 64-bit Raspberry Pi OS or Debian-family system. Do not silently omit the FEniCSx packages if the distribution cannot provide them; explain the mismatch and recommend a supported 64-bit Raspberry Pi OS image.
 
 ## Required Base Packages
 

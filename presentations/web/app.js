@@ -3,6 +3,7 @@ const defaults = {
   bias_voltage_v: 6000,
   core_volume_resistivity_log10_ohm_cm: 8,
   use_direct_stage_circuit: true,
+  use_direct_stage_capacitance: false,
   melf_stage_resistance_mohm: 12,
   melf_stage_resistance_log10_ohm: Math.log10(12e6),
   melf_stage_parasitic_pf: 0.3,
@@ -80,6 +81,7 @@ const SUPPORTED_PEAK_OUTLIER_RATIO = 1.35;
 const MIN_RADIAL_OVERLAP_MM = 1;
 const MIN_HV_PLATE_OD_MM = 12;
 const MIN_WASHER_RADIAL_WIDTH_MM = 0.1;
+const MAX_BACKEND_RADIAL_GAP_MM = 50;
 const SPEED_OF_LIGHT_M_PER_S = 299792458;
 const ATTENUATION_PLOT_FMIN_HZ = 1;
 const ATTENUATION_PLOT_FMAX_HZ = 100e6;
@@ -222,7 +224,8 @@ const coreMaterialPresets = {
     minPairLengthMm: 3.6,
     stageResistanceOhm: 10e6,
     stageParasiticPf: 0.2,
-    defaultDirectStageCircuit: true,
+    defaultDirectStageResistance: true,
+    defaultDirectStageCapacitance: false,
     componentName: "0204 MELF core"
   },
   mmb0207_melf: {
@@ -235,7 +238,8 @@ const coreMaterialPresets = {
     minPairLengthMm: 5.8,
     stageResistanceOhm: DEFAULT_MELF0207_STAGE_RESISTANCE_OHM,
     stageParasiticPf: 0.3,
-    defaultDirectStageCircuit: true,
+    defaultDirectStageResistance: true,
+    defaultDirectStageCapacitance: false,
     componentName: "0207 MELF core"
   },
   epoxy_chain: {
@@ -244,7 +248,8 @@ const coreMaterialPresets = {
     resistivityLog10: 8.1,
     stageResistanceOhm: 240e6,
     stageParasiticPf: 0.5,
-    defaultDirectStageCircuit: true,
+    defaultDirectStageResistance: true,
+    defaultDirectStageCapacitance: true,
     componentName: "MELF/epoxy core"
   },
   conductive_epoxy: { label: "Conductive epoxy", epsr: 4, resistivityLog10: -3, componentName: "Conductive epoxy core" }
@@ -292,6 +297,10 @@ function corePresetForElectrical(epsr, resistivityLog10) {
 
 function usesDirectStageCircuit(p) {
   return Boolean(p.use_direct_stage_circuit);
+}
+
+function usesDirectStageCapacitance(p) {
+  return Boolean(p.use_direct_stage_capacitance);
 }
 
 function usesMelfCoreModel(p) {
@@ -613,6 +622,20 @@ function derivedGeometry(p) {
   };
 }
 
+function minimumSpacingForMaterial(preset, biasVoltageV) {
+  if (!Number.isFinite(preset?.breakdownKvPerMm)) return CUSTOM_SPACING_RANGE_MM.min;
+  return Math.max(0.1, Math.ceil((biasVoltageV / 1000 / preset.breakdownKvPerMm) * 10) / 10);
+}
+
+function coreGroundGapRange(p) {
+  const min = minimumSpacingForMaterial(epoxyMaterialPresets[p.epoxy_material], p.bias_voltage_v);
+  const geometryMax = (p.hv_plate_od_mm - p.core_od_mm - 2 * MIN_RADIAL_OVERLAP_MM) / 2;
+  return {
+    min,
+    max: Math.max(min, Math.min(MAX_BACKEND_RADIAL_GAP_MM, geometryMax))
+  };
+}
+
 function applyDerivedGeometry(p) {
   const derived = derivedGeometry(p);
   p.ground_plate_inner_diameter_mm = derived.groundPlateInnerDiameter;
@@ -644,9 +667,15 @@ function applyWasherGeometry(p) {
 
 function syncDynamicRanges() {
   const spacingRange = spacingRangeForWasher(params);
+  const coreGapRange = coreGroundGapRange(params);
   for (const id of hvSpacingControlIds) {
-    const min = id === "plate_gap_mm" ? Math.max(spacingRange.min, minimumMelfPlateGapMm(params)) : spacingRange.min;
-    setRangeInputBounds(id, min, spacingRange.max, 0.1);
+    const min = id === "core_to_ground_gap_mm"
+      ? coreGapRange.min
+      : id === "plate_gap_mm"
+        ? Math.max(spacingRange.min, minimumMelfPlateGapMm(params))
+        : spacingRange.min;
+    const max = id === "core_to_ground_gap_mm" ? coreGapRange.max : spacingRange.max;
+    setRangeInputBounds(id, min, max, 0.1);
   }
   const hvOdInput = document.getElementById("hv_plate_od_mm");
   const hvOdBaseMax = defaultControlRanges.hv_plate_od_mm?.max ?? numericAttribute(hvOdInput, "max", 56);
@@ -871,6 +900,10 @@ function replaceCustomControlRanges(ranges) {
 function applyImportedSettings(imported, ranges = {}) {
   replaceCustomControlRanges(ranges);
   const next = { ...structuredClone(defaults), ...imported };
+  if (!Object.prototype.hasOwnProperty.call(imported, "use_direct_stage_capacitance")) {
+    const importedMelf = String(next.core_material || "").startsWith("mmb020");
+    next.use_direct_stage_capacitance = Boolean(next.use_direct_stage_circuit && !importedMelf);
+  }
   params = next;
   lastResult = null;
   normalizeParams();
@@ -1157,7 +1190,7 @@ function circuitEstimates(p) {
   const epoxyParasiticPf = parallelPlateCapacitancePf(p.epoxy_epsr, coreEpoxyArea, biasBiasSeparation);
   const directParasiticPf = directStageParasiticPf(p);
   const parasiticPf = p.plate_pairs > 1
-    ? (usesDirectStageCircuit(p) && !usesMelfCoreModel(p) ? directParasiticPf + epoxyParasiticPf : ferriteParasiticPf + epoxyParasiticPf)
+    ? (usesDirectStageCapacitance(p) ? directParasiticPf + epoxyParasiticPf : ferriteParasiticPf + epoxyParasiticPf)
     : Number.NaN;
 
   const totalResistanceOhm = totalCoreResistanceOhm(p);
@@ -1692,7 +1725,8 @@ function setupControls() {
     if (preset) {
       params.ferrite_epsr = preset.epsr;
       params.core_volume_resistivity_log10_ohm_cm = preset.resistivityLog10;
-      params.use_direct_stage_circuit = Boolean(preset.defaultDirectStageCircuit);
+      params.use_direct_stage_circuit = Boolean(preset.defaultDirectStageResistance);
+      params.use_direct_stage_capacitance = Boolean(preset.defaultDirectStageCapacitance);
       applyDirectStageDefaultsForMaterial(params);
       if (Number.isFinite(preset.coreOdMm)) params.core_od_mm = preset.coreOdMm;
     }
@@ -1773,6 +1807,16 @@ function setupControls() {
     syncControls();
     drawCadModel();
     drawGeometry();
+    clearField();
+  });
+
+  const directStageCapacitance = document.getElementById("use_direct_stage_capacitance");
+  directStageCapacitance.checked = params.use_direct_stage_capacitance;
+  directStageCapacitance.addEventListener("change", () => {
+    params.use_direct_stage_capacitance = directStageCapacitance.checked;
+    if (params.use_direct_stage_capacitance) applyDirectStageDefaultsForMaterial(params);
+    normalizeParams();
+    syncControls();
     clearField();
   });
 
@@ -1930,6 +1974,7 @@ function setupCadViewer() {
 
 function normalizeParams() {
   const spacingRange = spacingRangeForWasher(params);
+  const coreGapRange = coreGroundGapRange(params);
   const genericRangeIds = [
     "bias_voltage_v",
     "core_volume_resistivity_log10_ohm_cm",
@@ -1974,6 +2019,7 @@ function normalizeParams() {
   const tubeMuRange = controlRange("tube_relative_permeability", 1, 50);
   const meshRatioRange = controlRange("mesh_edge_radius_ratio", 0.05, 0.5);
   params.use_direct_stage_circuit = Boolean(params.use_direct_stage_circuit);
+  params.use_direct_stage_capacitance = Boolean(params.use_direct_stage_capacitance);
   params.ground_matches_bias_thickness = Boolean(params.ground_matches_bias_thickness);
   params.input_series_matches_stage = params.input_series_matches_stage !== false;
   params.output_series_matches_stage = Boolean(params.output_series_matches_stage);
@@ -1999,8 +2045,13 @@ function normalizeParams() {
   params.tube_relative_permeability = clamp(params.tube_relative_permeability, tubeMuRange.min, tubeMuRange.max);
   params.mesh_edge_radius_ratio = clamp(params.mesh_edge_radius_ratio, meshRatioRange.min, meshRatioRange.max);
   for (const id of hvSpacingControlIds) {
-    const min = id === "plate_gap_mm" ? Math.max(spacingRange.min, minimumMelfPlateGapMm(params)) : spacingRange.min;
-    const range = controlRange(id, min, spacingRange.max);
+    const min = id === "core_to_ground_gap_mm"
+      ? coreGapRange.min
+      : id === "plate_gap_mm"
+        ? Math.max(spacingRange.min, minimumMelfPlateGapMm(params))
+        : spacingRange.min;
+    const max = id === "core_to_ground_gap_mm" ? coreGapRange.max : spacingRange.max;
+    const range = controlRange(id, min, max);
     params[id] = clamp(params[id], range.min, range.max);
   }
   if (params.ground_matches_bias_thickness) {
@@ -2017,36 +2068,33 @@ function normalizeParams() {
 }
 
 function syncCoreCircuitModeControls() {
-  const direct = usesDirectStageCircuit(params);
+  const directResistance = usesDirectStageCircuit(params);
+  const directCapacitance = usesDirectStageCapacitance(params);
   const melf = usesMelfCoreModel(params);
-  const bulkControls = [
-    document.getElementById("core_resistivity_control"),
-    document.getElementById("core_epsr_control")
-  ];
-  const directControls = [
-    document.getElementById("melf_stage_resistance_control"),
-    document.getElementById("melf_stage_parasitic_control")
-  ];
+  const coreResistivityControl = document.getElementById("core_resistivity_control");
+  const directResistanceControl = document.getElementById("melf_stage_resistance_control");
+  const coreEpsrControl = document.getElementById("core_epsr_control");
+  const directCapacitanceControl = document.getElementById("melf_stage_parasitic_control");
   const melfControls = [
     document.getElementById("melf_substrate_epsr_control"),
     document.getElementById("melf_metal_fill_factor_control")
   ];
-  for (const label of bulkControls) {
-    label.hidden = direct || (label.id === "core_epsr_control" && melf);
-    label.querySelectorAll("input").forEach((input) => {
-      input.disabled = label.hidden;
-    });
-  }
-  for (const label of directControls) {
-    label.hidden = !direct || (label.id === "melf_stage_parasitic_control" && melf);
+  const visibility = [
+    [coreResistivityControl, !directResistance],
+    [directResistanceControl, directResistance],
+    [coreEpsrControl, !directCapacitance && !melf],
+    [directCapacitanceControl, directCapacitance]
+  ];
+  for (const [label, visible] of visibility) {
+    label.hidden = !visible;
     label.querySelectorAll("input").forEach((input) => {
       input.disabled = label.hidden;
     });
   }
   for (const label of melfControls) {
-    label.hidden = !melf;
+    label.hidden = !melf || directCapacitance;
     label.querySelectorAll("input").forEach((input) => {
-      input.disabled = !melf;
+      input.disabled = label.hidden;
     });
   }
 }
@@ -2059,6 +2107,7 @@ function syncControls() {
   document.getElementById("tube_material").value = params.tube_material;
   document.getElementById("field_solver").value = params.field_solver;
   document.getElementById("use_direct_stage_circuit").checked = params.use_direct_stage_circuit;
+  document.getElementById("use_direct_stage_capacitance").checked = params.use_direct_stage_capacitance;
   document.getElementById("ground_matches_bias_thickness").checked = params.ground_matches_bias_thickness;
   document.getElementById("input_series_matches_stage").checked = params.input_series_matches_stage;
   document.getElementById("output_series_matches_stage").checked = params.output_series_matches_stage;
@@ -3972,11 +4021,15 @@ function drawFeaSanitySlide(canvas) {
     "This is a capacitance sanity check, not a direct attenuation solve.",
     "FEA Ctotal comes from the existing two-terminal energy integral with all bias conductors tied together against ground.",
     Number.isFinite(feaParasiticPf)
-      ? "FEA Cpar uses a separate local three-bias solve: middle plate at 1 V, neighbors and grounds at 0 V, subtract Cg per bias plate, then divide by two."
+      ? "FEA Cpar uses three local energy solves: middle only, both neighbors only, and all bias plates driven. Energy polarization cancels ground capacitance; the core remains dielectric."
       : "Run a matching FEniCSx solve to fill Cpar; the estimate is separate from the all-HV total-capacitance solve.",
-    usesMelfCoreModel(params)
-      ? `MELF core model: eps_eff = eps_substrate/(1 - FF) = ${coreCapacitanceEpsr(params).toLocaleString(undefined, { maximumFractionDigits: 1 })}.`
-      : "For non-MELF cores, the parasitic estimate uses the selected core permittivity plus epoxy around the core."
+    usesDirectStageCapacitance(params)
+      ? "Analytic Cpar uses the entered resistor/package value plus calculated epoxy coupling; FEA remains a geometric material-model comparison."
+      : usesMelfCoreModel(params)
+        ? `MELF core model: eps_eff = eps_substrate/(1 - FF) = ${coreCapacitanceEpsr(params).toLocaleString(undefined, { maximumFractionDigits: 1 })}.`
+        : "For non-MELF cores, the parasitic estimate uses the selected core permittivity plus epoxy around the core.",
+    "The analytic epsilon A/d estimate does not include shielding by the intervening ground-plate inner edge, so it can overstate epoxy coupling when the hole radius is comparable to the bias-stage spacing.",
+    "Type 61 limiting check: FEA/analytic rises from 0.42 at 2 mm radial gap to 0.94 at 50 mm, approaching the expected axial-field limit."
   ], 92, 450, 24, "#5b6670", "17px Arial", 910);
 }
 

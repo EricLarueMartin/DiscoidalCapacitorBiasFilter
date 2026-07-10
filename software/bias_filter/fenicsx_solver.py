@@ -174,6 +174,31 @@ def _clean_polygon(profile: list[tuple[float, float]]) -> list[tuple[float, floa
     return cleaned
 
 
+def _component_profile_for_solve(
+    p: dict[str, Any],
+    component: dict[str, Any],
+    include_core_dielectric: bool,
+) -> list[tuple[float, float]]:
+    """Return the conductor profile used by the selected electrostatic model."""
+    profile = [(float(r), float(z)) for r, z in component["profile"]]
+    if not (
+        include_core_dielectric
+        and component["material"] == "hv"
+        and component["name"].startswith("hv_plate_")
+    ):
+        return profile
+
+    # The capacitance model keeps the core dielectric between bias nodes, but
+    # each bias node must contact the full core cross-section. Extending only
+    # the plate conductor to the axis supplies that electrode without turning
+    # the continuous inter-plate core volume into an equipotential conductor.
+    core_r = float(p["core_od_mm"]) / 2.0
+    return [
+        (0.0 if r <= core_r + GEOMETRY_TOLERANCE_MM else r, z)
+        for r, z in profile
+    ]
+
+
 def _mesh_sizes(p: dict[str, Any]) -> dict[str, float]:
     edge_radius = max(float(axisymmetric_model.edge_radius_mm(p)), 0.02)
     try:
@@ -220,9 +245,10 @@ def _build_gmsh_model(p: dict[str, Any], modules: dict[str, Any], include_core_d
     for component in axisymmetric_model.component_profiles(p):
         if component["material"] not in {"hv", "ground"}:
             continue
+        solve_profile = _component_profile_for_solve(p, component, include_core_dielectric)
         profile = [
             (min(max(float(r), r_min), tube_inner), min(max(float(z), 0.0), length))
-            for r, z in component["profile"]
+            for r, z in solve_profile
         ]
         profile = _clean_polygon(profile)
         # Skip degenerate intersections, such as a conductor entirely outside
@@ -335,11 +361,15 @@ def _component_marker(
     modules: dict[str, Any],
     names: set[str] | None = None,
     materials: set[str] | None = None,
+    include_core_dielectric: bool = False,
 ) -> Any:
     np = modules["np"]
     length = axisymmetric_model.stack_length_mm(p)
     components = [
-        component
+        {
+            **component,
+            "profile": _component_profile_for_solve(p, component, include_core_dielectric),
+        }
         for component in axisymmetric_model.component_profiles(p)
         if (names is None or component["name"] in names)
         and (materials is None or component["material"] in materials)
@@ -524,15 +554,43 @@ def _capacitance_from_energy(
     }
 
 
+def _adjacent_pair_capacitance_from_energies(
+    middle_only_pf: float,
+    neighbors_only_pf: float,
+    all_bias_pf: float,
+    neighbor_count: int,
+) -> float:
+    """Extract average middle-to-neighbor mutual C using energy polarization."""
+    if neighbor_count <= 0:
+        raise ValueError("neighbor_count must be positive")
+    return (middle_only_pf + neighbors_only_pf - all_bias_pf) / (2.0 * neighbor_count)
+
+
+def _analytic_parallel_plate_cpar_pf(p: dict[str, Any]) -> float:
+    """Core-plus-epoxy axial parallel-plate comparison value."""
+    normalized = axisymmetric_model.normalize_parameters(dict(p))
+    core_r = float(normalized["core_od_mm"]) / 2.0
+    ground_r = float(normalized["ground_plate_inner_diameter_mm"]) / 2.0
+    separation = (
+        axisymmetric_model.ground_plate_thickness_mm(normalized)
+        + 2.0 * float(normalized["plate_gap_mm"])
+    )
+    weighted_area = math.pi * (
+        axisymmetric_model.core_capacitance_epsr(normalized) * core_r**2
+        + float(normalized["epoxy_epsr"]) * max(0.0, ground_r**2 - core_r**2)
+    )
+    return EPSILON_0_PF_PER_MM * weighted_area / separation if separation > 0.0 else 0.0
+
+
 def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modules: dict[str, Any]) -> dict[str, Any] | None:
     """Estimate adjacent bias-plate Cpar using a local three-bias FEA solve.
 
     The ordinary field solve ties all HV conductors together. For stage-to-stage
     parasitic capacitance we instead drive the middle bias plate to 1 V with the
-    two neighboring bias plates and all ground conductors at 0 V. That energy is
-    the middle plate's capacitance to ground plus capacitance to both adjacent
-    bias plates. A second all-bias-at-1 V solve estimates the representative
-    bias-to-ground term, which is subtracted before dividing by two.
+    two neighboring bias plates and all ground conductors at 0 V. A second solve
+    drives both neighbors with the middle plate at 0 V, and a third drives all
+    bias plates together. The polarization identity cancels every ground term
+    without assuming that edge and middle plates have equal ground capacitance.
     """
     local_p = axisymmetric_model.normalize_parameters({**p, "plate_pairs": 3, "bias_voltage_v": 1.0})
     gmsh = modules["gmsh"]
@@ -552,15 +610,20 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         return None
     middle_hv = hv_components[len(hv_components) // 2]
     other_hv = set(hv_components) - {middle_hv}
-    ground_marker = _component_marker(local_p, modules, materials={"ground"})
+    ground_marker = _component_marker(
+        local_p,
+        modules,
+        materials={"ground"},
+        include_core_dielectric=True,
+    )
 
     middle_only = _solve_potential_with_dirichlet_markers(
         mesh,
         local_p,
         modules,
         [
-            (1.0, _component_marker(local_p, modules, names={middle_hv})),
-            (0.0, _component_marker(local_p, modules, names=other_hv)),
+            (1.0, _component_marker(local_p, modules, names={middle_hv}, include_core_dielectric=True)),
+            (0.0, _component_marker(local_p, modules, names=other_hv, include_core_dielectric=True)),
             (0.0, ground_marker),
         ],
         include_core_dielectric=True,
@@ -574,12 +637,32 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         include_core_dielectric=True,
     )
 
+    neighbors_only = _solve_potential_with_dirichlet_markers(
+        mesh,
+        local_p,
+        modules,
+        [
+            (1.0, _component_marker(local_p, modules, names=other_hv, include_core_dielectric=True)),
+            (0.0, _component_marker(local_p, modules, names={middle_hv}, include_core_dielectric=True)),
+            (0.0, ground_marker),
+        ],
+        include_core_dielectric=True,
+    )
+    neighbors_total = _capacitance_from_energy(
+        mesh,
+        neighbors_only,
+        local_p,
+        modules,
+        voltage_v=1.0,
+        include_core_dielectric=True,
+    )
+
     all_bias = _solve_potential_with_dirichlet_markers(
         mesh,
         local_p,
         modules,
         [
-            (1.0, _component_marker(local_p, modules, names=set(hv_components))),
+            (1.0, _component_marker(local_p, modules, names=set(hv_components), include_core_dielectric=True)),
             (0.0, ground_marker),
         ],
         include_core_dielectric=True,
@@ -593,8 +676,13 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         include_core_dielectric=True,
     )
 
-    representative_ground_pf = all_bias_to_ground["total_pf"] / len(hv_components)
-    raw_adjacent_pair_pf = (middle_total["total_pf"] - representative_ground_pf) / 2.0
+    neighbor_count = len(other_hv)
+    raw_adjacent_pair_pf = _adjacent_pair_capacitance_from_energies(
+        middle_total["total_pf"],
+        neighbors_total["total_pf"],
+        all_bias_to_ground["total_pf"],
+        neighbor_count,
+    )
     adjacent_pair_pf = max(0.0, raw_adjacent_pair_pf)
     return {
         "parasitic_pf": adjacent_pair_pf,
@@ -602,14 +690,18 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         "bias_to_bias_pf": adjacent_pair_pf,
         "raw_adjacent_bias_pf": raw_adjacent_pair_pf,
         "middle_to_all_zero_pf": middle_total["total_pf"],
+        "neighbors_to_middle_zero_pf": neighbors_total["total_pf"],
         "local_bias_to_ground_total_pf": all_bias_to_ground["total_pf"],
-        "local_bias_to_ground_per_plate_pf": representative_ground_pf,
         "local_bias_plate_count": len(hv_components),
+        "adjacent_neighbor_count": neighbor_count,
         "middle_bias_plate": middle_hv,
-        "method": "fenicsx-three-bias-energy-difference",
+        "core_treatment": "dielectric-with-effective-permittivity",
+        "core_electrode_treatment": "bias-plate-cross-section-electrodes",
+        "method": "fenicsx-three-bias-energy-polarization",
         "description": (
-            "Representative Cpar = (C_middle_to_all_zero - C_all_bias_to_ground/Nbias)/2 "
-            "from a local three-bias-plate solve with the core included as dielectric."
+            "Representative Cpar = (C_middle_only + C_neighbors_only - C_all_bias) "
+            "/ (2 Nneighbors) from a local three-bias-plate energy-polarization solve "
+            "with the core included as dielectric."
         ),
         "mesh": {
             "target_fine_mm": mesh_sizes.get("fine") if mesh_sizes else None,
@@ -649,6 +741,53 @@ def _admittance_from_capacitance(p: dict[str, Any], capacitance_pf: float) -> di
         "rf_frequency_hz": rf_frequency_hz,
         "frequency_points": points,
         "formula": "Y(f) = I_load / V_bias + j 2*pi*f*C",
+    }
+
+
+def cpar_gap_sweep(
+    parameters: dict[str, Any],
+    gaps_mm: tuple[float, ...] = (2.0, 5.0, 10.0, 20.0, 25.0, 40.0, 50.0),
+    radial_overlap_mm: float = 1.0,
+) -> dict[str, Any]:
+    """Compare FEA and axial analytic Cpar as ground shielding recedes."""
+    base = axisymmetric_model.normalize_parameters(dict(parameters))
+    modules = _import_fenicsx_modules()
+    cases: list[dict[str, Any]] = []
+    for gap_mm in gaps_mm:
+        case = dict(base)
+        case["core_to_ground_gap_mm"] = float(gap_mm)
+        case["hv_plate_od_mm"] = (
+            float(case["core_od_mm"])
+            + 2.0 * float(gap_mm)
+            + 2.0 * float(radial_overlap_mm)
+        )
+        case = axisymmetric_model.normalize_parameters(case)
+        fea = _representative_adjacent_bias_parasitic_capacitance(case, modules)
+        if fea is None:
+            continue
+        analytic_pf = _analytic_parallel_plate_cpar_pf(case)
+        stage_spacing = (
+            axisymmetric_model.ground_plate_thickness_mm(case)
+            + 2.0 * float(case["plate_gap_mm"])
+        )
+        ground_hole_radius = float(case["ground_plate_inner_diameter_mm"]) / 2.0
+        cases.append({
+            "core_ground_gap_mm": float(gap_mm),
+            "ground_id_mm": float(case["ground_plate_inner_diameter_mm"]),
+            "hv_od_mm": float(case["hv_plate_od_mm"]),
+            "hole_radius_to_stage_spacing": ground_hole_radius / stage_spacing,
+            "analytic_cpar_pf": analytic_pf,
+            "fea_cpar_pf": float(fea["parasitic_pf"]),
+            "fea_over_analytic": float(fea["parasitic_pf"]) / analytic_pf if analytic_pf > 0.0 else None,
+        })
+    return {
+        "method": "fenicsx-cpar-large-gap-consistency-sweep",
+        "expectation": "FEA/analytic approaches 1 as the ground-hole radius becomes large relative to stage spacing.",
+        "core_material": base.get("core_material"),
+        "core_epsr": axisymmetric_model.core_capacitance_epsr(base),
+        "epoxy_epsr": float(base["epoxy_epsr"]),
+        "radial_overlap_mm": float(radial_overlap_mm),
+        "cases": cases,
     }
 
 
@@ -835,12 +974,29 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Inspect optional FEniCSx backend readiness.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable status.")
     parser.add_argument("--solve-stdin", action="store_true", help="Read parameters as JSON from stdin and print the solve result as JSON.")
+    parser.add_argument(
+        "--validate-cpar-gap-sweep",
+        action="store_true",
+        help="Run the Type 61 large-core-gap FEA/analytic Cpar consistency sweep.",
+    )
     args = parser.parse_args()
     if args.solve_stdin:
         import sys
 
         parameters = json.load(sys.stdin)
         print(json.dumps(solve(parameters)))
+        return
+    if args.validate_cpar_gap_sweep:
+        parameters = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        parameters.update({
+            "core_material": "type61",
+            "ferrite_epsr": 12.0,
+            "use_direct_stage_circuit": False,
+            "core_od_mm": 2.0,
+            "plate_pairs": 3,
+            "mesh_edge_radius_ratio": 0.2,
+        })
+        print(json.dumps(cpar_gap_sweep(parameters), indent=2))
         return
     status = dependency_status()
     if args.json:

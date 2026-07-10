@@ -238,6 +238,12 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
 
     params["include_ground_tube"] = bool(params.get("include_ground_tube", True))
     params["use_direct_stage_circuit"] = bool(params.get("use_direct_stage_circuit", False))
+    params["use_direct_stage_capacitance"] = bool(
+        raw_parameters.get(
+            "use_direct_stage_capacitance",
+            params["use_direct_stage_circuit"] and not str(params.get("core_material", "")).startswith("mmb020"),
+        )
+    )
     params["solve_strategy"] = sanitize_solve_strategy(params.get("solve_strategy", SOLVE_STRATEGY_FULL_STACK))
     return axisymmetric_model.normalize_parameters(params)
 

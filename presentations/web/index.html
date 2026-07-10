@@ -55,7 +55,8 @@
                 <option value="custom">Custom</option>
               </select>
             </label>
-            <label class="check" title="Use entered per-stage resistance. MELF presets estimate Cpar from effective ceramic/film geometry; non-MELF direct models can still use the resistor/package Cpar input."><input id="use_direct_stage_circuit" type="checkbox"> Direct stage RC inputs</label>
+            <label class="check" title="Use the entered per-stage resistance instead of deriving resistance from bulk resistivity and geometry."><input id="use_direct_stage_circuit" type="checkbox"> Enter stage R</label>
+            <label class="check" title="Use the entered resistor/package Cpar instead of calculating core capacitance from material and geometry. Epoxy coupling is still calculated separately."><input id="use_direct_stage_capacitance" type="checkbox"> Enter resistor C<sub>par</sub></label>
             <label>Washer material
               <select id="washer_material">
                 <option value="fr4">FR4/G10</option>
@@ -95,7 +96,7 @@
               </select>
             </label>
             <label id="core_epsr_control"><span>Conductor &epsilon;<sub>r</sub></span><output id="ferrite_epsr_out"></output><input id="ferrite_epsr" type="range" min="2" max="120" step="0.1"></label>
-            <label id="melf_stage_parasitic_control" hidden title="Entered non-MELF resistor/package bias-to-bias capacitance. MELF 0204/0207 presets instead use the effective ceramic/film geometry model."><span>Resistor C<sub>par</sub></span><output id="melf_stage_parasitic_pf_out"></output><input id="melf_stage_parasitic_pf" type="range" min="0.01" max="5" step="0.01"></label>
+            <label id="melf_stage_parasitic_control" hidden title="Entered resistor/package bias-to-bias capacitance. Epoxy coupling around the package is calculated separately."><span>Resistor C<sub>par</sub></span><output id="melf_stage_parasitic_pf_out"></output><input id="melf_stage_parasitic_pf" type="range" min="0.01" max="5" step="0.01"></label>
             <label id="melf_substrate_epsr_control" hidden title="Ceramic substrate permittivity for the geometric MELF capacitance model. Alumina is a reasonable default."><span>MELF substrate &epsilon;<sub>r</sub></span><output id="melf_substrate_epsr_out"></output><input id="melf_substrate_epsr" type="range" min="3" max="30" step="0.1"></label>
             <label id="melf_metal_fill_factor_control" hidden title="Fractional metal-film shielding estimate. Effective core permittivity is substrate epsr divided by 1 - fill factor."><span>MELF film fill</span><output id="melf_metal_fill_factor_out"></output><input id="melf_metal_fill_factor" type="range" min="0" max="0.9" step="0.01"></label>
             <label><span>Washer &epsilon;<sub>r</sub></span><output id="washer_epsr_out"></output><input id="washer_epsr" type="range" min="2" max="200" step="0.1"></label>
@@ -228,12 +229,12 @@
               <small id="totalGroundCapSource">estimate</small>
             </div>
             <div>
-              <span title="Parasitic capacitance between adjacent bias plates. MELF presets use effective ceramic/film core capacitance plus epoxy; other direct-stage models can use entered package Cpar plus epoxy.">Stage C<sub>par</sub></span>
+              <span title="Parasitic capacitance between adjacent bias plates. Calculated mode uses core material and geometry plus epoxy; entered mode uses resistor/package Cpar plus calculated epoxy coupling.">Stage C<sub>par</sub></span>
               <strong id="parasiticCapacitance">--</strong>
               <small>resistor/core + epoxy</small>
             </div>
             <div>
-              <span title="FEA three-bias energy-difference estimate of capacitance between adjacent bias stages.">FEA C<sub>par</sub></span>
+              <span title="FEA three-bias energy-polarization estimate of capacitance between adjacent bias stages, with the core included as dielectric.">FEA C<sub>par</sub></span>
               <strong id="feaParasiticCapacitance">--</strong>
               <small id="feaParasiticCapacitanceSource">adjacent stages</small>
             </div>

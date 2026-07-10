@@ -1,0 +1,14 @@
+Reconstructed raw collaboration record from the visible chat context.
+Intermediate tool steps are omitted.
+
+User:
+Why won't it let me raise the core-ground radial gap past 5?
+
+Assistant:
+Diagnosed the 5 mm ceiling as a frontend range derived from the alumina washer breakdown estimate: at 6 kV and 13 kV/mm, the rounded minimum is 0.5 mm and the UI used ten times that value as a hard maximum. The same washer-derived range was incorrectly applied to the epoxy-filled core-ground gap, and manual or right-click range changes were clamped to it. The backend accepts gaps up to 50 mm.
+
+User:
+It should limit based on other geometry restrictions, but when I raise the ground ID to 50 mm I still can't go past 5 with a 2mm OD core.
+
+Assistant:
+Changed the core-ground range so epoxy breakdown sets only its minimum. Its maximum now comes from the available radial geometry while retaining 1 mm of ground/HV plate overlap, capped by the backend's 50 mm limit. For a 50 mm surrounding HV plate diameter and 2 mm core OD, the maximum is 23 mm. Deployed the updated app.js to the Raspberry Pi and verified in a headless browser that both slider and manual input report a 23 mm maximum and accept a 20 mm gap without clamping.

@@ -47,6 +47,10 @@ def uses_direct_stage_circuit(p: dict[str, Any]) -> bool:
     return bool(p.get("use_direct_stage_circuit", False))
 
 
+def uses_direct_stage_capacitance(p: dict[str, Any]) -> bool:
+    return bool(p.get("use_direct_stage_capacitance", False))
+
+
 def bias_plate_count(p: dict[str, Any]) -> int:
     return max(1, int(p["plate_pairs"]))
 
@@ -97,7 +101,7 @@ def circuit_estimates(p: dict[str, Any]) -> dict[str, float]:
     if int(p["plate_pairs"]) > 1:
         parasitic_pf = (
             direct_parasitic_pf
-            if uses_direct_stage_circuit(p) and not axisymmetric_model.uses_melf_core_model(p)
+            if uses_direct_stage_capacitance(p)
             else ferrite_parasitic_pf
         ) + epoxy_parasitic_pf
     else:

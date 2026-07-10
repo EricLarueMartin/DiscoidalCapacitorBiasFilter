@@ -1,0 +1,32 @@
+Reconstructed raw collaboration record from the visible chat context.
+Intermediate tool steps are omitted.
+
+User:
+I'm trying to figure out why the FEA parasitic capacitance is less than half that calculated based on the core material and epoxy. I have a suspicion of one issue. When determining capacitance it needs to treat that core material as dielectric not conductor. It should be kept at bias voltage for electric field determination, but for capacitance it's effectively a dielectric insulator.
+
+Assistant:
+Confirmed that the ordinary field-stress solve should retain the equipotential HV core boundary, while the separate adjacent-stage capacitance solve must mesh the core as dielectric. The existing Cpar path already attempted that distinction, but two additional problems were found.
+
+First, the old energy-difference method inferred middle-plate capacitance to ground from the three-plate average. In the default case it subtracted 33.7663 pF from 34.0636 pF and divided by two, producing 0.1486 pF. A roughly one-percent edge-versus-middle ground-capacitance difference therefore removed a large fraction of the desired mutual signal. The solver was changed to three energy solves (middle only, neighbors only, and all bias plates), using polarization to cancel ground terms algebraically.
+
+Second, the capacitance mesh left dielectric inside each bias plate's axial thickness and drove the core only from the plate's cylindrical inner edge. The capacitance-only bias electrodes were extended across the core cross-section while leaving the core segments between plates dielectric. The default result increased to 0.1983 pF at the normal mesh setting.
+
+Mesh refinement gave 0.1983, 0.2005, and 0.2009 pF for edge-radius mesh ratios 0.20, 0.10, and 0.05. A core-permittivity sweep also confirmed that the core was active dielectric. The remaining difference from the larger analytic core-plus-epoxy parallel-plate value is attributed mainly to shielding by the intervening ground-plate inner edge; the simple epoxy area-over-distance estimate does not model that interception of field lines.
+
+User:
+I was attempting to compare values with very large core to ground gaps so that the electric field would be mostly axial to see if it was close to the approximate calculation that works for when the electric field really is all axial. I change from MELF to 61 NiZn so it wasn't succeptible to issues with just entering a cpar for the melf. Do something along these lines to check for consistency. I expect ground shielding to make the simple geometry to fail when the gap is small due to ground shielding not accounted for since the fields are not really axial, but it should be a small error if the gap is very large. Note this expected discrepancy in the slides. The point of most of the analytic stuff is to have a basis for comparison so I can make sure the FEA results are good and testing limiting geometry is a good check.
+
+Assistant:
+Ran a Type 61 NiZn limiting-geometry sweep with a 2 mm core, relative permittivity 12, epoxy relative permittivity 3.4, 4.3 mm stage spacing, and 1 mm radial plate overlap. FEA/analytic Cpar increased monotonically from 0.417 at a 2 mm core-ground gap to 0.944 at a 50 mm gap. This is the expected convergence toward the axial parallel-plate limit as the grounded edge recedes. Added the trend to the FEA sanity-check slide, documented the full sweep, and added a repeatable Pi solver command.
+
+User:
+So MELF usually uses alumina, so I think my fill factor idea to get an effective higher permitivitty is a good way to model it. For entering directly though it seems when I select direct stage RC I can't modify Resistor Cpar. Also I'd like those to be individually selectable, setting direct stage R and calculating C should be an option.
+
+Assistant:
+Split the previous combined direct-stage mode into independent `Enter stage R` and `Enter resistor Cpar` choices. MELF 0204/0207 now default to entered stage resistance with calculated capacitance using the alumina substrate and metal-film fill-factor correction. Selecting entered Cpar exposes the resistor/package Cpar control for MELF as well and combines that entered value with separately calculated epoxy coupling. Updated both browser and Python SPICE calculations and added regression coverage for the independent modes.
+
+User:
+I'm going to take a pi home with me and test out the instructions for setting this up. Makes sure all the markdown files are clear, commit to git and push to github. This will be a test of the setup instructions for a pi, we'll get back to making sure the web page is good after. Since this project doesn't use flask dropping mention of it makes sense.
+
+Assistant:
+Prepared the repository for a clean Raspberry Pi onboarding test. Removed the Flask comparison, clarified the Codex and other agent entry points, added a canonical repository URL to the agent runbook, documented the required 64-bit architecture check, replaced manual field-job polling with an automated smoke test, and added explicit FEniCSx, SPICE, unit-test, and final-link verification requirements. Audited all Markdown files for structure and local links before committing the complete current draft.

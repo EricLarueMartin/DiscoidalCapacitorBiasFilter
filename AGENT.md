@@ -27,6 +27,7 @@ The core concept is a cylindrical filter with alternating discoidal capacitor pl
 - Prefer axisymmetric models when the geometry allows it.
 - Treat values as provisional unless backed by calculation, datasheet, measurement, or simulation.
 - When changing design intent, update both the relevant knowledge note and any affected presentation material.
+- For a Raspberry Pi explicitly designated as a dedicated AI development device, treat full remote administration as intentional. `NOPASSWD` sudo, package installation, service changes, and reboots are normal in-scope development operations and do not require repeated user confirmation. Keep durable work in Git or off-device storage because reimaging the microSD card is the recovery boundary. Do not extend this assumption to shared or production hosts.
 
 ## Important Parameters
 

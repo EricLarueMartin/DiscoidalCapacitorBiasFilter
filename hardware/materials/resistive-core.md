@@ -2,14 +2,14 @@
 
 ## Web Model Presets
 
-The browser interface uses a generic `Core material` selector plus a separate `Direct stage RC inputs` checkbox. With the checkbox off, the app uses numeric sliders for effective relative permittivity and core volume resistivity, deriving total core resistance from volume resistivity and the current core geometry with `R = rho L / A`. With the checkbox on, the app uses direct `Stage R`; for MELF 0204/0207 presets it estimates capacitance from a geometric effective-core model rather than a fixed package `Cpar`. Non-MELF direct-stage models can still use the direct `Stage Cpar` input. These placeholders do not replace measured resistance, leakage, or noise data.
+The browser interface uses a generic `Core material` selector plus independent `Enter stage R` and `Enter resistor Cpar` checkboxes. Resistance can therefore be entered per stage or derived from core resistivity and geometry with `R = rho L / A`, independently of whether capacitance is entered or calculated. Entered resistor/package Cpar is combined with the separately calculated epoxy coupling. Calculated Cpar uses the selected core material and geometry plus epoxy around the core. These placeholders do not replace measured resistance, leakage, or noise data.
 
 Current placeholders:
 
 - Fair-Rite 61 NiZn: `epsr = 12`, `rho = 1e8 ohm-cm`.
 - Generic NiZn ferrite: `epsr = 15`, `rho = 1e8 ohm-cm`.
-- Vishay MMB0207 12 Mohm MELF: defaults to direct stage mode with `Stage R = 12 Mohm`, `core OD = 2.2 mm`, and geometric/effective-medium Cpar.
-- MELF chain in MG 9510 epoxy: defaults to direct stage mode with `Stage R = 240 Mohm`, `Stage Cpar = 0.5 pF`.
+- Vishay MMB0207 12 Mohm MELF: defaults to entered stage resistance with `Stage R = 12 Mohm`, `core OD = 2.2 mm`, and calculated geometric/effective-medium Cpar.
+- MELF chain in MG 9510 epoxy: defaults to entered stage resistance and entered package capacitance with `Stage R = 240 Mohm`, `Stage Cpar = 0.5 pF`.
 - Conductive-epoxy-dominated core/contact region: `epsr = 4`, `rho = 1e-3 ohm-cm`.
 - Custom: user-set `Conductor epsr` and volume resistivity.
 
@@ -62,7 +62,7 @@ Likely fallback if ferrite is noisy or insufficiently predictable.
 
 Current concrete alternate: a 0207 MELF resistor in the 10 Mohm to 15 Mohm range, with the web default now set to the 12 Mohm value that was found in stock. The body is just under 6 mm long and about 2.2 mm diameter, with roughly 3.2 mm between metal end caps. That geometry looks compatible with a 1.5 mm thick plate plus washer stack if the resistor is soldered into the bias path instead of bonding ferrite discs with conductive epoxy.
 
-For the current axisymmetric field-screening model, approximate this option as a `2.2 mm` diameter central core for geometry and local electric-field visualization. For the RC ladder model, the preset checks `Direct stage RC inputs` by default so the app uses direct stage resistance for one 0207 MELF per direct stage. Parasitic capacitance is modeled geometrically: the MELF body is treated as a ceramic substrate with an effective-permittivity correction for metal-film shielding,
+For the current axisymmetric field-screening model, approximate this option as a `2.2 mm` diameter central core for geometry and local electric-field visualization. For the RC ladder model, the preset checks `Enter stage R` and leaves `Enter resistor Cpar` unchecked, so one 12 Mohm 0207 MELF is used per stage while capacitance remains geometric. The MELF body is treated as an alumina ceramic substrate with an effective-permittivity correction for metal-film shielding,
 
 ```text
 eps_eff = eps_substrate / (1 - film_fill_factor)
