@@ -1,0 +1,42 @@
+Reconstructed user-facing collaboration record
+Date: 2026-07-13
+
+User requested an opt-in FEniCSx approximation based on axial plate-center symmetry while retaining the exact mirror plane halfway through the complete stack.
+
+Specified reconstruction:
+- Region A runs from the physical axial end through the center of the first bias plate.
+- Region B runs from that bias-plate center through the center of the next ground plate, which is the second ground plate because the first is the end cap.
+- The next region is a mirror of B; subsequent regions alternate copied and mirrored B solutions.
+- The opposite end is a mirror of A.
+
+Implementation:
+- Add an off-by-default `Repeat interior FEA cell` checkbox to the Solver tab.
+- Select backend strategy `end_repeat_approx` when checked.
+- Reconstruct energy as `2 U_A + 2 (N_pairs - 1) U_B`.
+- Copy/mirror sampled fields into the full browser grid.
+- Fall back to exact `mirror_half` for a one-pair stack.
+- Keep the three-bias Cpar solve on exact mirror-half geometry.
+- Mark ordinary field and capacitance results as approximate.
+
+Scope and approval note:
+- Changes are limited to this workspace and `pi-03-ioc.local`.
+- Codex's separate managed approval service temporarily rejected local writes and SSH because its reviewer was at capacity. The user explicitly approved the scoped local changes and Pi deployment; no broader target or permission was requested.
+
+Pi validation:
+- All 17 backend tests passed.
+- Six-pair full stack: 14.079 s, 236.257 pF, supported peak 6.009 kV/mm.
+- Six-pair exact mirror-half: 7.029 s.
+- Six-pair two-region approximation: 4.049 s, 236.369 pF, supported peak 5.966 kV/mm.
+- Approximation speedup versus full stack: 3.48x.
+- Approximation capacitance difference versus full stack: 0.047%.
+- Approximation supported-field difference versus full stack: 0.728%.
+
+Follow-up Cpar refinement:
+- User noted that the three-bias Cpar excitation is not periodically symmetric because only the middle bias is driven in the primary solve, although the middle plane remains an exact mirror.
+- In approximation mode, the Cpar half-domain now ends at the neighboring bias-plate center.
+- The neighbor electrode retains its required voltage in each polarization solve; the exposed outer annulus to the grounded tube is held at 0 V.
+- The end washer and end ground plate beyond that cut are removed.
+- Exact mirror-half Cpar: 0.128574 pF in 1.355 s over 9.75 mm.
+- Grounded-neighbor-cut approximation: 0.128089 pF in 0.879 s over 6.0 mm.
+- Difference: 0.378%; speedup: 1.54x.
+- All 17 Pi tests passed after the change.

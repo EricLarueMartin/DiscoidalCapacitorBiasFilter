@@ -41,8 +41,11 @@ class FieldBackendTests(unittest.TestCase):
             "ferrite_epsr": 12.0,
             "use_direct_stage_circuit": False,
             "core_od_mm": 2.0,
-            "core_to_ground_gap_mm": 2.0,
+            "ground_plate_inner_diameter_mm": 6.0,
             "hv_plate_od_mm": 8.0,
+            "plate_gap_mm": 1.4,
+            "washer_id_mode": "custom",
+            "washer_od_mode": "custom",
         })
         self.assertAlmostEqual(
             fenicsx_solver._analytic_parallel_plate_cpar_pf(params),
@@ -59,8 +62,8 @@ class FieldBackendTests(unittest.TestCase):
         }))
 
         self.assertEqual(calculated["stageResistanceOhm"], 12e6)
-        self.assertAlmostEqual(calculated["parasiticPf"], 0.36632062406919774)
-        self.assertAlmostEqual(entered["parasiticPf"], 0.5129042943308157)
+        self.assertAlmostEqual(calculated["parasiticPf"], 0.25782883409865776)
+        self.assertAlmostEqual(entered["parasiticPf"], 0.41123100790420386)
 
     def test_output_series_resistance_is_entered_in_ohms(self) -> None:
         params = field_backend.sanitized_parameters({"output_series_resistance_ohm": 50.0})
@@ -79,13 +82,63 @@ class FieldBackendTests(unittest.TestCase):
         self.assertEqual(params["melf_stage_parasitic_pf"], 0.001)
         self.assertEqual(params["detector_capacitance_pf"], 0.0001)
 
+    def test_half_ounce_copper_plate_thickness_is_preserved(self) -> None:
+        params = field_backend.sanitized_parameters({
+            "bias_plate_thickness_mm": 0.0175,
+            "ground_plate_thickness_mm": 0.0175,
+            "ground_matches_bias_thickness": False,
+        })
+        self.assertEqual(params["bias_plate_thickness_mm"], 0.0175)
+        self.assertEqual(params["ground_plate_thickness_mm"], 0.0175)
+
+    def test_washer_relation_modes_derive_plate_edges_from_washer_dimensions(self) -> None:
+        params = field_backend.sanitized_parameters({
+            "core_od_mm": 2.0,
+            "tube_id_mm": 24.0,
+            "washer_id_mm": 8.0,
+            "washer_od_mm": 18.0,
+            "washer_id_mode": "ground_flat_id",
+            "washer_od_mode": "bias_flat_od",
+            "bias_plate_thickness_mm": 1.0,
+            "ground_plate_thickness_mm": 1.0,
+            "ground_matches_bias_thickness": False,
+            "edge_diameter_percent": 100.0,
+        })
+        self.assertEqual(params["tube_id_mm"], 24.0)
+        self.assertEqual(params["washer_id_mm"], 8.0)
+        self.assertEqual(params["washer_od_mm"], 18.0)
+        self.assertEqual(params["ground_plate_inner_diameter_mm"], 7.0)
+        self.assertEqual(params["hv_plate_od_mm"], 19.0)
+        self.assertEqual(params["core_to_ground_gap_mm"], 2.5)
+        self.assertEqual(params["hv_to_tube_gap_mm"], 2.5)
+
+        direct = field_backend.sanitized_parameters({
+            "tube_id_mm": 24.0,
+            "washer_id_mm": 7.0,
+            "washer_od_mm": 19.0,
+            "washer_id_mode": "ground_id",
+            "washer_od_mode": "bias_od",
+        })
+        self.assertEqual(direct["ground_plate_inner_diameter_mm"], 7.0)
+        self.assertEqual(direct["hv_plate_od_mm"], 19.0)
+
+    def test_legacy_washer_match_booleans_map_to_custom_modes(self) -> None:
+        params = field_backend.sanitized_parameters({
+            "washer_id_matches_ground": False,
+            "washer_od_matches_bias": False,
+        })
+        self.assertEqual(params["washer_id_mode"], "custom")
+        self.assertEqual(params["washer_od_mode"], "custom")
+
     def test_sanitized_parameters_derive_geometry_and_clamp_solver_cost(self) -> None:
         params = field_backend.sanitized_parameters(
             {
                 "core_od_mm": 6.0,
-                "core_to_ground_gap_mm": 2.0,
+                "washer_id_mm": 10.0,
+                "washer_od_mm": 32.0,
+                "washer_id_mode": "ground_id",
+                "washer_od_mode": "bias_od",
                 "tube_id_mm": 36.0,
-                "hv_to_tube_gap_mm": 2.0,
                 "grid_r_count": 9999,
                 "grid_z_count": 9999,
                 "solver_iterations": 999999,
@@ -97,13 +150,28 @@ class FieldBackendTests(unittest.TestCase):
         self.assertEqual(params["ground_plate_inner_diameter_mm"], 10.0)
         self.assertEqual(params["ground_plate_od_mm"], 36.0)
         self.assertEqual(params["hv_plate_od_mm"], 32.0)
-        self.assertEqual(params["solve_strategy"], field_backend.SOLVE_STRATEGY_FULL_STACK)
+        self.assertEqual(params["solve_strategy"], field_backend.SOLVE_STRATEGY_MIRROR_HALF)
         self.assertLessEqual(params["grid_r_count"], field_backend.MAX_GRID_R_COUNT)
         self.assertLessEqual(params["grid_z_count"], field_backend.MAX_GRID_Z_COUNT)
         self.assertLessEqual(params["solver_iterations"], field_backend.MAX_SOLVER_ITERATIONS)
         self.assertAlmostEqual(params["edge_radius_mm"], params["plate_thickness_mm"] / 2.0)
         self.assertEqual(params["load_current_na"], 123.0)
         self.assertFalse(params["use_direct_stage_capacitance"])
+
+    def test_repeating_cell_checkbox_selects_explicit_approximation(self) -> None:
+        approximate = field_backend.sanitized_parameters({
+            "plate_pairs": 6,
+            "use_repeating_cell_approximation": True,
+        })
+        self.assertEqual(approximate["solve_strategy"], field_backend.SOLVE_STRATEGY_END_REPEAT_APPROX)
+        self.assertTrue(approximate["use_repeating_cell_approximation"])
+
+        exact = field_backend.sanitized_parameters({
+            "solve_strategy": field_backend.SOLVE_STRATEGY_END_REPEAT_APPROX,
+            "use_repeating_cell_approximation": False,
+        })
+        self.assertEqual(exact["solve_strategy"], field_backend.SOLVE_STRATEGY_MIRROR_HALF)
+        self.assertFalse(exact["use_repeating_cell_approximation"])
 
     def test_http_queue_returns_distinct_jobs_and_completed_result(self) -> None:
         with self._temporary_job_dir() as temp_dir:
@@ -146,7 +214,7 @@ class FieldBackendTests(unittest.TestCase):
                 )
                 self.assertEqual(result["source"], expected_source)
                 self.assertEqual(completed["source"], expected_source)
-                self.assertEqual(result["solveStrategy"], field_backend.SOLVE_STRATEGY_FULL_STACK)
+                self.assertEqual(result["solveStrategy"], field_backend.SOLVE_STRATEGY_MIRROR_HALF)
                 self.assertTrue(result["symmetryPlan"]["stack_is_mirror_symmetric"])
                 self.assertIn(result["symmetryPlan"]["mirror_plate_kind"], {"ground", "hv"})
                 self.assertTrue(result["symmetryValidation"]["required_before_using_reduced_strategy"])
@@ -215,6 +283,8 @@ class FieldBackendTests(unittest.TestCase):
 
             try:
                 raw_parameters = self._small_parameters()
+                raw_parameters["washer_id_mode"] = "ground_id"
+                raw_parameters["washer_od_mode"] = "bias_od"
                 payload = self._post_json(base_url + "/api/geometry", {"parameters": raw_parameters})
                 self.assertEqual(payload["status"], "ok")
                 geometry = payload["geometry"]
@@ -294,7 +364,11 @@ class FieldBackendTests(unittest.TestCase):
         self.assertEqual(plan["recommended_default"], field_backend.SOLVE_STRATEGY_MIRROR_HALF)
         self.assertEqual(
             set(strategies),
-            {field_backend.SOLVE_STRATEGY_FULL_STACK, field_backend.SOLVE_STRATEGY_MIRROR_HALF},
+            {
+                field_backend.SOLVE_STRATEGY_FULL_STACK,
+                field_backend.SOLVE_STRATEGY_MIRROR_HALF,
+                field_backend.SOLVE_STRATEGY_END_REPEAT_APPROX,
+            },
         )
         self.assertIn(field_backend.SOLVE_STRATEGY_FULL_STACK, strategies)
         self.assertIn(field_backend.SOLVE_STRATEGY_MIRROR_HALF, strategies)
@@ -308,15 +382,18 @@ class FieldBackendTests(unittest.TestCase):
         self.assertTrue(validation["required_before_using_reduced_strategy"])
         self.assertEqual(validation["reference_strategy"], field_backend.SOLVE_STRATEGY_FULL_STACK)
         self.assertEqual(validation["validation_type"], "code_regression_for_exact_symmetry")
-        self.assertEqual(validation["candidate_strategies"], [field_backend.SOLVE_STRATEGY_MIRROR_HALF])
+        self.assertEqual(
+            validation["candidate_strategies"],
+            [field_backend.SOLVE_STRATEGY_MIRROR_HALF, field_backend.SOLVE_STRATEGY_END_REPEAT_APPROX],
+        )
         self.assertIn(field_backend.SOLVE_STRATEGY_MIRROR_HALF, validation["candidate_strategies"])
         self.assertIn("peak_field", check_names)
         self.assertIn("mirrored_field_map", check_names)
 
     def test_custom_washer_bounds_can_leave_rounded_edge_pockets_as_epoxy(self) -> None:
         raw_parameters = self._small_parameters()
-        raw_parameters["washer_id_matches_ground"] = False
-        raw_parameters["washer_od_matches_bias"] = False
+        raw_parameters["washer_id_mode"] = "custom"
+        raw_parameters["washer_od_mode"] = "custom"
         raw_parameters["washer_id_mm"] = raw_parameters["ground_plate_inner_diameter_mm"] + 1.0
         raw_parameters["washer_od_mm"] = raw_parameters["hv_plate_od_mm"] - 1.0
         params = field_backend.sanitized_parameters(raw_parameters)

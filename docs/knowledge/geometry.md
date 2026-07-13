@@ -7,7 +7,7 @@ The filtering section uses two alternating plate types.
 ## High-Voltage Center Plate
 
 - Connected to the center high-voltage path.
-- In the web interface, defined directly by the high-voltage plate outside diameter.
+- In the web interface, its outside diameter is derived from the washer OD except in Custom relation mode.
 - May include an inner hole in early prototypes to simplify construction.
 - Outside edge is rounded.
 - Outside diameter is smaller than the filter diameter, leaving space to grounded structure.
@@ -16,7 +16,7 @@ The filtering section uses two alternating plate types.
 
 - Annular disc connected to the outer ground structure.
 - Outside diameter is treated as equal to the derived tube inside diameter in the current web model.
-- Inner diameter is derived from the core outside diameter plus the radial core-to-ground gap.
+- Inner diameter is derived from the washer ID except in Custom relation mode.
 - Inner edge is rounded to reduce field enhancement.
 
 ## Ground Tube
@@ -25,13 +25,28 @@ The outer tube may connect or couple to the ground rings. Its presence, inside d
 
 ## Web Parameterization
 
-Use gap-style controls where one dimension is mechanically or electrically subordinate to another. The HV plate OD is the outer radial source of truth, with a 12 mm minimum in the current designer UI:
+The primary assembly dimensions in the web designer are core OD, ground-tube ID, washer ID, washer OD, and washer thickness. Washer ID and OD remain editable in every relation mode and are the source dimensions for coupled plate geometry. Ground-plate OD equals the entered tube ID.
 
-- `tube_id_mm = hv_plate_od_mm + 2 * hv_to_tube_gap_mm`
-- `ground_plate_od_mm = tube_id_mm`
-- `ground_plate_inner_diameter_mm = core_od_mm + 2 * core_to_ground_gap_mm`
+The washer ID relation has three modes:
 
-The gaps are radial surface-to-surface clearances. Changing HV OD moves the high-voltage plate outer edge directly, while the tube ID and ground OD follow from the explicit HV-to-tube radial gap. Changing the core diameter moves the ground inner diameter through the explicit core-ground gap.
+- `ground_id`: `ground_plate_inner_diameter_mm = washer_id_mm`.
+- `ground_flat_id`: `ground_plate_inner_diameter_mm = washer_id_mm - 2 * ground_edge_radius_mm`, so the washer begins where the rounded ground inner edge reaches the flat plate face.
+- `custom`: ground-plate ID is edited independently.
+
+The washer OD relation likewise has three modes:
+
+- `bias_od`: `hv_plate_od_mm = washer_od_mm`.
+- `bias_flat_od`: `hv_plate_od_mm = washer_od_mm + 2 * bias_edge_radius_mm`, so the washer ends where the rounded bias outer edge leaves the flat plate face.
+- `custom`: bias-plate OD is edited independently.
+
+The edge radii are calculated from each plate thickness and the edge-diameter percentage. Core-ground and bias-to-tube radial gaps are derived readouts:
+
+- `core_to_ground_gap_mm = (ground_plate_inner_diameter_mm - core_od_mm) / 2`
+- `hv_to_tube_gap_mm = (tube_id_mm - hv_plate_od_mm) / 2`
+
+The promoted reference defaults use a 2.2 mm core OD, 26 mm tube ID, 6.6 mm washer ID, 20 mm washer OD, and 1.5 mm washer thickness. Both washer relations use the flat-edge mode with 1.5 mm plates and a 100% edge-diameter setting, deriving a 5.1 mm ground-plate ID, 21.5 mm bias-plate OD, 1.45 mm core-ground radial gap, and 2.25 mm bias-tube radial gap.
+
+Bias and ground plate thickness controls allow values down to `0.0175 mm`, the nominal thickness of 1/2 oz copper foil. At this limit, rounded-edge radii derived as half the plate thickness become extremely small and peak-field results require correspondingly careful mesh convergence.
 
 ## Dielectric Regions
 

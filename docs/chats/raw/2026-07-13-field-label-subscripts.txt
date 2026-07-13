@@ -1,0 +1,8 @@
+User request:
+Places where it say such like Emax use a subscript for the max part. Same for Ebd. I see a couple spots on the slides.
+
+Implementation:
+- Standardized displayed electric-field notation to use typographic subscripts for E_max and E_bd.
+- Updated the analytic edge-bound and deformation slide graphics.
+- Updated breakdown markers on the FEA field color scale.
+- Retained existing HTML subscript markup in the designer and slide text.

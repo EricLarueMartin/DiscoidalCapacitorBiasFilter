@@ -24,6 +24,8 @@ FIELD_ADAPTIVE_MAX_POINTS = 24
 FIELD_ADAPTIVE_THRESHOLD_FRACTION = 0.45
 SUPPORTED_PEAK_PERCENTILE = 0.75
 SUPPORTED_PEAK_OUTLIER_RATIO = 1.35
+WASHER_ID_MODES = {"ground_id", "ground_flat_id", "custom"}
+WASHER_OD_MODES = {"bias_od", "bias_flat_od", "custom"}
 
 
 def load_parameters(path: Path) -> dict[str, Any]:
@@ -55,34 +57,63 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
     if min_pair_length is not None and "plate_gap_mm" in p:
         min_gap = max(0.0, (min_pair_length - bias_plate_thickness_mm(p) - ground_plate_thickness_mm(p)) / 2.0)
         p["plate_gap_mm"] = max(float(p["plate_gap_mm"]), min_gap)
-    if "core_to_ground_gap_mm" in p:
-        p["ground_plate_inner_diameter_mm"] = p["core_od_mm"] + 2.0 * p["core_to_ground_gap_mm"]
-    if "hv_plate_od_mm" in p and "hv_to_tube_gap_mm" in p:
-        p["tube_id_mm"] = p["hv_plate_od_mm"] + 2.0 * p["hv_to_tube_gap_mm"]
-        p["ground_plate_od_mm"] = p["tube_id_mm"]
-    elif "tube_id_mm" in p:
-        p["ground_plate_od_mm"] = p["tube_id_mm"]
-        if "hv_to_tube_gap_mm" in p:
-            p["hv_plate_od_mm"] = p["tube_id_mm"] - 2.0 * p["hv_to_tube_gap_mm"]
-    p["washer_id_matches_ground"] = p.get("washer_id_matches_ground", True) is not False
-    p["washer_od_matches_bias"] = p.get("washer_od_matches_bias", True) is not False
+    if "washer_id_mode" not in p:
+        p["washer_id_mode"] = "ground_id" if p.get("washer_id_matches_ground", True) is not False else "custom"
+    if "washer_od_mode" not in p:
+        p["washer_od_mode"] = "bias_od" if p.get("washer_od_matches_bias", True) is not False else "custom"
+    if p["washer_id_mode"] not in WASHER_ID_MODES:
+        p["washer_id_mode"] = "ground_id"
+    if p["washer_od_mode"] not in WASHER_OD_MODES:
+        p["washer_od_mode"] = "bias_od"
+    p["washer_id_matches_ground"] = p["washer_id_mode"] == "ground_id"
+    p["washer_od_matches_bias"] = p["washer_od_mode"] == "bias_od"
+
     min_washer_width_diameter = 0.2
-    min_washer_id = max(0.1, float(p.get("core_od_mm", 0.1)))
-    max_washer_od = max(float(p.get("hv_plate_od_mm", 0.2)), float(p.get("tube_id_mm", p.get("hv_plate_od_mm", 0.2))))
-    if p["washer_id_matches_ground"]:
-        p["washer_id_mm"] = float(p["ground_plate_inner_diameter_mm"])
+    core_od = max(0.1, float(p.get("core_od_mm", 0.1)))
+    ground_radius = edge_radius_mm(p, "ground")
+    bias_radius = edge_radius_mm(p, "hv")
+    p["washer_id_mm"] = float(p.get("washer_id_mm", p.get("ground_plate_inner_diameter_mm", core_od + 4.0)))
+    p["washer_od_mm"] = float(p.get("washer_od_mm", p.get("hv_plate_od_mm", p["washer_id_mm"] + 2.0)))
+
+    min_ground_id = core_od + 0.02
+    p["tube_id_mm"] = max(12.02, float(p.get("tube_id_mm", 24.0)))
+    max_ground_id = max(min_ground_id, p["tube_id_mm"] - 2.02)
+    if p["washer_id_mode"] == "ground_id":
+        p["ground_plate_inner_diameter_mm"] = max(min_ground_id, min(p["washer_id_mm"], max_ground_id))
+        p["washer_id_mm"] = p["ground_plate_inner_diameter_mm"]
+        p["core_to_ground_gap_mm"] = (p["ground_plate_inner_diameter_mm"] - core_od) / 2.0
+    elif p["washer_id_mode"] == "ground_flat_id":
+        p["ground_plate_inner_diameter_mm"] = max(min_ground_id, min(p["washer_id_mm"] - 2.0 * ground_radius, max_ground_id))
+        p["washer_id_mm"] = p["ground_plate_inner_diameter_mm"] + 2.0 * ground_radius
+        p["core_to_ground_gap_mm"] = (p["ground_plate_inner_diameter_mm"] - core_od) / 2.0
     else:
-        p["washer_id_mm"] = float(p.get("washer_id_mm", p["ground_plate_inner_diameter_mm"]))
-    if p["washer_od_matches_bias"]:
-        p["washer_od_mm"] = float(p["hv_plate_od_mm"])
+        p["ground_plate_inner_diameter_mm"] = max(
+            min_ground_id,
+            min(float(p.get("ground_plate_inner_diameter_mm", core_od + 4.0)), max_ground_id),
+        )
+        p["core_to_ground_gap_mm"] = (p["ground_plate_inner_diameter_mm"] - core_od) / 2.0
+
+    p["washer_id_mm"] = max(core_od, p["washer_id_mm"])
+    p["washer_od_mm"] = max(p["washer_id_mm"] + min_washer_width_diameter, p["washer_od_mm"])
+    min_hv_od = max(12.0, p["ground_plate_inner_diameter_mm"] + 2.0)
+    max_hv_od = max(min_hv_od, p["tube_id_mm"] - 0.02)
+    if p["washer_od_mode"] == "bias_od":
+        p["hv_plate_od_mm"] = max(min_hv_od, min(p["washer_od_mm"], max_hv_od))
+        p["washer_od_mm"] = p["hv_plate_od_mm"]
+    elif p["washer_od_mode"] == "bias_flat_od":
+        p["hv_plate_od_mm"] = max(min_hv_od, min(p["washer_od_mm"] + 2.0 * bias_radius, max_hv_od))
+        p["washer_od_mm"] = p["hv_plate_od_mm"] - 2.0 * bias_radius
     else:
-        p["washer_od_mm"] = float(p.get("washer_od_mm", p["hv_plate_od_mm"]))
-    if not p["washer_id_matches_ground"]:
-        max_washer_id = max(min_washer_id, p["washer_od_mm"] - min_washer_width_diameter)
-        p["washer_id_mm"] = max(min_washer_id, min(float(p["washer_id_mm"]), max_washer_id))
-    if not p["washer_od_matches_bias"]:
+        p["hv_plate_od_mm"] = max(min_hv_od, min(float(p.get("hv_plate_od_mm", min_hv_od)), max_hv_od))
+
+    p["hv_to_tube_gap_mm"] = (p["tube_id_mm"] - p["hv_plate_od_mm"]) / 2.0
+    p["ground_plate_od_mm"] = p["tube_id_mm"]
+    if p["washer_id_mode"] == "custom":
+        max_washer_id = max(core_od, p["washer_od_mm"] - min_washer_width_diameter)
+        p["washer_id_mm"] = max(core_od, min(p["washer_id_mm"], max_washer_id))
+    if p["washer_od_mode"] == "custom":
         min_washer_od = p["washer_id_mm"] + min_washer_width_diameter
-        p["washer_od_mm"] = max(min_washer_od, min(float(p["washer_od_mm"]), max(max_washer_od, min_washer_od)))
+        p["washer_od_mm"] = max(min_washer_od, min(p["washer_od_mm"], p["tube_id_mm"]))
     if "core_volume_resistivity_ohm_cm" not in p and "core_volume_resistivity_log10_ohm_cm" in p:
         p["core_volume_resistivity_ohm_cm"] = 10.0 ** p["core_volume_resistivity_log10_ohm_cm"]
     if p.get("use_direct_stage_circuit") and ("melf_stage_resistance_mohm" in p or "melf_stage_resistance_log10_ohm" in p):
@@ -215,8 +246,8 @@ def washer_gap_intervals(p: dict[str, Any]) -> list[tuple[float, float]]:
 
 def washer_radial_bounds(p: dict[str, Any]) -> tuple[float, float]:
     tube_inner = p["tube_id_mm"] / 2.0
-    inner = (p["ground_plate_inner_diameter_mm"] if p.get("washer_id_matches_ground", True) else p.get("washer_id_mm", p["ground_plate_inner_diameter_mm"])) / 2.0
-    outer = (p["hv_plate_od_mm"] if p.get("washer_od_matches_bias", True) else p.get("washer_od_mm", p["hv_plate_od_mm"])) / 2.0
+    inner = p.get("washer_id_mm", p["ground_plate_inner_diameter_mm"]) / 2.0
+    outer = p.get("washer_od_mm", p["hv_plate_od_mm"]) / 2.0
     inner = max(0.0, min(float(inner), tube_inner))
     outer = max(0.0, min(float(outer), tube_inner))
     return (inner, outer)

@@ -23,8 +23,9 @@ C_gap ~= epsilon0 epsr_washer pi (r_overlap_outer^2 - r_overlap_inner^2) / plate
 ```
 
 The washer is treated as a flat annular slab in the axial gaps between plate
-faces. By default the washer ID follows the ground plate ID and the washer OD
-follows the bias plate OD. If a smaller custom washer is selected, the newly
+faces. The entered washer ID and OD are the primary dielectric dimensions;
+selected relation modes derive the ground plate ID and bias plate OD from them.
+If a smaller Custom-mode washer is selected, the newly
 exposed radial pockets are potting epoxy instead of washer dielectric. If a
 larger custom washer is selected, only the portion overlapping both electrodes
 contributes to the rough bias-to-ground capacitance estimate.
@@ -79,6 +80,8 @@ Cpar_adjacent ~= (C_middle_to_all_zero - C_all_bias_to_ground / 3) / 2
 ```
 
 The division by two accounts for the middle bias plate coupling to two adjacent bias plates in the local model. Treat it as a sanity check until a full capacitance-matrix charge extraction is implemented.
+
+The presentation separates these two capacitance checks. The total-capacitance slide compares washer-overlap `Cg,total` with the all-bias FEA energy integral. A dedicated Cpar slide shows the three excitation geometries used in the polarization difference: middle bias only, both neighbors only, and all three bias plates driven. It also states the expected direction of the analytic error: the axial `epsilon A/d` estimate generally runs high because it assigns core/epoxy flux directly to the neighboring bias plate without fully representing interception by the intervening grounded annulus.
 
 Resistance between adjacent bias plates:
 
@@ -148,20 +151,20 @@ C_gain_vs_FR4 ~= epsr_washer / 4.4
 
 This is only valid for the simple parallel-plate washer-overlap estimate, but it is useful for estimating how much capacitance a better dielectric buys before sourcing or machining ceramic washers.
 
-With the current browser defaults (`epsr_washer = 10` alumina-like, MELF 0207 direct-stage resistance, `epsr_core = 19.6` effective MELF core, 2.2 mm core OD, two plate pairs, 6.6 mm washer ID, 18.8 mm washer OD, 1.4 mm washer thickness, and 22.8 mm tube ID), the estimate is roughly:
+With the current browser defaults (`epsr_washer = 10` alumina-like, MELF 0207 direct-stage resistance, `epsr_core = 19.6` effective MELF core, 2.2 mm core OD, two plate pairs, 6.6 mm washer ID, 20 mm washer OD, 1.5 mm washer thickness, and 26 mm tube ID), the estimate is roughly:
 
-- `C_gap`: about 15.4 pF.
-- `C_g_stage`: about 30.8 pF per bias plate.
-- `C_parasitic`: about 0.37 pF between adjacent bias plates in the analytic/SPICE estimate.
+- `C_gap`: about 16.5 pF.
+- `C_g_stage`: about 33.1 pF per bias plate.
+- `C_parasitic`: about 0.26 pF between adjacent bias plates in the analytic/SPICE estimate.
 - `FEA Cpar`: about 0.14 pF in the current three-bias FEniCSx smoke test.
 - `R_stage`: 12 Mohm for the default 0207 direct stage.
 
 The default capacitance estimates correspond to:
 
 ```text
-C_gap ~= epsilon0 * 10 * pi * (9.4^2 - 3.3^2) / 1.4
+C_gap ~= epsilon0 * 10 * pi * (10^2 - 3.3^2) / 1.5
 C_g_stage ~= 2 C_gap
-C_parasitic ~= epsilon0 * (19.6 * pi * 1.1^2 + 3.4 * pi * (3.3^2 - 1.1^2)) / 4.3
+C_parasitic ~= epsilon0 * (19.6 * pi * 1.1^2 + 3.4 * pi * (2.55^2 - 1.1^2)) / 4.5
 ```
 
 ## Assumptions And Gaps

@@ -50,12 +50,15 @@ MAX_GRID_Z_COUNT = 280
 MAX_SOLVER_ITERATIONS = 2500
 FENICSX_SUBPROCESS_TIMEOUT_SECONDS = 15 * 60
 JOB_RETENTION_SECONDS = 6 * 60 * 60
+MIN_HALF_OZ_COPPER_THICKNESS_MM = 0.0175
 
 SOLVE_STRATEGY_FULL_STACK = "full_stack"
 SOLVE_STRATEGY_MIRROR_HALF = "mirror_half"
+SOLVE_STRATEGY_END_REPEAT_APPROX = "end_repeat_approx"
 SOLVE_STRATEGIES = {
     SOLVE_STRATEGY_FULL_STACK,
     SOLVE_STRATEGY_MIRROR_HALF,
+    SOLVE_STRATEGY_END_REPEAT_APPROX,
 }
 
 SOLVER_FD = "fd"
@@ -121,22 +124,37 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         "load_cable_impedance_ohm",
         "load_cable_velocity_factor",
         "detector_capacitance_pf",
+        "washer_id_mode",
+        "washer_od_mode",
+        "washer_id_matches_ground",
+        "washer_od_matches_bias",
+        "use_repeating_cell_approximation",
     }
     for key, value in raw_parameters.items():
         if key in params or key in extra_keys:
             params[key] = value
-    if "tube_id_mm" in raw_parameters and "hv_plate_od_mm" not in raw_parameters:
-        params["hv_plate_od_mm"] = params["tube_id_mm"] - 2.0 * params.get("hv_to_tube_gap_mm", 2.0)
+    if "washer_id_mode" not in raw_parameters and "washer_id_matches_ground" in raw_parameters:
+        params["washer_id_mode"] = "custom" if raw_parameters["washer_id_matches_ground"] is False else "ground_id"
+    if "washer_od_mode" not in raw_parameters and "washer_od_matches_bias" in raw_parameters:
+        params["washer_od_mode"] = "custom" if raw_parameters["washer_od_matches_bias"] is False else "bias_od"
 
     params["bias_voltage_v"] = clamp_number(params.get("bias_voltage_v"), 0.0, 100_000.0, 6000.0)
     params["core_od_mm"] = clamp_number(params.get("core_od_mm"), 0.1, 100.0, 2.0)
-    params["core_to_ground_gap_mm"] = clamp_number(params.get("core_to_ground_gap_mm"), 0.01, 50.0, 2.1)
-    params["hv_to_tube_gap_mm"] = clamp_number(params.get("hv_to_tube_gap_mm"), 0.01, 50.0, 2.0)
-    min_hv_plate_od_mm = max(12.0, params["core_od_mm"] + 2.0 * params["core_to_ground_gap_mm"] + 2.0)
-    params["hv_plate_od_mm"] = clamp_number(params.get("hv_plate_od_mm"), min_hv_plate_od_mm, 200.0, 20.0)
+    params["ground_plate_inner_diameter_mm"] = clamp_number(
+        params.get("ground_plate_inner_diameter_mm"), params["core_od_mm"] + 0.02, 400.0, params["core_od_mm"] + 4.0
+    )
+    params["tube_id_mm"] = clamp_number(
+        params.get("tube_id_mm"), max(12.02, params["ground_plate_inner_diameter_mm"] + 2.02), 400.0, 24.0
+    )
+    min_hv_plate_od_mm = max(12.0, params["ground_plate_inner_diameter_mm"] + 2.0)
+    params["hv_plate_od_mm"] = clamp_number(
+        params.get("hv_plate_od_mm"), min_hv_plate_od_mm, params["tube_id_mm"] - 0.02, 20.0
+    )
+    params["core_to_ground_gap_mm"] = (params["ground_plate_inner_diameter_mm"] - params["core_od_mm"]) / 2.0
+    params["hv_to_tube_gap_mm"] = (params["tube_id_mm"] - params["hv_plate_od_mm"]) / 2.0
     params["bias_plate_thickness_mm"] = clamp_number(
         params.get("bias_plate_thickness_mm", params.get("plate_thickness_mm")),
-        0.01,
+        MIN_HALF_OZ_COPPER_THICKNESS_MM,
         20.0,
         1.0,
     )
@@ -146,7 +164,7 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
     else:
         params["ground_plate_thickness_mm"] = clamp_number(
             params.get("ground_plate_thickness_mm", params.get("plate_thickness_mm")),
-            0.01,
+            MIN_HALF_OZ_COPPER_THICKNESS_MM,
             20.0,
             1.0,
         )
@@ -205,8 +223,10 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
     params["load_cable_velocity_factor"] = clamp_number(params.get("load_cable_velocity_factor"), 0.01, 1.0, 0.66)
     params["detector_capacitance_pf"] = clamp_number(params.get("detector_capacitance_pf"), 0.0, 1_000_000.0, 10.0)
     params["washer_epsr"] = clamp_number(params.get("washer_epsr"), 1.0, 1000.0, 10.0)
-    params["washer_id_matches_ground"] = bool(params.get("washer_id_matches_ground", True))
-    params["washer_od_matches_bias"] = bool(params.get("washer_od_matches_bias", True))
+    params["washer_id_mode"] = params.get("washer_id_mode") if params.get("washer_id_mode") in axisymmetric_model.WASHER_ID_MODES else "ground_id"
+    params["washer_od_mode"] = params.get("washer_od_mode") if params.get("washer_od_mode") in axisymmetric_model.WASHER_OD_MODES else "bias_od"
+    params["washer_id_matches_ground"] = params["washer_id_mode"] == "ground_id"
+    params["washer_od_matches_bias"] = params["washer_od_mode"] == "bias_od"
     params["washer_id_mm"] = clamp_number(params.get("washer_id_mm"), 0.01, 400.0, params.get("ground_plate_inner_diameter_mm", 6.6))
     params["washer_od_mm"] = clamp_number(params.get("washer_od_mm"), 0.02, 400.0, params.get("hv_plate_od_mm", 18.8))
     params["epoxy_epsr"] = clamp_number(params.get("epoxy_epsr"), 1.0, 1000.0, 3.4)
@@ -249,7 +269,13 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
             params["use_direct_stage_circuit"] and not str(params.get("core_material", "")).startswith("mmb020"),
         )
     )
-    params["solve_strategy"] = sanitize_solve_strategy(params.get("solve_strategy", SOLVE_STRATEGY_FULL_STACK))
+    if bool(params.get("use_repeating_cell_approximation", False)):
+        params["solve_strategy"] = SOLVE_STRATEGY_END_REPEAT_APPROX
+    else:
+        params["solve_strategy"] = sanitize_solve_strategy(params.get("solve_strategy", SOLVE_STRATEGY_MIRROR_HALF))
+        if params["solve_strategy"] == SOLVE_STRATEGY_END_REPEAT_APPROX:
+            params["solve_strategy"] = SOLVE_STRATEGY_MIRROR_HALF
+    params["use_repeating_cell_approximation"] = params["solve_strategy"] == SOLVE_STRATEGY_END_REPEAT_APPROX
     return axisymmetric_model.normalize_parameters(params)
 
 
@@ -266,14 +292,13 @@ def center_plate_kind(p: dict[str, Any]) -> str:
 
 
 def stack_symmetry_plan(p: dict[str, Any]) -> dict[str, Any]:
-    """Describe the exact mirror symmetry available to a future FEA worker.
+    """Describe the exact mirror symmetry used by the FEniCSx worker.
 
     The physical stack starts and ends on ground plates. With uniform plate
     thickness/gap/material definitions, it is mirror-symmetric about the center
-    of the middle plate. For the current browser-facing finite-difference
-    worker we still solve the full stack so the result grid aligns with the
-    existing visualization. A future FEA worker can solve the half-domain and
-    mirror the resulting field back into the full browser result shape.
+    of the middle plate. FEniCSx solves the half-domain and mirrors the field
+    back into the full browser result shape. The finite-difference screening
+    worker continues to solve its full structured grid.
     """
     length = axisymmetric_model.stack_length_mm(p)
     pairs = int(p["plate_pairs"])
@@ -282,7 +307,7 @@ def stack_symmetry_plan(p: dict[str, Any]) -> dict[str, Any]:
         "mirror_z_mm": length / 2.0,
         "mirror_plate_kind": center_plate_kind(p),
         "full_stack_plate_pairs": pairs,
-        "recommended_default": SOLVE_STRATEGY_MIRROR_HALF if pairs > 1 else SOLVE_STRATEGY_FULL_STACK,
+        "recommended_default": SOLVE_STRATEGY_MIRROR_HALF,
         "available_strategies": [
             {
                 "name": SOLVE_STRATEGY_FULL_STACK,
@@ -293,6 +318,12 @@ def stack_symmetry_plan(p: dict[str, Any]) -> dict[str, Any]:
                 "purpose": "Solve one end through the middle plate, then mirror across the center plane.",
                 "boundary": "Mirror plane uses even-potential symmetry, dV/dz = 0, outside fixed conductor cells.",
                 "is_exact_for_this_idealized_stack": True,
+            },
+            {
+                "name": SOLVE_STRATEGY_END_REPEAT_APPROX,
+                "purpose": "Solve end-to-first-bias-center and bias-center-to-next-ground-center regions, then copy and mirror them through the stack.",
+                "boundary": "Cuts use zero-normal-flux at the assumed bias-plate and ground-plate axial symmetry planes.",
+                "is_exact_for_this_idealized_stack": False,
             },
         ],
     }
@@ -306,6 +337,7 @@ def symmetry_validation_plan(p: dict[str, Any]) -> dict[str, Any]:
         "reference_strategy": SOLVE_STRATEGY_FULL_STACK,
         "candidate_strategies": [
             SOLVE_STRATEGY_MIRROR_HALF,
+            SOLVE_STRATEGY_END_REPEAT_APPROX,
         ],
         "validation_type": "code_regression_for_exact_symmetry",
         "checks": [
@@ -332,7 +364,7 @@ def symmetry_validation_plan(p: dict[str, Any]) -> dict[str, Any]:
         ],
         "notes": [
             "Mirror symmetry is exact for the idealized uniform stack; this validation checks the implementation, not the physics assumption.",
-            "Users can set plate_pairs to 2 when they want a smaller representative calculation; the backend does not special-case a repeating-cell approximation.",
+            "The FEniCSx mirror-half path is exact; a separate repeating-cell approximation is not used because finite-stack end effects are global.",
             "Tolerances allow for discretization and interpolation differences between full and reconstructed grids during solver development.",
         ],
         "applies_to_plate_pairs": pairs,

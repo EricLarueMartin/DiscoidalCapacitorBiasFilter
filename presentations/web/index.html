@@ -4,8 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SHV Bias Filter</title>
-    <link rel="stylesheet" href="style.css?v=2026-07-10-fea-sanity-type-2">
-    <script defer src="app.js?v=2026-07-10-engineering-inputs-femto-2"></script>
+    <script>
+      (() => {
+        try {
+          const savedTheme = localStorage.getItem("shv-bias-filter-theme");
+          document.documentElement.dataset.theme = savedTheme === "dark" || savedTheme === "light"
+            ? savedTheme
+            : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        } catch {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="style.css?v=2026-07-13-solver-explainer">
+    <script defer src="app.js?v=2026-07-13-dark-mode"></script>
   </head>
   <body>
     <header class="topbar">
@@ -13,11 +25,17 @@
         <p class="eyebrow">Axisymmetric high-voltage filter</p>
         <h1>SHV Bias Filter</h1>
       </div>
-      <nav class="tabs" aria-label="Views">
-        <button class="tab active" type="button" data-view="designer">Designer</button>
-        <button class="tab" type="button" data-view="slides">Slides</button>
-        <button class="tab" type="button" data-view="artifacts">Artifacts</button>
-      </nav>
+      <div class="topbar-actions">
+        <nav class="tabs" aria-label="Views">
+          <button class="tab active" type="button" data-view="designer">Designer</button>
+          <button class="tab" type="button" data-view="slides">Slides</button>
+          <button class="tab" type="button" data-view="artifacts">Artifacts</button>
+        </nav>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">
+          <span class="theme-icon" aria-hidden="true">☾</span>
+          <span class="theme-label">Dark mode</span>
+        </button>
+      </div>
     </header>
 
     <main>
@@ -122,23 +140,35 @@
           <div class="control-group control-panel" data-control-panel="geometry" hidden>
             <h2>Geometry</h2>
             <label>Core OD <output id="core_od_mm_out"></output><input id="core_od_mm" type="range" min="2" max="14" step="0.1"></label>
-            <label>HV OD <output id="hv_plate_od_mm_out"></output><input id="hv_plate_od_mm" type="range" min="12" max="56" step="0.5"></label>
-            <label title="Ground ID = Core OD + 2 x this radial gap">Core-ground radial gap <output id="core_to_ground_gap_mm_out"></output><input id="core_to_ground_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
-            <label title="Tube ID = HV OD + 2 x this radial gap">HV-tube radial gap <output id="hv_to_tube_gap_mm_out"></output><input id="hv_to_tube_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
-            <label title="Washer thickness between adjacent plate faces">Washer thickness <output id="plate_gap_mm_out"></output><input id="plate_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
-            <label title="Ceramic washer inner diameter. Default follows the ground plate ID.">Washer ID <output id="washer_id_mm_out"></output><input id="washer_id_mm" type="range" min="2" max="40" step="0.1"></label>
-            <label class="check"><input id="washer_id_matches_ground" type="checkbox"> Washer ID = ground ID</label>
-            <label title="Ceramic washer outer diameter. Default follows the bias plate OD.">Washer OD <output id="washer_od_mm_out"></output><input id="washer_od_mm" type="range" min="4" max="60" step="0.1"></label>
-            <label class="check"><input id="washer_od_matches_bias" type="checkbox"> Washer OD = bias OD</label>
-            <label>Bias plate thickness <output id="bias_plate_thickness_mm_out"></output><input id="bias_plate_thickness_mm" type="range" min="0.4" max="4" step="0.1"></label>
-            <label>Ground plate thickness <output id="ground_plate_thickness_mm_out"></output><input id="ground_plate_thickness_mm" type="range" min="0.4" max="4" step="0.1"></label>
+            <label title="Primary inside diameter of the surrounding grounded tube.">Ground tube ID <output id="tube_id_mm_out"></output><input id="tube_id_mm" type="range" min="12" max="64" step="0.1"></label>
+            <label title="Primary axial washer thickness between adjacent plate faces.">Washer thickness <output id="plate_gap_mm_out"></output><input id="plate_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
+            <label title="Ceramic washer inner diameter and source dimension for coupled ground-ID modes.">Washer ID <output id="washer_id_mm_out"></output><input id="washer_id_mm" type="range" min="2" max="40" step="0.1"></label>
+            <label>Washer ID relation
+              <select id="washer_id_mode">
+                <option value="ground_id">Ground ID = washer ID</option>
+                <option value="ground_flat_id">Ground flat ID = washer ID</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label title="Ceramic washer outer diameter and source dimension for coupled bias-OD modes.">Washer OD <output id="washer_od_mm_out"></output><input id="washer_od_mm" type="range" min="4" max="60" step="0.1"></label>
+            <label>Washer OD relation
+              <select id="washer_od_mode">
+                <option value="bias_od">Bias OD = washer OD</option>
+                <option value="bias_flat_od">Bias flat OD = washer OD</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label title="Derived from washer OD unless the washer OD relation is Custom.">Bias plate OD <output id="hv_plate_od_mm_out"></output><input id="hv_plate_od_mm" type="range" min="12" max="56" step="0.1"></label>
+            <label title="Derived from washer ID unless the washer ID relation is Custom.">Ground plate ID <output id="ground_plate_inner_diameter_mm_out"></output><input id="ground_plate_inner_diameter_mm" type="range" min="2" max="40" step="0.1"></label>
+            <label title="Minimum is nominal 1/2 oz copper foil: 0.0175 mm.">Bias plate thickness <output id="bias_plate_thickness_mm_out"></output><input id="bias_plate_thickness_mm" type="range" min="0.0175" max="4" step="0.0005"></label>
+            <label title="Minimum is nominal 1/2 oz copper foil: 0.0175 mm.">Ground plate thickness <output id="ground_plate_thickness_mm_out"></output><input id="ground_plate_thickness_mm" type="range" min="0.0175" max="4" step="0.0005"></label>
             <label class="check"><input id="ground_matches_bias_thickness" type="checkbox"> Ground thickness = bias thickness</label>
             <label>Edge diameter <output id="edge_diameter_percent_out"></output><input id="edge_diameter_percent" type="range" min="0" max="100" step="5"></label>
             <label>Plate pairs <output id="plate_pairs_out"></output><input id="plate_pairs" type="range" min="1" max="6" step="1"></label>
             <label class="check"><input id="include_ground_tube" type="checkbox"> Ground tube</label>
             <div class="derived-dimensions" aria-label="Derived diameters">
-              <span>Ground ID <strong id="ground_plate_inner_diameter_mm_out">--</strong></span>
-              <span>Tube ID <strong id="tube_id_mm_out">--</strong></span>
+              <span>Core-ground gap <strong id="core_to_ground_gap_mm_out">--</strong></span>
+              <span>Bias-tube gap <strong id="hv_to_tube_gap_mm_out">--</strong></span>
               <span>Ground OD <strong id="ground_plate_od_mm_out">--</strong></span>
             </div>
           </div>
@@ -159,7 +189,19 @@
               <output id="mesh_edge_radius_ratio_out"></output>
               <input id="mesh_edge_radius_ratio" type="range" min="0.05" max="0.5" step="0.01">
             </label>
-            <p class="control-note">Backend auto uses FEniCSx when ready and falls back to the adaptive finite-difference solver otherwise.</p>
+            <label class="check" title="Use two unique FEniCSx regions to reconstruct the full electric-field stack."><input id="use_repeating_cell_approximation" type="checkbox"> Repeat interior FEA cell</label>
+            <div class="solver-explainer">
+              <strong>What the repeating-cell approximation solves</strong>
+              <p>FEniCSx meshes and solves only two unique axial regions:</p>
+              <ol>
+                <li><b>End region:</b> the physical end cap through the axial center of the first bias plate.</li>
+                <li><b>Interior half-cell:</b> the center of that first bias plate through the center of the next interior ground plate—the second ground plate when the end cap is counted.</li>
+              </ol>
+              <p>The far end is an exact mirror of the solved end region. Between the two ends, the interior half-cell is copied and alternately mirrored about successive bias-plate and ground-plate center planes until the reconstructed stack reaches the far-end region.</p>
+              <p>The separate three-excitation C<sub>par</sub> calculation cannot reuse that repeating field cell because its bias plates have different voltages. It keeps exact mirror symmetry through the driven middle bias plate, truncates at the neighboring bias-plate center, and grounds the exposed outer annulus on that cut.</p>
+              <p>This option affects FEniCSx only. When unchecked, the solver uses the exact half-stack mirror model. Short stacks may not run faster with the approximation.</p>
+            </div>
+            <p class="control-note">Backend auto uses FEniCSx when ready and falls back to adaptive finite difference.</p>
             <div class="actions solver-actions">
               <button id="solve" type="button">Solve field</button>
             </div>
@@ -182,7 +224,7 @@
               <small id="rawMaxField">raw point not solved</small>
             </div>
             <div>
-              <span title="Sphere-limit field bound for minimum conductor radius r and minimum opposite-conductor gap d: Emax = V(r + d)/(r d).">r,d bound</span>
+              <span title="Sphere-limit field bound for minimum conductor radius r and minimum opposite-conductor gap d: Eₘₐₓ = V(r + d)/(r d).">r,d bound</span>
               <strong id="edgeApprox">--</strong>
               <small id="radiusGapBound">E = V(r + d)/(r d)</small>
             </div>
@@ -467,18 +509,31 @@
           </figure>
         </article>
         <article class="slide slide-visual">
-          <div class="slide-copy slide-copy-compact">
-            <h2>FEA Capacitance Sanity Check</h2>
+          <div class="slide-copy">
+            <h2>Total Capacitance Checks the FEA Scale</h2>
             <ul>
               <li>Compare analytic washer-overlap C<sub>g,total</sub> to FEA energy-extracted C<sub>g,total</sub>.</li>
-              <li>Compare analytic adjacent-bias C<sub>par</sub> to the FEA three-bias energy-difference estimate.</li>
-              <li>Keep attenuation validation on the loaded RC and SPICE ladder slides.</li>
-              <li>MELF C<sub>par</sub> uses an effective ceramic core: &epsilon;<sub>eff</sub> = &epsilon;<sub>substrate</sub>/(1 - FF).</li>
+              <li>Use C = 2U/V<sup>2</sup> with every bias conductor tied together against ground.</li>
+              <li>Treat this as a magnitude check; attenuation remains on the loaded-ladder slides.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideFeaSanityCanvas" width="1100" height="620"></canvas>
-            <figcaption>FEA capacitance comparison against analytic estimates</figcaption>
+            <figcaption>Total HV-to-ground capacitance from analytic overlap and FEA energy</figcaption>
+          </figure>
+        </article>
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <h2>Three FEA Excitations Isolate C<sub>par</sub></h2>
+            <ul>
+              <li>Combine middle-only, neighbors-only, and all-bias energy solves to cancel capacitance to ground and isolate mutual C<sub>par</sub>.</li>
+              <li>Expect the axial &epsilon;A/d estimate to run high: grounded plates intercept part of the fringing flux between bias plates.</li>
+              <li>Treat the analytic result as a conservative screening value; use the shielded FEA result in the loaded ladder.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCparExtractionCanvas" width="1100" height="620"></canvas>
+            <figcaption>Three energy solves isolate adjacent-bias parasitic capacitance</figcaption>
           </figure>
         </article>
         <article class="slide slide-visual">

@@ -1,0 +1,8 @@
+User request:
+Note on the solver blub about what repeat interior FEA cells is actually doing. What two regions are actually solved then how the reset are mirrored and repeated. There's lots of room for it on that sidebar.
+
+Implementation:
+- Expanded the Solver sidebar explanation for the repeating-cell FEniCSx approximation.
+- Named the two solved regions: the physical end through the first bias-plate center, and the first-bias center through the next interior ground-plate center.
+- Explained the exact mirrored far end and the alternating copy/mirror reconstruction of interior cells.
+- Clarified that the three-excitation Cpar calculation uses a different neighbor-cut approximation because its bias plates do not share one voltage pattern.

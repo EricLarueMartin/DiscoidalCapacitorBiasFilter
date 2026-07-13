@@ -1,0 +1,19 @@
+Reconstructed user-facing collaboration record
+Date: 2026-07-13
+
+User observed that the alternating geometry repeats and asked whether the FEA could solve reduced end/middle geometry using symmetry and repetition, or whether FEniCS lacked support.
+
+Implemented intent:
+- Activate the existing planned `mirror_half` strategy in the FEniCSx worker.
+- Mesh one end through the center plane of the middle plate, where exact mirror symmetry supplies a zero-normal-flux boundary condition.
+- Double half-domain electrostatic energy for full-stack capacitance and mirror field samples into the full browser result grid.
+- Use the same exact reduction for the symmetric local three-bias capacitance solves.
+- Retain `full_stack` for validation.
+- Do not claim arbitrary interior repetition is exact for a finite stack, because global electrostatic end effects prevent every interior plate center from being a true symmetry plane.
+
+Pi validation:
+- All 16 backend tests passed.
+- Full workflow runtime improved from 5.167 s to 2.433 s (2.12x).
+- Total-capacitance relative difference was 0.00083%.
+- Neighborhood-supported peak-field relative difference was 0.267%.
+- The half solve meshed 6.75 mm and reconstructed the 13.5 mm full stack.

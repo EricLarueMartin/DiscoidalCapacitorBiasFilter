@@ -1,0 +1,14 @@
+RECONSTRUCTED USER-FACING SESSION RECORD — 2026-07-11
+
+This record was reconstructed from the visible conversation. Routine tool output and
+intermediate progress updates are omitted. Deployment-specific access details are
+intentionally omitted.
+
+User: Allow the plate thicknesses to go as low as 1/2 oz copper pour in mm
+
+Assistant outcome: Set the bias and ground plate thickness minimum to 0.0175 mm,
+with 0.0005 mm control resolution and four-decimal readouts. Separated conductor
+thickness controls from dielectric clearance controls so breakdown-derived gap limits
+no longer overwrite the copper thickness minimum. Added backend regression coverage,
+deployed the change, and live-verified both 0.0175 and 17.5u inputs. All 14 backend
+tests passed on the Raspberry Pi.

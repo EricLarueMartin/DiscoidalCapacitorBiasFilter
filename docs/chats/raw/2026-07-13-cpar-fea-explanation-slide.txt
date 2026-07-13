@@ -1,0 +1,12 @@
+Reconstructed user-facing collaboration record
+Date: 2026-07-13
+
+User requested a dedicated presentation slide explaining how FEA parasitic capacitance is calculated and why the analytic axial-field approximation is expected to overestimate Cpar because it does not fully account for ground shielding. User also requested that the existing FEA Capacitance Sanity Check slide be made less busy and that the new slide display the simulated geometries whose energy-derived capacitances are differenced.
+
+Implemented presentation structure:
+- Simplify the existing capacitance sanity-check slide to total HV-to-ground capacitance only.
+- Add a dedicated adjacent-bias Cpar slide.
+- Show three local FEA excitation states: middle bias only, both neighboring bias plates only, and all three bias plates driven.
+- Display `Cpar = (Cmiddle + Cneighbors - Call) / (2 Nneighbors)`, with each equivalent capacitance obtained from `2U/V^2`.
+- Explain that energy polarization cancels terms coupling only to ground.
+- Explain that the axial `epsilon A/d` estimate is expected to run high because the intervening grounded annulus intercepts flux that the analytic model assigns to the neighboring bias plate.

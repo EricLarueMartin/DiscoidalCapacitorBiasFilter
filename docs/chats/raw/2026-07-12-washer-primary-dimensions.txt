@@ -1,0 +1,21 @@
+RECONSTRUCTED USER-FACING SESSION RECORD — 2026-07-12
+
+This record was reconstructed from the visible conversation. Routine tool output and
+intermediate progress updates are omitted. Deployment-specific access details are
+intentionally omitted.
+
+User: Change the check box for Washer OD = bias OD to a dropdown one of thiwch is sitll bias OD = Washer OD allow bias flat OD = Washer OD and also custom, for the flat use edge diameter setting to set it back one edge radius so the the start of the curved section is where the end of the washer is. do likewise for th ground ID and washer ID. In both cases the value that is entered that the other is calcualted based on is that the washer dimesnions is edited.
+
+User: Instead of specifying a core ground radial gap i was the primary dimensions specified to be the washer ID OD and thickness and the core OD and ground tube ID
+
+Assistant outcome: Replaced both washer-match checkboxes with direct-edge,
+flat-edge, and Custom relation dropdowns. Made core OD, ground-tube ID, washer ID,
+washer OD, and washer thickness the primary assembly dimensions. Direct modes set
+the plate extrema equal to the washer diameters. Flat modes derive ground ID as
+washer ID minus two ground-edge radii and bias OD as washer OD plus two bias-edge
+radii. The edge radii follow plate thickness and edge-diameter percentage. Core-ground
+and bias-to-tube gaps are now derived readouts. Custom modes unlock direct ground-ID
+and bias-OD editing while washer and tube dimensions remain editable. Legacy checkbox
+settings map to the corresponding direct or Custom modes. The change was deployed,
+all 16 backend tests passed, and direct, flat, Custom, and 50%-edge live UI behavior
+was verified.

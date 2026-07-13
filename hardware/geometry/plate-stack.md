@@ -26,7 +26,7 @@ The axisymmetric r-z model should represent rounded edges explicitly rather than
 The working model separates these material zones:
 
 - Ferrite or other resistive core material on the central high-voltage path. The electrostatic field solve treats this core as an HV equipotential body.
-- Flat washer dielectric slabs in the axial gaps between adjacent plate faces, spanning from washer ID to washer OD. The defaults tie washer ID to ground plate ID and washer OD to HV plate OD.
+- Flat washer dielectric slabs in the axial gaps between adjacent plate faces, spanning from the entered washer ID to washer OD. The washer dimensions are primary. Relation modes can derive the ground inner diameter and bias outer diameter either at the conductor extrema or at the start of their rounded edge sections; Custom mode leaves the plate diameters independent.
 - Epoxy fill in the core-side gaps, tube-side gaps, regions outside the washer annulus, and remaining volume.
 
 For capacitance estimates, use the explicit washer ID/OD overlap. If a custom washer is smaller than the plate overlap, the exposed rounded-edge pockets are epoxy in the field material map.

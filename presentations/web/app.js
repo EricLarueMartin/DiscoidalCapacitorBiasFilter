@@ -18,21 +18,21 @@ const defaults = {
   load_cable_impedance_ohm: 50,
   load_cable_velocity_factor: 0.66,
   detector_capacitance_pf: 10,
-  core_resistance_gohm: 0.01,
+  core_resistance_gohm: 0.02400005,
   core_od_mm: 2.2,
   core_material: "mmb0207_melf",
   ferrite_epsr: 6,
-  core_to_ground_gap_mm: 2.2,
-  hv_to_tube_gap_mm: 2,
-  hv_plate_od_mm: 18.8,
-  ground_plate_inner_diameter_mm: 6.6,
+  core_to_ground_gap_mm: 1.45,
+  hv_to_tube_gap_mm: 2.25,
+  hv_plate_od_mm: 21.5,
+  ground_plate_inner_diameter_mm: 5.1,
   washer_id_mm: 6.6,
-  washer_od_mm: 18.8,
-  washer_id_matches_ground: true,
-  washer_od_matches_bias: true,
-  ground_plate_od_mm: 22.8,
-  tube_id_mm: 22.8,
-  plate_gap_mm: 1.4,
+  washer_od_mm: 20,
+  washer_id_mode: "ground_flat_id",
+  washer_od_mode: "bias_flat_od",
+  ground_plate_od_mm: 26,
+  tube_id_mm: 26,
+  plate_gap_mm: 1.5,
   plate_thickness_mm: 1.5,
   bias_plate_thickness_mm: 1.5,
   ground_plate_thickness_mm: 1.5,
@@ -62,7 +62,8 @@ const defaults = {
   grid_z_count: 150,
   solver_iterations: 700,
   solver_tolerance_v: 0.01,
-  solve_strategy: "full_stack"
+  solve_strategy: "mirror_half",
+  use_repeating_cell_approximation: false
 };
 
 const FIELD_SOLVER_ENDPOINT = "/api/field-solve";
@@ -81,12 +82,13 @@ const SUPPORTED_PEAK_OUTLIER_RATIO = 1.35;
 const MIN_RADIAL_OVERLAP_MM = 1;
 const MIN_HV_PLATE_OD_MM = 12;
 const MIN_WASHER_RADIAL_WIDTH_MM = 0.1;
-const MAX_BACKEND_RADIAL_GAP_MM = 50;
 const SPEED_OF_LIGHT_M_PER_S = 299792458;
 const ATTENUATION_PLOT_FMIN_HZ = 1;
 const ATTENUATION_PLOT_FMAX_HZ = 100e6;
 const CUSTOM_SPACING_RANGE_MM = { min: 0.4, max: 4 };
 const BREAKDOWN_DESIGN_FACTOR_MAX = 10;
+const WASHER_ID_MODES = new Set(["ground_id", "ground_flat_id", "custom"]);
+const WASHER_OD_MODES = new Set(["bias_od", "bias_flat_od", "custom"]);
 const fieldSolverOptions = {
   browser_js: {
     label: "Browser JS adaptive",
@@ -134,6 +136,36 @@ const defaultCadView = {
 
 let cadView = structuredClone(defaultCadView);
 
+const THEME_STORAGE_KEY = "shv-bias-filter-theme";
+
+function setTheme(theme, persist = false) {
+  const resolvedTheme = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = resolvedTheme;
+  const toggle = document.getElementById("themeToggle");
+  if (toggle) {
+    const dark = resolvedTheme === "dark";
+    toggle.setAttribute("aria-pressed", dark ? "true" : "false");
+    toggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    toggle.querySelector(".theme-icon").textContent = dark ? "☀" : "☾";
+    toggle.querySelector(".theme-label").textContent = dark ? "Light mode" : "Dark mode";
+  }
+  if (persist) {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, resolvedTheme);
+    } catch {
+      // The theme still applies for this page when storage is unavailable.
+    }
+  }
+}
+
+function setupThemeToggle() {
+  const initialTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  setTheme(initialTheme);
+  document.getElementById("themeToggle")?.addEventListener("click", () => {
+    setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark", true);
+  });
+}
+
 const ids = [
   "bias_voltage_v",
   "core_volume_resistivity_log10_ohm_cm",
@@ -158,10 +190,10 @@ const ids = [
   "tube_relative_permeability",
   "core_od_mm",
   "hv_plate_od_mm",
+  "ground_plate_inner_diameter_mm",
+  "tube_id_mm",
   "washer_id_mm",
   "washer_od_mm",
-  "core_to_ground_gap_mm",
-  "hv_to_tube_gap_mm",
   "plate_gap_mm",
   "bias_plate_thickness_mm",
   "ground_plate_thickness_mm",
@@ -194,6 +226,7 @@ const units = {
   hv_plate_od_mm: " mm",
   washer_id_mm: " mm",
   washer_od_mm: " mm",
+  ground_plate_inner_diameter_mm: " mm",
   tube_id_mm: " mm",
   core_to_ground_gap_mm: " mm",
   hv_to_tube_gap_mm: " mm",
@@ -275,11 +308,7 @@ const conductorMaterialPresets = {
   stainless_316: { label: "316 stainless", conductivity: 1.35e6, mur: 1.02 }
 };
 const hvSpacingControlIds = [
-  "core_to_ground_gap_mm",
-  "hv_to_tube_gap_mm",
-  "plate_gap_mm",
-  "bias_plate_thickness_mm",
-  "ground_plate_thickness_mm"
+  "plate_gap_mm"
 ];
 
 function isDynamicallyConstrainedControl(id) {
@@ -389,8 +418,8 @@ function washerGapIntervals(p) {
 
 function washerRadialBounds(p) {
   const tubeInner = p.tube_id_mm / 2;
-  const inner = (p.washer_id_matches_ground ? p.ground_plate_inner_diameter_mm : p.washer_id_mm) / 2;
-  const outer = (p.washer_od_matches_bias ? p.hv_plate_od_mm : p.washer_od_mm) / 2;
+  const inner = p.washer_id_mm / 2;
+  const outer = p.washer_od_mm / 2;
   const clampedInner = clamp(inner, 0, Math.max(0, tubeInner));
   const clampedOuter = clamp(outer, 0, Math.max(0, tubeInner));
   return {
@@ -609,16 +638,15 @@ function spacingRangeForWasher(p) {
 }
 
 function minHvPlateOdForGeometry(p) {
-  const groundInner = p.core_od_mm + 2 * p.core_to_ground_gap_mm;
+  const groundInner = p.ground_plate_inner_diameter_mm;
   return Math.max(MIN_HV_PLATE_OD_MM, groundInner + 2 * MIN_RADIAL_OVERLAP_MM);
 }
 
 function derivedGeometry(p) {
-  const tubeId = p.hv_plate_od_mm + 2 * p.hv_to_tube_gap_mm;
   return {
-    groundPlateInnerDiameter: p.core_od_mm + 2 * p.core_to_ground_gap_mm,
-    tubeId,
-    groundPlateOd: tubeId
+    coreToGroundGap: (p.ground_plate_inner_diameter_mm - p.core_od_mm) / 2,
+    hvToTubeGap: (p.tube_id_mm - p.hv_plate_od_mm) / 2,
+    groundPlateOd: p.tube_id_mm
   };
 }
 
@@ -627,63 +655,85 @@ function minimumSpacingForMaterial(preset, biasVoltageV) {
   return Math.max(0.1, Math.ceil((biasVoltageV / 1000 / preset.breakdownKvPerMm) * 10) / 10);
 }
 
-function coreGroundGapRange(p) {
-  const min = minimumSpacingForMaterial(epoxyMaterialPresets[p.epoxy_material], p.bias_voltage_v);
-  const geometryMax = (p.hv_plate_od_mm - p.core_od_mm - 2 * MIN_RADIAL_OVERLAP_MM) / 2;
-  return {
-    min,
-    max: Math.max(min, Math.min(MAX_BACKEND_RADIAL_GAP_MM, geometryMax))
-  };
-}
-
 function applyDerivedGeometry(p) {
   const derived = derivedGeometry(p);
-  p.ground_plate_inner_diameter_mm = derived.groundPlateInnerDiameter;
-  p.tube_id_mm = derived.tubeId;
+  p.core_to_ground_gap_mm = derived.coreToGroundGap;
+  p.hv_to_tube_gap_mm = derived.hvToTubeGap;
   p.ground_plate_od_mm = derived.groundPlateOd;
 }
 
 function applyWasherGeometry(p) {
   const minWidthDiameter = 2 * MIN_WASHER_RADIAL_WIDTH_MM;
-  const minId = Math.max(0.1, p.core_od_mm);
-  const maxOd = Math.max(p.hv_plate_od_mm, p.tube_id_mm);
-  p.washer_id_matches_ground = p.washer_id_matches_ground !== false;
-  p.washer_od_matches_bias = p.washer_od_matches_bias !== false;
+  const groundRadius = edgeRadiusMm(p, "ground");
+  const biasRadius = edgeRadiusMm(p, "hv");
+  const coreGapMin = minimumSpacingForMaterial(epoxyMaterialPresets[p.epoxy_material], p.bias_voltage_v);
+  const tubeGapMin = coreGapMin;
+  const minGroundId = p.core_od_mm + 2 * coreGapMin;
+  p.tube_id_mm = Math.max(p.tube_id_mm, MIN_HV_PLATE_OD_MM + 2 * tubeGapMin);
+  const maxGroundId = Math.max(minGroundId, p.tube_id_mm - 2 * tubeGapMin - 2 * MIN_RADIAL_OVERLAP_MM);
+
+  p.washer_id_mode = WASHER_ID_MODES.has(p.washer_id_mode) ? p.washer_id_mode : "ground_id";
+  p.washer_od_mode = WASHER_OD_MODES.has(p.washer_od_mode) ? p.washer_od_mode : "bias_od";
+  p.washer_id_matches_ground = p.washer_id_mode === "ground_id";
+  p.washer_od_matches_bias = p.washer_od_mode === "bias_od";
   if (!Number.isFinite(p.washer_id_mm)) p.washer_id_mm = p.ground_plate_inner_diameter_mm;
   if (!Number.isFinite(p.washer_od_mm)) p.washer_od_mm = p.hv_plate_od_mm;
 
-  if (p.washer_id_matches_ground) p.washer_id_mm = p.ground_plate_inner_diameter_mm;
-  if (p.washer_od_matches_bias) p.washer_od_mm = p.hv_plate_od_mm;
-
-  if (!p.washer_id_matches_ground) {
-    const maxId = Math.max(minId, p.washer_od_mm - minWidthDiameter);
-    p.washer_id_mm = clamp(p.washer_id_mm, minId, maxId);
+  if (p.washer_id_mode === "ground_id") {
+    p.ground_plate_inner_diameter_mm = clamp(p.washer_id_mm, minGroundId, maxGroundId);
+    p.washer_id_mm = p.ground_plate_inner_diameter_mm;
+    p.core_to_ground_gap_mm = (p.ground_plate_inner_diameter_mm - p.core_od_mm) / 2;
+  } else if (p.washer_id_mode === "ground_flat_id") {
+    p.ground_plate_inner_diameter_mm = clamp(p.washer_id_mm - 2 * groundRadius, minGroundId, maxGroundId);
+    p.washer_id_mm = p.ground_plate_inner_diameter_mm + 2 * groundRadius;
+    p.core_to_ground_gap_mm = (p.ground_plate_inner_diameter_mm - p.core_od_mm) / 2;
+  } else {
+    p.ground_plate_inner_diameter_mm = clamp(p.ground_plate_inner_diameter_mm, minGroundId, maxGroundId);
   }
-  if (!p.washer_od_matches_bias) {
-    const minOd = p.washer_id_mm + minWidthDiameter;
-    p.washer_od_mm = clamp(p.washer_od_mm, minOd, Math.max(minOd, maxOd));
+
+  p.washer_id_mm = Math.max(p.core_od_mm, p.washer_id_mm);
+  p.washer_od_mm = Math.max(p.washer_id_mm + minWidthDiameter, p.washer_od_mm);
+  const minHvOd = Math.max(MIN_HV_PLATE_OD_MM, p.ground_plate_inner_diameter_mm + 2 * MIN_RADIAL_OVERLAP_MM);
+  const maxHvOd = p.tube_id_mm - 2 * tubeGapMin;
+  if (p.washer_od_mode === "bias_od") {
+    p.hv_plate_od_mm = clamp(p.washer_od_mm, minHvOd, maxHvOd);
+    p.washer_od_mm = p.hv_plate_od_mm;
+  } else if (p.washer_od_mode === "bias_flat_od") {
+    p.hv_plate_od_mm = clamp(p.washer_od_mm + 2 * biasRadius, minHvOd, maxHvOd);
+    p.washer_od_mm = p.hv_plate_od_mm - 2 * biasRadius;
+  } else {
+    p.hv_plate_od_mm = clamp(p.hv_plate_od_mm, minHvOd, maxHvOd);
+  }
+
+  applyDerivedGeometry(p);
+  const maxWasherOd = Math.max(p.washer_id_mm + minWidthDiameter, p.tube_id_mm);
+  if (p.washer_id_mode === "custom") {
+    p.washer_id_mm = clamp(p.washer_id_mm, p.core_od_mm, Math.max(p.core_od_mm, p.washer_od_mm - minWidthDiameter));
+  }
+  if (p.washer_od_mode === "custom") {
+    p.washer_od_mm = clamp(p.washer_od_mm, p.washer_id_mm + minWidthDiameter, maxWasherOd);
   }
 }
 
 function syncDynamicRanges() {
   const spacingRange = spacingRangeForWasher(params);
-  const coreGapRange = coreGroundGapRange(params);
   for (const id of hvSpacingControlIds) {
-    const min = id === "core_to_ground_gap_mm"
-      ? coreGapRange.min
-      : id === "plate_gap_mm"
-        ? Math.max(spacingRange.min, minimumMelfPlateGapMm(params))
-        : spacingRange.min;
-    const max = id === "core_to_ground_gap_mm" ? coreGapRange.max : spacingRange.max;
+    const min = Math.max(spacingRange.min, minimumMelfPlateGapMm(params));
+    const max = spacingRange.max;
     setRangeInputBounds(id, min, max, 0.1);
   }
   const hvOdInput = document.getElementById("hv_plate_od_mm");
   const hvOdBaseMax = defaultControlRanges.hv_plate_od_mm?.max ?? numericAttribute(hvOdInput, "max", 56);
   setRangeInputBounds("hv_plate_od_mm", minHvPlateOdForGeometry(params), hvOdBaseMax, 0.5);
-  const washerIdMax = Math.max(params.core_od_mm, params.washer_od_mm - 2 * MIN_WASHER_RADIAL_WIDTH_MM);
-  setRangeInputBounds("washer_id_mm", params.core_od_mm, washerIdMax, 0.1);
+  const epoxyGapMin = minimumSpacingForMaterial(epoxyMaterialPresets[params.epoxy_material], params.bias_voltage_v);
+  const washerIdOffset = params.washer_id_mode === "ground_flat_id" ? 2 * edgeRadiusMm(params, "ground") : 0;
+  const washerIdMin = params.core_od_mm + 2 * epoxyGapMin + washerIdOffset;
+  const washerIdMax = Math.max(washerIdMin, Math.min(params.washer_od_mm - 2 * MIN_WASHER_RADIAL_WIDTH_MM, params.tube_id_mm - 2 * epoxyGapMin - 2 * MIN_RADIAL_OVERLAP_MM + washerIdOffset));
+  setRangeInputBounds("washer_id_mm", washerIdMin, washerIdMax, 0.1);
   const washerOdMin = params.washer_id_mm + 2 * MIN_WASHER_RADIAL_WIDTH_MM;
-  setRangeInputBounds("washer_od_mm", washerOdMin, Math.max(washerOdMin, params.tube_id_mm), 0.1);
+  const washerOdOffset = params.washer_od_mode === "bias_flat_od" ? 2 * edgeRadiusMm(params, "hv") : 0;
+  const washerOdMax = Math.max(washerOdMin, params.tube_id_mm - 2 * epoxyGapMin - washerOdOffset);
+  setRangeInputBounds("washer_od_mm", washerOdMin, washerOdMax, 0.1);
 }
 
 const engineeringPrefixMultipliers = {
@@ -941,6 +991,12 @@ function replaceCustomControlRanges(ranges) {
 function applyImportedSettings(imported, ranges = {}) {
   replaceCustomControlRanges(ranges);
   const next = { ...structuredClone(defaults), ...imported };
+  if (!Object.prototype.hasOwnProperty.call(imported, "washer_id_mode") && Object.prototype.hasOwnProperty.call(imported, "washer_id_matches_ground")) {
+    next.washer_id_mode = imported.washer_id_matches_ground === false ? "custom" : "ground_id";
+  }
+  if (!Object.prototype.hasOwnProperty.call(imported, "washer_od_mode") && Object.prototype.hasOwnProperty.call(imported, "washer_od_matches_bias")) {
+    next.washer_od_mode = imported.washer_od_matches_bias === false ? "custom" : "bias_od";
+  }
   if (!Object.prototype.hasOwnProperty.call(imported, "use_direct_stage_capacitance")) {
     const importedMelf = String(next.core_material || "").startsWith("mmb020");
     next.use_direct_stage_capacitance = Boolean(next.use_direct_stage_circuit && !importedMelf);
@@ -1102,6 +1158,9 @@ function formatControlOutput(id, value) {
   }
   if (id === "detector_capacitance_pf") {
     return formatCapacitance(value);
+  }
+  if (id === "bias_plate_thickness_mm" || id === "ground_plate_thickness_mm") {
+    return `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 })} mm`;
   }
   if (id === "load_cable_velocity_factor") {
     return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -1841,6 +1900,14 @@ function setupControls() {
     clearField();
   });
 
+  const repeatingCellApproximation = document.getElementById("use_repeating_cell_approximation");
+  repeatingCellApproximation.checked = params.use_repeating_cell_approximation;
+  repeatingCellApproximation.addEventListener("change", () => {
+    params.use_repeating_cell_approximation = repeatingCellApproximation.checked;
+    params.solve_strategy = repeatingCellApproximation.checked ? "end_repeat_approx" : "mirror_half";
+    clearField();
+  });
+
   const directStageCircuit = document.getElementById("use_direct_stage_circuit");
   directStageCircuit.checked = params.use_direct_stage_circuit;
   directStageCircuit.addEventListener("change", () => {
@@ -1895,10 +1962,10 @@ function setupControls() {
     clearField();
   });
 
-  const washerIdMatchesGround = document.getElementById("washer_id_matches_ground");
-  washerIdMatchesGround.checked = params.washer_id_matches_ground;
-  washerIdMatchesGround.addEventListener("change", () => {
-    params.washer_id_matches_ground = washerIdMatchesGround.checked;
+  const washerIdMode = document.getElementById("washer_id_mode");
+  washerIdMode.value = params.washer_id_mode;
+  washerIdMode.addEventListener("change", () => {
+    params.washer_id_mode = washerIdMode.value;
     normalizeParams();
     syncControls();
     drawCadModel();
@@ -1906,10 +1973,10 @@ function setupControls() {
     clearField();
   });
 
-  const washerOdMatchesBias = document.getElementById("washer_od_matches_bias");
-  washerOdMatchesBias.checked = params.washer_od_matches_bias;
-  washerOdMatchesBias.addEventListener("change", () => {
-    params.washer_od_matches_bias = washerOdMatchesBias.checked;
+  const washerOdMode = document.getElementById("washer_od_mode");
+  washerOdMode.value = params.washer_od_mode;
+  washerOdMode.addEventListener("change", () => {
+    params.washer_od_mode = washerOdMode.value;
     normalizeParams();
     syncControls();
     drawCadModel();
@@ -2017,7 +2084,6 @@ function setupCadViewer() {
 
 function normalizeParams() {
   const spacingRange = spacingRangeForWasher(params);
-  const coreGapRange = coreGroundGapRange(params);
   const genericRangeIds = [
     "bias_voltage_v",
     "core_volume_resistivity_log10_ohm_cm",
@@ -2034,6 +2100,8 @@ function normalizeParams() {
     "washer_epsr",
     "epoxy_epsr",
     "core_od_mm",
+    "ground_plate_inner_diameter_mm",
+    "tube_id_mm",
     "washer_id_mm",
     "washer_od_mm",
     "bias_plate_thickness_mm",
@@ -2066,8 +2134,10 @@ function normalizeParams() {
   params.ground_matches_bias_thickness = Boolean(params.ground_matches_bias_thickness);
   params.input_series_matches_stage = params.input_series_matches_stage !== false;
   params.output_series_matches_stage = Boolean(params.output_series_matches_stage);
-  params.washer_id_matches_ground = params.washer_id_matches_ground !== false;
-  params.washer_od_matches_bias = params.washer_od_matches_bias !== false;
+  params.use_repeating_cell_approximation = Boolean(params.use_repeating_cell_approximation || params.solve_strategy === "end_repeat_approx");
+  params.solve_strategy = params.use_repeating_cell_approximation ? "end_repeat_approx" : "mirror_half";
+  params.washer_id_mode = WASHER_ID_MODES.has(params.washer_id_mode) ? params.washer_id_mode : "ground_id";
+  params.washer_od_mode = WASHER_OD_MODES.has(params.washer_od_mode) ? params.washer_od_mode : "bias_od";
   if (params.ground_matches_bias_thickness) {
     params.ground_plate_thickness_mm = params.bias_plate_thickness_mm;
   }
@@ -2088,12 +2158,8 @@ function normalizeParams() {
   params.tube_relative_permeability = clamp(params.tube_relative_permeability, tubeMuRange.min, tubeMuRange.max);
   params.mesh_edge_radius_ratio = clamp(params.mesh_edge_radius_ratio, meshRatioRange.min, meshRatioRange.max);
   for (const id of hvSpacingControlIds) {
-    const min = id === "core_to_ground_gap_mm"
-      ? coreGapRange.min
-      : id === "plate_gap_mm"
-        ? Math.max(spacingRange.min, minimumMelfPlateGapMm(params))
-        : spacingRange.min;
-    const max = id === "core_to_ground_gap_mm" ? coreGapRange.max : spacingRange.max;
+    const min = Math.max(spacingRange.min, minimumMelfPlateGapMm(params));
+    const max = spacingRange.max;
     const range = controlRange(id, min, max);
     params[id] = clamp(params[id], range.min, range.max);
   }
@@ -2101,8 +2167,6 @@ function normalizeParams() {
     params.ground_plate_thickness_mm = params.bias_plate_thickness_mm;
   }
 
-  const hvOdRange = controlRange("hv_plate_od_mm", minHvPlateOdForGeometry(params), 56);
-  params.hv_plate_od_mm = clamp(params.hv_plate_od_mm, Math.max(hvOdRange.min, minHvPlateOdForGeometry(params)), hvOdRange.max);
   applyDerivedGeometry(params);
   applyWasherGeometry(params);
   if (params.input_series_matches_stage) params.input_series_resistance_mohm = clamp(matchedSeriesResistanceMohm(params), inputSeriesRange.min, inputSeriesRange.max);
@@ -2149,13 +2213,14 @@ function syncControls() {
   document.getElementById("plate_material").value = params.plate_material;
   document.getElementById("tube_material").value = params.tube_material;
   document.getElementById("field_solver").value = params.field_solver;
+  document.getElementById("use_repeating_cell_approximation").checked = params.use_repeating_cell_approximation;
   document.getElementById("use_direct_stage_circuit").checked = params.use_direct_stage_circuit;
   document.getElementById("use_direct_stage_capacitance").checked = params.use_direct_stage_capacitance;
   document.getElementById("ground_matches_bias_thickness").checked = params.ground_matches_bias_thickness;
   document.getElementById("input_series_matches_stage").checked = params.input_series_matches_stage;
   document.getElementById("output_series_matches_stage").checked = params.output_series_matches_stage;
-  document.getElementById("washer_id_matches_ground").checked = params.washer_id_matches_ground;
-  document.getElementById("washer_od_matches_bias").checked = params.washer_od_matches_bias;
+  document.getElementById("washer_id_mode").value = params.washer_id_mode;
+  document.getElementById("washer_od_mode").value = params.washer_od_mode;
   syncDynamicRanges();
   for (const id of ids) {
     if (isDynamicallyConstrainedControl(id)) continue;
@@ -2191,14 +2256,22 @@ function syncControls() {
   const washerIdManual = document.getElementById("washer_id_mm_manual");
   const washerOdInput = document.getElementById("washer_od_mm");
   const washerOdManual = document.getElementById("washer_od_mm_manual");
-  if (washerIdInput) washerIdInput.disabled = params.washer_id_matches_ground;
-  if (washerIdManual) washerIdManual.disabled = params.washer_id_matches_ground;
-  if (washerOdInput) washerOdInput.disabled = params.washer_od_matches_bias;
-  if (washerOdManual) washerOdManual.disabled = params.washer_od_matches_bias;
+  const groundIdInput = document.getElementById("ground_plate_inner_diameter_mm");
+  const groundIdManual = document.getElementById("ground_plate_inner_diameter_mm_manual");
+  const hvOdInput = document.getElementById("hv_plate_od_mm");
+  const hvOdManual = document.getElementById("hv_plate_od_mm_manual");
+  if (washerIdInput) washerIdInput.disabled = false;
+  if (washerIdManual) washerIdManual.disabled = false;
+  if (washerOdInput) washerOdInput.disabled = false;
+  if (washerOdManual) washerOdManual.disabled = false;
+  if (groundIdInput) groundIdInput.disabled = params.washer_id_mode !== "custom";
+  if (groundIdManual) groundIdManual.disabled = params.washer_id_mode !== "custom";
+  if (hvOdInput) hvOdInput.disabled = params.washer_od_mode !== "custom";
+  if (hvOdManual) hvOdManual.disabled = params.washer_od_mode !== "custom";
   syncCoreCircuitModeControls();
   document.getElementById("core_resistance_gohm_out").textContent = formatResistance(totalCoreResistanceOhm(params));
-  document.getElementById("ground_plate_inner_diameter_mm_out").textContent = `${params.ground_plate_inner_diameter_mm.toLocaleString(undefined, { maximumFractionDigits: 2 })} mm`;
-  document.getElementById("tube_id_mm_out").textContent = `${params.tube_id_mm.toLocaleString(undefined, { maximumFractionDigits: 2 })} mm`;
+  document.getElementById("core_to_ground_gap_mm_out").textContent = `${params.core_to_ground_gap_mm.toLocaleString(undefined, { maximumFractionDigits: 2 })} mm`;
+  document.getElementById("hv_to_tube_gap_mm_out").textContent = `${params.hv_to_tube_gap_mm.toLocaleString(undefined, { maximumFractionDigits: 2 })} mm`;
   document.getElementById("ground_plate_od_mm_out").textContent = `${params.ground_plate_od_mm.toLocaleString(undefined, { maximumFractionDigits: 2 })} mm`;
   document.getElementById("include_ground_tube").checked = params.include_ground_tube;
   updateBreakdownReadouts();
@@ -3058,7 +3131,11 @@ function drawEdgeSlide(canvas) {
   ctx.fillStyle = "#5b6670";
   ctx.fillText(`${bound.gap.label}: ${bound.factor.toFixed(2)}x local V/d`, 62, 462);
   ctx.fillText(`Minimum radius r = ${bound.radius.toFixed(2)} mm (${bound.radiusLabel})`, 62, 492);
-  ctx.fillText(`Emax = V(r+d)/(r d), d = ${bound.gap.value.toFixed(2)} mm`, 62, 522);
+  drawSubscriptText(ctx, [
+    { text: "E" },
+    { text: "max", sub: true },
+    { text: ` = V(r+d)/(r d), d = ${bound.gap.value.toFixed(2)} mm` }
+  ], 62, 522, { color: "#5b6670", font: "19px Arial" });
   if (Number.isFinite(minTorusRatio)) {
     drawSubscriptText(ctx, [
       { text: "Smallest R" },
@@ -3157,7 +3234,7 @@ function drawDeformationSlide(canvas) {
   ctx.fillText("3. Filter rim check", filterX - 92, h * 0.16);
 
   drawWrappedLines(ctx, [
-    `Bound: Emax = V(r+d)/(r d), V = ${bound.voltage.toFixed(0)} V, r = ${radius.toFixed(2)} mm, d = ${gap.toFixed(2)} mm`,
+    `Bound: Eₘₐₓ = V(r+d)/(r d), V = ${bound.voltage.toFixed(0)} V, r = ${radius.toFixed(2)} mm, d = ${gap.toFixed(2)} mm`,
     `Minimum radius: ${bound.radiusLabel}; minimum gap: ${bound.gap.label}; current bound: ${(bound.field / 1000).toFixed(2)} kV/mm`,
     "Constraint: every exposed conductor feature has radius >= r and every opposite-conductor gap is >= d.",
     "FEA is still the geometry audit: it checks that no modeled fillet, lip, or tolerance violates the bound inputs."
@@ -3988,11 +4065,6 @@ function drawFeaSanitySlide(canvas) {
   const analyticTotalCapPf = circuit.totalGroundCapPf;
   const feaCap = feaCapacitanceForCurrentDesign();
   const feaTotalRatio = feaCap ? feaCap.totalPf / analyticTotalCapPf : Number.NaN;
-  const analyticParasiticPf = circuit.parasiticPf;
-  const feaParasiticPf = feaCap ? feaCap.parasiticPf : Number.NaN;
-  const feaParasiticRatio = Number.isFinite(feaParasiticPf) && analyticParasiticPf > 0
-    ? feaParasiticPf / analyticParasiticPf
-    : Number.NaN;
   const formatRatioText = (ratio) => (Number.isFinite(ratio)
     ? `${ratio.toLocaleString(undefined, { maximumFractionDigits: 3 })}x`
     : "--");
@@ -4002,7 +4074,7 @@ function drawFeaSanitySlide(canvas) {
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = "#17202a";
   ctx.font = "22px Arial";
-  ctx.fillText("FEA capacitance sanity check", 92, 54);
+  ctx.fillText("Total HV-to-ground capacitance", 92, 54);
 
   const capRows = [
     ["Analytic Ctotal", formatCapacitance(analyticTotalCapPf), `Cg per bias plate x ${plates}`],
@@ -4028,52 +4100,127 @@ function drawFeaSanitySlide(canvas) {
     ctx.fillText(row[2], x + 18, y + 84);
   });
 
-  const tableX = 92;
-  const tableY = 240;
-  const tableW = 900;
-  const rowH = 54;
-  const colW = [260, 200, 200, 180];
-  const rows = [
-    ["Quantity", "Analytic", "FEA", "FEA / analytic"],
-    ["Total Cg to ground", formatCapacitance(analyticTotalCapPf), feaCap ? formatCapacitance(feaCap.totalPf) : "not solved", formatRatioText(feaTotalRatio)],
-    ["Adjacent-bias Cpar", formatCapacitance(analyticParasiticPf), Number.isFinite(feaParasiticPf) ? formatCapacitance(feaParasiticPf) : "not available", formatRatioText(feaParasiticRatio)]
+  const chartX = 150;
+  const chartY = 250;
+  const chartW = 760;
+  const barH = 72;
+  const maxCap = Math.max(analyticTotalCapPf, feaCap?.totalPf || 0, 1);
+  const barRows = [
+    { label: "Analytic washer overlap", value: analyticTotalCapPf, color: "#c46a32" },
+    { label: "FEA energy integral", value: feaCap?.totalPf, color: "#315a73" }
   ];
-  rows.forEach((row, rowIndex) => {
-    const yy = tableY + rowIndex * rowH;
-    ctx.fillStyle = rowIndex === 0 ? "#e9e3d6" : (rowIndex % 2 ? "#fffdf8" : "#f5f2ea");
-    ctx.fillRect(tableX, yy, tableW, rowH);
-    ctx.strokeStyle = "#c9c1b0";
-    ctx.strokeRect(tableX, yy, tableW, rowH);
-    let xx = tableX;
-    row.forEach((cell, colIndex) => {
-      ctx.fillStyle = rowIndex === 0 ? "#17202a" : (colIndex === 0 ? "#5b6670" : "#17202a");
-      ctx.font = rowIndex === 0 ? "16px Arial" : (colIndex === 0 ? "15px Arial" : "20px Arial");
-      ctx.fillText(cell, xx + 16, yy + (rowIndex === 0 ? 33 : 34));
-      if (colIndex > 0) {
-        ctx.strokeStyle = "rgba(201, 193, 176, 0.8)";
-        ctx.beginPath();
-        ctx.moveTo(xx, yy);
-        ctx.lineTo(xx, yy + rowH);
-        ctx.stroke();
-      }
-      xx += colW[colIndex];
-    });
+  barRows.forEach((row, index) => {
+    const y = chartY + index * 120;
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "17px Arial";
+    ctx.fillText(row.label, chartX, y - 12);
+    ctx.fillStyle = "#ebe6db";
+    ctx.fillRect(chartX, y, chartW, barH);
+    const width = Number.isFinite(row.value) ? chartW * row.value / maxCap : 0;
+    ctx.fillStyle = row.color;
+    ctx.fillRect(chartX, y, width, barH);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "24px Arial";
+    ctx.fillText(Number.isFinite(row.value) ? formatCapacitance(row.value) : "not solved", chartX + 18, y + 45);
   });
 
   drawWrappedLines(ctx, [
-    "This is a capacitance sanity check, not a direct attenuation solve.",
-    "FEA Ctotal comes from the existing two-terminal energy integral with all bias conductors tied together against ground.",
-    Number.isFinite(feaParasiticPf)
-      ? "FEA Cpar uses three local energy solves: middle only, both neighbors only, and all bias plates driven. Energy polarization cancels ground capacitance; the core remains dielectric."
-      : "Run a matching FEniCSx solve to fill Cpar; the estimate is separate from the all-HV total-capacitance solve.",
-    usesDirectStageCapacitance(params)
-      ? "Analytic Cpar uses the entered resistor/package value plus calculated epoxy coupling; FEA remains a geometric material-model comparison."
-      : usesMelfCoreModel(params)
-        ? `MELF core model: eps_eff = eps_substrate/(1 - FF) = ${coreCapacitanceEpsr(params).toLocaleString(undefined, { maximumFractionDigits: 1 })}.`
-        : "For non-MELF cores, the parasitic estimate uses the selected core permittivity plus epoxy around the core.",
-    "The analytic epsilon A/d estimate does not include shielding by the intervening ground-plate inner edge, so it can overstate epoxy coupling when the hole radius is comparable to the bias-stage spacing.",
-    "Type 61 limiting check: FEA/analytic rises from 0.42 at 2 mm radial gap to 0.94 at 50 mm, approaching the expected axial-field limit."
-  ], 92, 450, 24, "#5b6670", "17px Arial", 910);
+    "All bias conductors are tied to V; every ground conductor and the tube are held at 0 V.",
+    "The FEA value comes from Ctotal = 2U/V². Agreement checks the overall dielectric and geometry scale before using the detailed field result."
+  ], 92, 520, 27, "#5b6670", "18px Arial", 910);
+}
+
+function drawCparExtractionSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  const circuit = circuitEstimates(params);
+  const analyticPf = circuit.parasiticPf;
+  const feaCap = feaCapacitanceForCurrentDesign();
+  const feaPf = feaCap ? feaCap.parasiticPf : Number.NaN;
+  const ratio = Number.isFinite(feaPf) && analyticPf > 0 ? feaPf / analyticPf : Number.NaN;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText("Three excitation states cancel capacitance to ground", 56, 48);
+
+  const panelY = 78;
+  const panelW = 300;
+  const panelH = 330;
+  const panelXs = [45, 400, 755];
+  const groundColor = "#315a73";
+  const activeColor = "#c46a32";
+  const zeroBiasColor = "#8a949c";
+  const epoxyColor = "#f2e7d5";
+
+  const drawState = (x, title, activeBiases, symbol, subtitle) => {
+    ctx.fillStyle = "#f5f2ea";
+    ctx.strokeStyle = "#c9c1b0";
+    ctx.lineWidth = 1;
+    ctx.fillRect(x, panelY, panelW, panelH);
+    ctx.strokeRect(x, panelY, panelW, panelH);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "18px Arial";
+    ctx.fillText(title, x + 18, panelY + 30);
+
+    const axisX = x + 42;
+    const tubeX = x + 250;
+    const biasEndX = x + 205;
+    ctx.fillStyle = epoxyColor;
+    ctx.fillRect(axisX, panelY + 52, tubeX - axisX, 210);
+    ctx.strokeStyle = "#b7aa94";
+    ctx.strokeRect(axisX, panelY + 52, tubeX - axisX, 210);
+    ctx.fillStyle = groundColor;
+    ctx.fillRect(tubeX - 7, panelY + 52, 7, 210);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "12px Arial";
+    ctx.fillText("axis", axisX - 12, panelY + 282);
+    ctx.fillText("ground tube", tubeX - 58, panelY + 282);
+
+    const groundYs = [panelY + 66, panelY + 126, panelY + 186, panelY + 246];
+    const biasYs = [panelY + 96, panelY + 156, panelY + 216];
+    groundYs.forEach((y) => {
+      ctx.fillStyle = groundColor;
+      ctx.fillRect(axisX + 62, y, tubeX - axisX - 62, 8);
+    });
+    biasYs.forEach((y, index) => {
+      ctx.fillStyle = activeBiases.includes(index) ? activeColor : zeroBiasColor;
+      ctx.fillRect(axisX, y, biasEndX - axisX, 8);
+      ctx.fillStyle = activeBiases.includes(index) ? activeColor : "#5b6670";
+      ctx.font = "12px Arial";
+      ctx.fillText(activeBiases.includes(index) ? "V" : "0", biasEndX + 8, y + 8);
+    });
+
+    ctx.fillStyle = "#17202a";
+    ctx.font = "25px Arial";
+    ctx.fillText(symbol, x + 18, panelY + 300);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "14px Arial";
+    ctx.fillText(subtitle, x + 85, panelY + 299);
+  };
+
+  drawState(panelXs[0], "A  Middle only", [1], "Cₘ", "2Uₘ / V²");
+  drawState(panelXs[1], "B  Neighbors only", [0, 2], "Cₙ", "2Uₙ / V²");
+  drawState(panelXs[2], "C  All bias plates", [0, 1, 2], "Cₐ", "2Uₐ / V²");
+
+  ctx.fillStyle = "#17202a";
+  ctx.font = "25px Arial";
+  ctx.fillText("Cpar = (Cₘ + Cₙ − Cₐ) / (2 Nneighbors)", 82, 462);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "16px Arial";
+  ctx.fillText("Energy polarization removes every term that couples only to ground.", 82, 491);
+
+  const comparison = Number.isFinite(feaPf)
+    ? `Current design: axial εA/d = ${formatCapacitance(analyticPf)}, shielded FEA = ${formatCapacitance(feaPf)} (${ratio.toLocaleString(undefined, { maximumFractionDigits: 3 })}x).`
+    : `Current design: axial εA/d = ${formatCapacitance(analyticPf)}; run a matching FEniCSx solve for the shielded value.`;
+  drawWrappedLines(ctx, [
+    comparison,
+    "The axial model assigns core and epoxy flux directly to the neighboring bias plate. In the real stack, the intervening grounded annulus intercepts part of that flux, so εA/d is expected to be high."
+  ], 82, 535, 25, "#5b6670", "17px Arial", 940);
 }
 
 function loadedLadderSamples(circuit, p, fMin, fMax, steps = 150) {
@@ -4487,7 +4634,10 @@ function drawFieldColorbar(ctx, x, y, width, height, maxField, options = {}) {
     ctx.fillStyle = ctx.strokeStyle;
     ctx.font = "12px Arial";
     ctx.textAlign = "left";
-    ctx.fillText(`${definition.shortLabel || definition.label} bd`, x + width + 8, yBreak + 4);
+    drawSubscriptText(ctx, [
+      { text: `${definition.shortLabel || definition.label} E` },
+      { text: "bd", sub: true }
+    ], x + width + 8, yBreak + 4, { color: ctx.strokeStyle, font: "12px Arial" });
   }
   if (options.caption) {
     ctx.fillStyle = "#5b6670";
@@ -4641,7 +4791,7 @@ function drawSimulationResultsSlide(canvas) {
     slideResult.mode === "last-run"
       ? "This slide is using the field result that was actually run in the Designer tab."
       : "Preview mode uses a reduced browser solve; run a field solve to replace this with the latest result.",
-    "Color scale is absolute field magnitude; breakdown markers use placeholder Ebd where available."
+    "Color scale is absolute field magnitude; breakdown markers use material-specific placeholder thresholds where available."
   ], 52, 560, 23, "#5b6670", "17px Arial");
 }
 
@@ -4657,6 +4807,7 @@ function drawSlideGraphics() {
   drawPackingSlide(document.getElementById("slidePackingCanvas"));
   drawRcDiagram(document.getElementById("slideRcCanvas"));
   drawFeaSanitySlide(document.getElementById("slideFeaSanityCanvas"));
+  drawCparExtractionSlide(document.getElementById("slideCparExtractionCanvas"));
   drawLoadedLadderSlide(document.getElementById("slideLoadedLadderCanvas"));
   drawSpiceLadderSlide(document.getElementById("slideSpiceLadderCanvas"));
 }
@@ -5752,6 +5903,7 @@ function setupTabs() {
   });
 }
 
+setupThemeToggle();
 setupTabs();
 normalizeParams();
 setupControls();

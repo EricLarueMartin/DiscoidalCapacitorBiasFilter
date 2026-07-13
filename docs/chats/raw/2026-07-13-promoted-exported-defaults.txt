@@ -1,0 +1,11 @@
+Reconstructed user-facing collaboration record
+Date: 2026-07-13
+
+User supplied an exported SHV Bias Filter settings JSON file and requested that its settings become the defaults.
+
+Implemented intent:
+- Promote the exported circuit, geometry, material, solver, and display settings to the browser defaults.
+- Promote the same geometry and engineering settings to the backend default-parameter file.
+- Use the washer flat-ID and flat-OD relation modes from the export.
+- Retain compatibility handling for obsolete washer-match checkbox fields, but do not use those legacy flags as the new defaults.
+- Update tests and durable design notes whose reference calculations intentionally depended on the previous defaults.

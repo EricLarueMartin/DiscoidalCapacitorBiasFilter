@@ -34,6 +34,8 @@ PHYSICAL_DIELECTRIC_TAG = 1
 GEOMETRY_TOLERANCE_MM = 1e-9
 BOUNDARY_MARKER_TOLERANCE_MM = 1e-5
 EPSILON_0_PF_PER_MM = 8.8541878128e-3
+SOLVE_STRATEGY_MIRROR_HALF = "mirror_half"
+SOLVE_STRATEGY_END_REPEAT_APPROX = "end_repeat_approx"
 
 
 def module_version(module_name: str) -> str | None:
@@ -225,10 +227,18 @@ def _mesh_sizes(p: dict[str, Any]) -> dict[str, float]:
     }
 
 
-def _build_gmsh_model(p: dict[str, Any], modules: dict[str, Any], include_core_dielectric: bool = False) -> dict[str, float]:
+def _build_gmsh_model(
+    p: dict[str, Any],
+    modules: dict[str, Any],
+    include_core_dielectric: bool = False,
+    z_min_mm: float = 0.0,
+    z_max_mm: float | None = None,
+) -> dict[str, float]:
     gmsh = modules["gmsh"]
     sizes = _mesh_sizes(p)
     length = axisymmetric_model.stack_length_mm(p)
+    solve_z_min = max(0.0, min(float(z_min_mm), length))
+    solve_z_max = length if z_max_mm is None else max(solve_z_min, min(float(z_max_mm), length))
     core_r = p["core_od_mm"] / 2.0
     tube_inner = p["tube_id_mm"] / 2.0
     r_min = 0.0 if include_core_dielectric else core_r
@@ -240,14 +250,14 @@ def _build_gmsh_model(p: dict[str, Any], modules: dict[str, Any], include_core_d
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", sizes["coarse"])
     gmsh.option.setNumber("Mesh.Algorithm", 6)
 
-    domain = gmsh.model.occ.addRectangle(r_min, 0.0, 0.0, tube_inner - r_min, length)
+    domain = gmsh.model.occ.addRectangle(r_min, solve_z_min, 0.0, tube_inner - r_min, solve_z_max - solve_z_min)
     tools: list[tuple[int, int]] = []
     for component in axisymmetric_model.component_profiles(p):
         if component["material"] not in {"hv", "ground"}:
             continue
         solve_profile = _component_profile_for_solve(p, component, include_core_dielectric)
         profile = [
-            (min(max(float(r), r_min), tube_inner), min(max(float(z), 0.0), length))
+            (min(max(float(r), r_min), tube_inner), min(max(float(z), solve_z_min), solve_z_max))
             for r, z in solve_profile
         ]
         profile = _clean_polygon(profile)
@@ -401,6 +411,24 @@ def _marker_from_classification(p: dict[str, Any], wanted: str, modules: dict[st
     return marker
 
 
+def _grounded_outer_axial_cut_marker(
+    p: dict[str, Any],
+    z_cut_mm: float,
+    modules: dict[str, Any],
+) -> Any:
+    """Ground the non-electrode annulus on a truncated neighbor-bias plane."""
+    np = modules["np"]
+    bias_outer = float(p["hv_plate_od_mm"]) / 2.0
+
+    def marker(x: Any) -> Any:
+        return np.logical_and(
+            np.abs(x[1] - float(z_cut_mm)) <= BOUNDARY_MARKER_TOLERANCE_MM,
+            x[0] >= bias_outer - BOUNDARY_MARKER_TOLERANCE_MM,
+        )
+
+    return marker
+
+
 def _locate_dofs(fem: Any, V: Any, marker: Any) -> Any:
     if hasattr(fem, "locate_dofs_geometrical"):
         return fem.locate_dofs_geometrical(V, marker)
@@ -529,6 +557,7 @@ def _capacitance_from_energy(
     modules: dict[str, Any],
     voltage_v: float | None = None,
     include_core_dielectric: bool = False,
+    energy_scale: float = 1.0,
 ) -> dict[str, Any]:
     ufl = modules["ufl"]
     x = ufl.SpatialCoordinate(mesh)
@@ -542,7 +571,7 @@ def _capacitance_from_energy(
         * ufl.inner(ufl.grad(uh), ufl.grad(uh))
         * ufl.dx
     )
-    energy_pj = _assemble_global_scalar(mesh, energy_integrand, modules)
+    energy_pj = _assemble_global_scalar(mesh, energy_integrand, modules) * float(energy_scale)
     capacitance_pf = 2.0 * energy_pj / (voltage * voltage) if voltage > 0.0 else 0.0
     return {
         "total_pf": capacitance_pf,
@@ -592,11 +621,35 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
     bias plates together. The polarization identity cancels every ground term
     without assuming that edge and middle plates have equal ground capacitance.
     """
-    local_p = axisymmetric_model.normalize_parameters({**p, "plate_pairs": 3, "bias_voltage_v": 1.0})
+    truncate_grounded_end = p.get("solve_strategy") == SOLVE_STRATEGY_END_REPEAT_APPROX
+    local_strategy = (
+        SOLVE_STRATEGY_MIRROR_HALF
+        if p.get("solve_strategy") in {SOLVE_STRATEGY_MIRROR_HALF, SOLVE_STRATEGY_END_REPEAT_APPROX}
+        else "full_stack"
+    )
+    local_p = axisymmetric_model.normalize_parameters({
+        **p,
+        "plate_pairs": 3,
+        "bias_voltage_v": 1.0,
+        "solve_strategy": local_strategy,
+    })
+    use_mirror_half = local_p.get("solve_strategy") == SOLVE_STRATEGY_MIRROR_HALF
+    mirror_z_mm = axisymmetric_model.stack_length_mm(local_p) / 2.0 if use_mirror_half else None
+    energy_scale = 2.0 if use_mirror_half else 1.0
+    hv_centers = [z for kind, z in axisymmetric_model.plate_centers(local_p) if kind == "hv"]
+    cut_z_mm = hv_centers[0] if truncate_grounded_end else 0.0
+    solve_z_max_mm = hv_centers[1] if truncate_grounded_end else mirror_z_mm
+    solved_z_extent_mm = solve_z_max_mm - cut_z_mm if solve_z_max_mm is not None else axisymmetric_model.stack_length_mm(local_p)
     gmsh = modules["gmsh"]
     mesh_sizes: dict[str, float] | None = None
     try:
-        mesh_sizes = _build_gmsh_model(local_p, modules, include_core_dielectric=True)
+        mesh_sizes = _build_gmsh_model(
+            local_p,
+            modules,
+            include_core_dielectric=True,
+            z_min_mm=cut_z_mm,
+            z_max_mm=solve_z_max_mm,
+        )
         mesh = _model_to_mesh(modules)
     finally:
         gmsh.finalize()
@@ -616,6 +669,11 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         materials={"ground"},
         include_core_dielectric=True,
     )
+    grounded_cut_conditions = (
+        [(0.0, _grounded_outer_axial_cut_marker(local_p, cut_z_mm, modules))]
+        if truncate_grounded_end
+        else []
+    )
 
     middle_only = _solve_potential_with_dirichlet_markers(
         mesh,
@@ -625,6 +683,7 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
             (1.0, _component_marker(local_p, modules, names={middle_hv}, include_core_dielectric=True)),
             (0.0, _component_marker(local_p, modules, names=other_hv, include_core_dielectric=True)),
             (0.0, ground_marker),
+            *grounded_cut_conditions,
         ],
         include_core_dielectric=True,
     )
@@ -635,6 +694,7 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         modules,
         voltage_v=1.0,
         include_core_dielectric=True,
+        energy_scale=energy_scale,
     )
 
     neighbors_only = _solve_potential_with_dirichlet_markers(
@@ -645,6 +705,7 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
             (1.0, _component_marker(local_p, modules, names=other_hv, include_core_dielectric=True)),
             (0.0, _component_marker(local_p, modules, names={middle_hv}, include_core_dielectric=True)),
             (0.0, ground_marker),
+            *grounded_cut_conditions,
         ],
         include_core_dielectric=True,
     )
@@ -655,6 +716,7 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         modules,
         voltage_v=1.0,
         include_core_dielectric=True,
+        energy_scale=energy_scale,
     )
 
     all_bias = _solve_potential_with_dirichlet_markers(
@@ -664,6 +726,7 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         [
             (1.0, _component_marker(local_p, modules, names=set(hv_components), include_core_dielectric=True)),
             (0.0, ground_marker),
+            *grounded_cut_conditions,
         ],
         include_core_dielectric=True,
     )
@@ -674,6 +737,7 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         modules,
         voltage_v=1.0,
         include_core_dielectric=True,
+        energy_scale=energy_scale,
     )
 
     neighbor_count = len(other_hv)
@@ -697,11 +761,26 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         "middle_bias_plate": middle_hv,
         "core_treatment": "dielectric-with-effective-permittivity",
         "core_electrode_treatment": "bias-plate-cross-section-electrodes",
-        "method": "fenicsx-three-bias-energy-polarization",
+        "method": (
+            "fenicsx-three-bias-energy-polarization-grounded-neighbor-cut-approx"
+            if truncate_grounded_end
+            else "fenicsx-three-bias-energy-polarization"
+        ),
+        "symmetry_strategy": SOLVE_STRATEGY_MIRROR_HALF if use_mirror_half else "full_stack",
+        "solved_z_extent_mm": solved_z_extent_mm,
+        "grounded_neighbor_cut_approximation": truncate_grounded_end,
+        "grounded_neighbor_cut_z_mm": cut_z_mm if truncate_grounded_end else None,
+        "grounded_cut_radial_start_mm": float(local_p["hv_plate_od_mm"]) / 2.0 if truncate_grounded_end else None,
         "description": (
             "Representative Cpar = (C_middle_only + C_neighbors_only - C_all_bias) "
             "/ (2 Nneighbors) from a local three-bias-plate energy-polarization solve "
             "with the core included as dielectric."
+            + (
+                " The end ground/washer region is removed at the neighboring-bias center; "
+                "the remaining outer cut annulus is held at ground."
+                if truncate_grounded_end
+                else ""
+            )
         ),
         "mesh": {
             "target_fine_mm": mesh_sizes.get("fine") if mesh_sizes else None,
@@ -840,6 +919,11 @@ def _sample_to_browser_grid(
     p: dict[str, Any],
     modules: dict[str, Any],
     mesh_sizes: dict[str, float] | None = None,
+    mirror_z_mm: float | None = None,
+    repeat_mesh: Any | None = None,
+    repeat_field_fn: Any | None = None,
+    repeat_z_bounds_mm: tuple[float, float] | None = None,
+    end_z_max_mm: float | None = None,
 ) -> dict[str, Any]:
     grid = axisymmetric_model.build_grid(p)
     r_coords = grid["r_coords"]
@@ -850,16 +934,50 @@ def _sample_to_browser_grid(
     nz = grid["nz"]
     length = axisymmetric_model.stack_length_mm(p)
 
-    sample_points: list[tuple[int, int, float, float]] = []
+    sample_points: list[tuple[int, int, float, float, str, int]] = []
+    main_eval_points: list[tuple[float, float]] = []
+    repeat_eval_points: list[tuple[float, float]] = []
+    use_end_repeat = repeat_mesh is not None and repeat_field_fn is not None and repeat_z_bounds_mm is not None and end_z_max_mm is not None
     for i, r in enumerate(r_coords):
         for j, z in enumerate(z_coords):
             if labels[i][j] != "dielectric":
                 continue
             if z < 0.0 or z > length:
                 continue
-            sample_points.append((i, j, r, z))
+            if use_end_repeat:
+                if z <= end_z_max_mm:
+                    source = "end"
+                    solve_z = z
+                    source_index = len(main_eval_points)
+                    main_eval_points.append((r, solve_z))
+                elif z >= length - end_z_max_mm:
+                    source = "end"
+                    solve_z = length - z
+                    source_index = len(main_eval_points)
+                    main_eval_points.append((r, solve_z))
+                else:
+                    source = "repeat"
+                    repeat_z_min, repeat_z_max = repeat_z_bounds_mm
+                    half_cell_length = repeat_z_max - repeat_z_min
+                    offset = z - end_z_max_mm
+                    half_cell_index = int(math.floor(offset / half_cell_length))
+                    local_z = offset - half_cell_index * half_cell_length
+                    solve_z = (
+                        repeat_z_min + local_z
+                        if half_cell_index % 2 == 0
+                        else repeat_z_max - local_z
+                    )
+                    source_index = len(repeat_eval_points)
+                    repeat_eval_points.append((r, solve_z))
+            else:
+                source = "end"
+                solve_z = min(z, 2.0 * mirror_z_mm - z) if mirror_z_mm is not None and z > mirror_z_mm else z
+                source_index = len(main_eval_points)
+                main_eval_points.append((r, solve_z))
+            sample_points.append((i, j, r, z, source, source_index))
 
-    values = _eval_function_at_points(field_fn, mesh, [(r, z) for _, _, r, z in sample_points], modules)
+    main_values = _eval_function_at_points(field_fn, mesh, main_eval_points, modules)
+    repeat_values = _eval_function_at_points(repeat_field_fn, repeat_mesh, repeat_eval_points, modules) if use_end_repeat else []
     field = [[0.0 for _ in range(nz)] for _ in range(nr)]
     raw_max_field = 0.0
     raw_max_location = (0.0, 0.0)
@@ -868,7 +986,8 @@ def _sample_to_browser_grid(
         "epoxy": {"key": "epoxy", "maxField": 0.0, "maxLocation": {"r": 0.0, "z": 0.0}},
     }
 
-    for (i, j, r, z), value in zip(sample_points, values):
+    for i, j, r, z, source, source_index in sample_points:
+        value = main_values[source_index] if source == "end" else repeat_values[source_index]
         if value is None or not math.isfinite(value):
             continue
         field[i][j] = value
@@ -899,6 +1018,18 @@ def _sample_to_browser_grid(
         "edge_radius_ratio": mesh_sizes.get("edge_radius_ratio") if mesh_sizes else None,
         "edge_radius_mm": mesh_sizes.get("edge_radius_mm") if mesh_sizes else None,
         "gap_limiter_mm": mesh_sizes.get("gap_limiter_mm") if mesh_sizes else None,
+        "symmetry_strategy": (
+            SOLVE_STRATEGY_END_REPEAT_APPROX
+            if use_end_repeat
+            else SOLVE_STRATEGY_MIRROR_HALF if mirror_z_mm is not None else "full_stack"
+        ),
+        "solved_z_extent_mm": (
+            end_z_max_mm + (repeat_z_bounds_mm[1] - repeat_z_bounds_mm[0])
+            if use_end_repeat
+            else mirror_z_mm if mirror_z_mm is not None else length
+        ),
+        "reconstructed_full_stack": mirror_z_mm is not None or use_end_repeat,
+        "approximation": "two-equivalent-ends-plus-mirrored-repeating-interior-half-cell" if use_end_repeat else None,
     }
     return {
         "grid": grid,
@@ -920,15 +1051,72 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
     p = axisymmetric_model.normalize_parameters(dict(parameters))
     modules = _import_fenicsx_modules()
     gmsh = modules["gmsh"]
+    requested_strategy = p.get("solve_strategy")
+    use_end_repeat = requested_strategy == SOLVE_STRATEGY_END_REPEAT_APPROX and int(p["plate_pairs"]) >= 2
+    use_mirror_half = requested_strategy == SOLVE_STRATEGY_MIRROR_HALF or (
+        requested_strategy == SOLVE_STRATEGY_END_REPEAT_APPROX and not use_end_repeat
+    )
+    mirror_z_mm = axisymmetric_model.stack_length_mm(p) / 2.0 if use_mirror_half else None
     mesh_sizes: dict[str, float] | None = None
-    try:
-        mesh_sizes = _build_gmsh_model(p, modules)
-        mesh = _model_to_mesh(modules)
-    finally:
-        gmsh.finalize()
+    repeat_mesh = None
+    repeat_uh = None
+    repeat_field_fn = None
+    repeat_z_bounds_mm: tuple[float, float] | None = None
+    end_z_max_mm: float | None = None
+    if use_end_repeat:
+        centers = axisymmetric_model.plate_centers(p)
+        first_bias_center = next(z for kind, z in centers if kind == "hv")
+        second_ground_center = [z for kind, z in centers if kind == "ground"][1]
+        end_z_max_mm = first_bias_center
+        repeat_z_bounds_mm = (first_bias_center, second_ground_center)
+        try:
+            mesh_sizes = _build_gmsh_model(p, modules, z_max_mm=end_z_max_mm)
+            mesh = _model_to_mesh(modules)
+        finally:
+            gmsh.finalize()
+        uh = _solve_potential(mesh, p, modules)
+        end_capacitance = _capacitance_from_energy(mesh, uh, p, modules)
 
-    uh = _solve_potential(mesh, p, modules)
-    capacitance = _capacitance_from_energy(mesh, uh, p, modules)
+        try:
+            _build_gmsh_model(
+                p,
+                modules,
+                z_min_mm=repeat_z_bounds_mm[0],
+                z_max_mm=repeat_z_bounds_mm[1],
+            )
+            repeat_mesh = _model_to_mesh(modules)
+        finally:
+            gmsh.finalize()
+        repeat_uh = _solve_potential(repeat_mesh, p, modules)
+        repeat_capacitance = _capacitance_from_energy(repeat_mesh, repeat_uh, p, modules)
+        repeat_count = 2 * (int(p["plate_pairs"]) - 1)
+        energy_pj = 2.0 * end_capacitance["energy_pj"] + repeat_count * repeat_capacitance["energy_pj"]
+        voltage = abs(float(p["bias_voltage_v"]))
+        total_pf = 2.0 * energy_pj / (voltage * voltage) if voltage > 0.0 else 0.0
+        capacitance = {
+            **end_capacitance,
+            "total_pf": total_pf,
+            "bias_to_ground_pf": total_pf,
+            "energy_pj": energy_pj,
+            "method": "fenicsx-end-repeat-energy-approx",
+            "description": "C = 2U/V^2 using two mirrored end regions plus copied/mirrored interior half-cell energy.",
+            "symmetry_strategy": SOLVE_STRATEGY_END_REPEAT_APPROX,
+            "end_cell_energy_pj": end_capacitance["energy_pj"],
+            "interior_half_cell_energy_pj": repeat_capacitance["energy_pj"],
+            "interior_copy_or_mirror_count": repeat_count,
+            "solved_z_extent_mm": end_z_max_mm + repeat_z_bounds_mm[1] - repeat_z_bounds_mm[0],
+            "approximate": True,
+        }
+    else:
+        try:
+            mesh_sizes = _build_gmsh_model(p, modules, z_max_mm=mirror_z_mm)
+            mesh = _model_to_mesh(modules)
+        finally:
+            gmsh.finalize()
+        uh = _solve_potential(mesh, p, modules)
+        capacitance = _capacitance_from_energy(mesh, uh, p, modules, energy_scale=2.0 if use_mirror_half else 1.0)
+        capacitance["symmetry_strategy"] = SOLVE_STRATEGY_MIRROR_HALF if use_mirror_half else "full_stack"
+        capacitance["solved_z_extent_mm"] = mirror_z_mm or axisymmetric_model.stack_length_mm(p)
     parasitic_capacitance = _representative_adjacent_bias_parasitic_capacitance(p, modules)
     if parasitic_capacitance:
         capacitance.update({
@@ -944,7 +1132,20 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         capacitance["parasitic_estimate"] = parasitic_capacitance
     admittance = _admittance_from_capacitance(p, capacitance["total_pf"])
     field_fn = _project_field_magnitude(mesh, uh, modules)
-    sampled = _sample_to_browser_grid(mesh, field_fn, p, modules, mesh_sizes)
+    if use_end_repeat:
+        repeat_field_fn = _project_field_magnitude(repeat_mesh, repeat_uh, modules)
+    sampled = _sample_to_browser_grid(
+        mesh,
+        field_fn,
+        p,
+        modules,
+        mesh_sizes,
+        mirror_z_mm=mirror_z_mm,
+        repeat_mesh=repeat_mesh,
+        repeat_field_fn=repeat_field_fn,
+        repeat_z_bounds_mm=repeat_z_bounds_mm,
+        end_z_max_mm=end_z_max_mm,
+    )
     return {
         "parameters": p,
         "grid": sampled["grid"],
@@ -965,7 +1166,13 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         "adaptive": {
             "enabled": True,
             "type": "gmsh-conforming-fea",
-            "note": "Initial conforming FEniCSx/Gmsh solve sampled onto the browser r-z grid.",
+            "note": (
+                "End-plus-repeating-interior FEniCSx approximation reconstructed onto the full browser r-z grid."
+                if use_end_repeat
+                else "Mirror-half FEniCSx/Gmsh solve reconstructed onto the full browser r-z grid."
+                if use_mirror_half
+                else "Full-stack conforming FEniCSx/Gmsh solve sampled onto the browser r-z grid."
+            ),
         },
     }
 

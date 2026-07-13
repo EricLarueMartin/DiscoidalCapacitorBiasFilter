@@ -1,0 +1,8 @@
+User request:
+add a dark mode
+
+Implementation:
+- Added a top-bar light/dark theme toggle for the static designer and presentation site.
+- The selected theme is saved in local storage, while first-time visits follow the operating-system color preference.
+- Added dark palette variables for the interface and a dark rendering treatment for the existing canvas-based engineering graphics.
+- Kept the theme control keyboard accessible and updated its label to describe the available action.
