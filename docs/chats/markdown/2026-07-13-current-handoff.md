@@ -36,6 +36,11 @@ matching `DEFAULTS` object in `presentations/web/app.js`.
 
 - Bias: 6 kV; detector/load current: 1 nA.
 - Core: MMB 0207 MELF surrogate, 2.2 mm OD, direct 12 Mohm per stage.
+- Core OD defaults to package-derived mode when a selected component has a
+  known package diameter: 1.4 mm for MELF 0204 and 2.2 mm for MELF 0207. The
+  Geometry tab checkbox can return the dimension to manual control. Materials
+  without a package diameter always leave Core OD editable. Imports from older
+  settings files retain an explicitly saved manual Core OD.
 - Input end resistance: one stage resistance; output resistance: 50 ohm.
 - Cable/load: 10 m, 50 ohm, velocity factor 0.66; detector capacitance 10 pF.
 - Tube ID / ground OD: 26 mm.
@@ -98,6 +103,37 @@ first backup circuit-model slide.
 The web presentation includes dark mode, subscripted technical notation,
 separate total-capacitance and parasitic-capacitance explanations, the repeat
 cell sidebar explanation, two prototype concepts, and a thermal-risk slide.
+The peak-field result slide is titled `FEA for Peak Electric Field`; avoid the
+ambiguous phrase `design screen` there. Its remaining qualification caveat is
+specific: the peak must converge under mesh refinement before it is used as a
+breakdown limit.
+
+## Alumina and Partial-Discharge Concern
+
+This is a DC detector-bias filter, so insulation acceptance is not limited to
+catastrophic breakdown. A small discharge in an epoxy void, crack, or
+delaminated ceramic interface can inject a current pulse that appears as
+detector noise or a false event. Under DC, wall charge may extinguish a pulse
+temporarily; leakage, dielectric relaxation, ripple, or ionization can restore
+the local field and allow intermittent recurrence.
+
+Do not use alumina purity alone as a partial-discharge proxy. Representative
+Vishay substrate data list 96% alumina at epsilon-r 9.6 and 19 kV/mm versus
+99.5--99.6% at epsilon-r 9.8--9.9 and 23 kV/mm. The capacitance difference is
+small and both bulk strengths exceed the nominal average washer field. The
+potential practical advantage of a higher-purity grade is the associated
+density, resistivity, and surface finish, but those properties should be
+specified directly. A dense, lapped 96% washer with complete epoxy wetting is
+preferable to nominally purer alumina with trapped air or a weak bond.
+
+Source: https://www.vishay.com/docs/48666/_ms12821832-2306_design-guidelines_ultrasource_reduced-file-size.pdf
+
+Prototype process and acceptance work should emphasize drying and cleaning the
+ceramic, low-void filling, vacuum degassing/impregnation where practical,
+cure-shrinkage and thermal-cycle adhesion, and a sensitive DC partial-discharge
+or current-pulse test. Product comparisons should request open porosity, water
+absorption, surface finish, dielectric-strength test method, and edge quality
+in addition to alumina percentage.
 
 ## Thermal-Mismatch Screen
 
@@ -160,7 +196,10 @@ handoff intentionally does not propose or implement a mitigation.
 4. Build representative copper/9510/alumina bonded-ring coupons using the real
    cure fixture and process; inspect and thermal-cycle them before assigning a
    cold transport or operating rating.
-5. Measure ferrite excess noise and MELF-stage parasitic capacitance/loaded
+5. Develop a DC partial-discharge/current-pulse acceptance test for potted
+   coupons and completed assemblies; evaluate voids and interface delamination,
+   not only bulk dielectric breakdown.
+6. Measure ferrite excess noise and MELF-stage parasitic capacitance/loaded
    response before selecting a prototype core.
 
 ## Validation and Continuation Commands
@@ -212,3 +251,4 @@ source of truth.
 - `docs/chats/raw/2026-07-13-warm-transport-guidance.txt`
 - `docs/chats/raw/2026-07-13-stage-multiplication-validation-slide.txt`
 - `docs/chats/raw/2026-07-13-handoff-and-9510-shrinkage-source.txt`
+- `docs/chats/raw/2026-07-13-package-core-alumina-and-fea-slide.txt`

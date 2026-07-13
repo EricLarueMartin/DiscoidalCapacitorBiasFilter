@@ -29,6 +29,10 @@ The desired central resistance is approximately 100 Mohm to low Gohm. The first 
 The web model separates the core controls:
 
 - `Core material`: preset selector for the material under consideration.
+- `Use package diameter`: when the selected component has a known package OD,
+  derive and lock Core OD to that value. Current package-derived values are
+  1.4 mm for MELF 0204 and 2.2 mm for MELF 0207. Disable it for manual Core OD;
+  materials without a known package diameter remain manual automatically.
 - `Core volume resistivity`: log-scale input in ohm-cm. The app derives total core resistance from this value and the current core length and cross-sectional area.
 - `Conductor epsr`: internal parameter name for effective relative permittivity, displayed in the UI as `Conductor &epsilon;<sub>r</sub>`.
 - `Core R total`: derived readout kept for sizing and legacy parameter compatibility.
@@ -106,6 +110,34 @@ Sourcing strategy:
 - For a higher-permittivity structural ceramic, ask custom ceramics vendors about zirconia or ZTA washers and request dielectric-property data at the relevant field, frequency, and temperature.
 - Avoid piezoelectric high-K rings for the main dielectric path unless a coupon test proves microphonics are negligible. If high-K is revisited, prefer non-piezo candidates and treat all of them as test coupons rather than final dielectric washers.
 - Test at least one washer coupon by measuring capacitance, leakage versus voltage, dissipation factor if possible, and microphonic response before embedding it in potted hardware.
+
+### Alumina purity and detector-bias partial discharge
+
+Commercial 96% alumina is a dense ceramic with sintering aids and secondary
+phases; the remaining percentage is not a porosity percentage. Representative
+Vishay substrate data give 96% alumina `epsr = 9.6`, loss tangent `0.0002`, and
+dielectric strength `19 kV/mm`, compared with `epsr = 9.8--9.9`, loss tangent
+`0.0001`, and dielectric strength `23 kV/mm` for 99.5--99.6% grades. These are
+grade- and test-specific examples, not universal acceptance values:
+
+https://www.vishay.com/docs/48666/_ms12821832-2306_design-guidelines_ultrasource_reduced-file-size.pdf
+
+For DC detector bias, a small partial discharge matters even when it cannot
+bridge the insulation: its current pulse can couple into the detector signal.
+Likely initiation sites are gas voids, cracks, surface contamination, and
+epoxy/ceramic delamination. A gas void can carry a much higher local field than
+the surrounding solid because of the permittivity discontinuity. Wall charge
+may temporarily extinguish a DC discharge, but leakage, relaxation, ripple, or
+ionization can permit intermittent recurrence.
+
+Treat purity as secondary to explicit density/open-porosity, water-absorption,
+surface-finish, edge-quality, and dielectric-test specifications. Higher-purity
+substrates are often available with finer surfaces, but a well-finished 96%
+washer with complete epoxy wetting is preferable to a nominally purer part
+that traps air or develops a weak interface. Coupon qualification should
+include cleaning and drying, representative vacuum-assisted potting, the real
+cure schedule, thermal cycling, and a sensitive DC partial-discharge or
+current-pulse test.
 
 ## Epoxy Fill Options
 

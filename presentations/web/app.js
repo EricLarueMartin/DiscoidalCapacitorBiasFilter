@@ -20,6 +20,7 @@ const defaults = {
   detector_capacitance_pf: 10,
   core_resistance_gohm: 0.02400005,
   core_od_mm: 2.2,
+  use_package_core_od: true,
   core_material: "mmb0207_melf",
   ferrite_epsr: 6,
   core_to_ground_gap_mm: 1.45,
@@ -408,6 +409,11 @@ function usesDirectStageCapacitance(p) {
 
 function usesMelfCoreModel(p) {
   return String(p.core_material || "").startsWith("mmb020");
+}
+
+function packageCoreOdMm(p) {
+  const diameter = coreMaterialPresets[p.core_material]?.coreOdMm;
+  return Number.isFinite(diameter) ? diameter : null;
 }
 
 function melfEffectiveEpsr(p) {
@@ -1074,6 +1080,9 @@ function applyImportedSettings(imported, ranges = {}) {
   if (!Object.prototype.hasOwnProperty.call(imported, "use_direct_stage_capacitance")) {
     const importedMelf = String(next.core_material || "").startsWith("mmb020");
     next.use_direct_stage_capacitance = Boolean(next.use_direct_stage_circuit && !importedMelf);
+  }
+  if (!Object.prototype.hasOwnProperty.call(imported, "use_package_core_od") && Object.prototype.hasOwnProperty.call(imported, "core_od_mm")) {
+    next.use_package_core_od = false;
   }
   params = next;
   lastResult = null;
@@ -1904,7 +1913,7 @@ function setupControls() {
       params.use_direct_stage_circuit = Boolean(preset.defaultDirectStageResistance);
       params.use_direct_stage_capacitance = Boolean(preset.defaultDirectStageCapacitance);
       applyDirectStageDefaultsForMaterial(params);
-      if (Number.isFinite(preset.coreOdMm)) params.core_od_mm = preset.coreOdMm;
+      if (params.use_package_core_od && Number.isFinite(preset.coreOdMm)) params.core_od_mm = preset.coreOdMm;
     }
     normalizeParams();
     syncControls();
@@ -2010,6 +2019,21 @@ function setupControls() {
     params.ground_matches_bias_thickness = groundMatchesBiasThickness.checked;
     if (params.ground_matches_bias_thickness) {
       params.ground_plate_thickness_mm = params.bias_plate_thickness_mm;
+    }
+    normalizeParams();
+    syncControls();
+    drawCadModel();
+    drawGeometry();
+    clearField();
+  });
+
+  const usePackageCoreOd = document.getElementById("use_package_core_od");
+  usePackageCoreOd.checked = params.use_package_core_od;
+  usePackageCoreOd.addEventListener("change", () => {
+    params.use_package_core_od = usePackageCoreOd.checked;
+    const packageDiameter = packageCoreOdMm(params);
+    if (params.use_package_core_od && packageDiameter !== null) {
+      params.core_od_mm = packageDiameter;
     }
     normalizeParams();
     syncControls();
@@ -2158,6 +2182,8 @@ function setupCadViewer() {
 
 function normalizeParams() {
   const spacingRange = spacingRangeForWasher(params);
+  params.use_package_core_od = params.use_package_core_od !== false;
+  const packageDiameter = packageCoreOdMm(params);
   const genericRangeIds = [
     "bias_voltage_v",
     "core_volume_resistivity_log10_ohm_cm",
@@ -2191,6 +2217,9 @@ function normalizeParams() {
   for (const id of genericRangeIds) {
     const range = controlRange(id);
     params[id] = clamp(params[id], range.min, range.max);
+  }
+  if (params.use_package_core_od && packageDiameter !== null) {
+    params.core_od_mm = packageDiameter;
   }
   params.plate_pairs = Math.round(params.plate_pairs);
   if (!Number.isFinite(params.melf_stage_resistance_mohm) && Number.isFinite(params.melf_stage_resistance_log10_ohm)) {
@@ -2296,6 +2325,7 @@ function syncControls() {
   document.getElementById("use_repeating_cell_approximation").checked = params.use_repeating_cell_approximation;
   document.getElementById("use_direct_stage_circuit").checked = params.use_direct_stage_circuit;
   document.getElementById("use_direct_stage_capacitance").checked = params.use_direct_stage_capacitance;
+  document.getElementById("use_package_core_od").checked = params.use_package_core_od;
   document.getElementById("ground_matches_bias_thickness").checked = params.ground_matches_bias_thickness;
   document.getElementById("input_series_matches_stage").checked = params.input_series_matches_stage;
   document.getElementById("output_series_matches_stage").checked = params.output_series_matches_stage;
@@ -2324,6 +2354,13 @@ function syncControls() {
   const groundThicknessManual = document.getElementById("ground_plate_thickness_mm_manual");
   if (groundThicknessInput) groundThicknessInput.disabled = params.ground_matches_bias_thickness;
   if (groundThicknessManual) groundThicknessManual.disabled = params.ground_matches_bias_thickness;
+  const packageDiameter = packageCoreOdMm(params);
+  const packageCoreControl = document.getElementById("use_package_core_od_control");
+  const coreOdInput = document.getElementById("core_od_mm");
+  const coreOdManual = document.getElementById("core_od_mm_manual");
+  packageCoreControl.hidden = packageDiameter === null;
+  coreOdInput.disabled = params.use_package_core_od && packageDiameter !== null;
+  if (coreOdManual) coreOdManual.disabled = coreOdInput.disabled;
   const inputSeriesInput = document.getElementById("input_series_resistance_mohm");
   const inputSeriesManual = document.getElementById("input_series_resistance_mohm_manual");
   const outputSeriesInput = document.getElementById("output_series_resistance_ohm");

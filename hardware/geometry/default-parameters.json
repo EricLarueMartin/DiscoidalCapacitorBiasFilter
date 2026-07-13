@@ -21,6 +21,7 @@
   "detector_capacitance_pf": 10.0,
   "core_resistance_gohm": 0.02400005,
   "core_od_mm": 2.2,
+  "use_package_core_od": true,
   "core_material": "mmb0207_melf",
   "ferrite_epsr": 6.0,
   "core_to_ground_gap_mm": 1.45,

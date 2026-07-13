@@ -1,0 +1,39 @@
+Reconstructed collaboration record, 2026-07-13
+
+User requests:
+- Deploy the current server to the configured Raspberry Pi.
+- When MELF 0204 is selected, set Core OD to the common package diameter. Add
+  a checkbox that uses a package-derived value when one is known and otherwise
+  permits manual entry.
+- Explain how 96% versus 99% alumina affects dielectric strength and
+  microdischarges in a DC detector-bias application, where small void
+  discharges can produce objectionable pulses.
+- Retitle "FEA Screens the Dielectric Stress" to "FEA for Peak Electric
+  Field," remove the obvious conductor/dielectric statement and retained-field-
+  location bullet, and replace ambiguous "design screen" wording.
+- Update the handoff, commit, and push.
+
+Recorded outcome:
+- The web app was deployed and checked with its FEniCSx and ngspice backends.
+  Host-specific connection and deployment details remain in ignored local
+  notes rather than this repository.
+- Added `use_package_core_od`, enabled by default. MELF 0204 derives 1.4 mm and
+  MELF 0207 derives 2.2 mm. The Core OD slider and exact-value field are locked
+  in package mode. Unchecking permits manual entry; materials without a known
+  package diameter hide the option and remain editable. Older imported files
+  with an explicit Core OD retain manual mode.
+- Lowered the Core OD control minimum from 2 mm to 1 mm so the 1.4 mm MELF 0204
+  value is not silently clamped. Browser interaction checks covered both MELF
+  sizes, manual mode, re-enabling package mode, and a non-package ferrite.
+- Recorded that higher-purity alumina generally offers somewhat higher bulk
+  dielectric strength and may provide finer surface grades, but purity alone
+  does not predict partial-discharge behavior. Voids, cracks, contamination,
+  epoxy wetting, cure shrinkage, and later delamination are the controlling
+  concerns for detector-noise pulses. Added DC partial-discharge/current-pulse
+  coupon testing to the open work.
+- Retitled the slide to "FEA for Peak Electric Field." It now states only that
+  washer and epoxy fields are compared with provisional limits and that the
+  peak must converge under mesh refinement before use as a breakdown limit.
+
+This is a reconstructed record from visible chat context. Intermediate tool
+steps and credentials are omitted.

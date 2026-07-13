@@ -140,7 +140,8 @@
 
           <div class="control-group control-panel" data-control-panel="geometry" hidden>
             <h2>Geometry</h2>
-            <label>Core OD <output id="core_od_mm_out"></output><input id="core_od_mm" type="range" min="2" max="14" step="0.1"></label>
+            <label id="core_od_control">Core OD <output id="core_od_mm_out"></output><input id="core_od_mm" type="range" min="1" max="14" step="0.1"></label>
+            <label id="use_package_core_od_control" class="check" title="Set core OD from the selected component package when its diameter is known."><input id="use_package_core_od" type="checkbox"> Use package diameter</label>
             <label title="Primary inside diameter of the surrounding grounded tube.">Ground tube ID <output id="tube_id_mm_out"></output><input id="tube_id_mm" type="range" min="12" max="64" step="0.1"></label>
             <label title="Primary axial washer thickness between adjacent plate faces.">Washer thickness <output id="plate_gap_mm_out"></output><input id="plate_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
             <label title="Ceramic washer inner diameter and source dimension for coupled ground-ID modes.">Washer ID <output id="washer_id_mm_out"></output><input id="washer_id_mm" type="range" min="2" max="40" step="0.1"></label>
@@ -481,17 +482,15 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy">
-            <h2>FEA Screens the Dielectric Stress</h2>
+            <h2>FEA for Peak Electric Field</h2>
             <ul>
-              <li>Peak field is reported in dielectric material rather than inside conductor cells.</li>
-              <li>The field location is retained in the r-z half-section so the limiting edge can be identified.</li>
               <li>Washer and epoxy fields are compared separately with provisional material limits.</li>
-              <li>Mesh-converged peak values remain a qualification step; the present result is a design screen.</li>
+              <li>The peak field must converge as the mesh is refined before it is used as a breakdown limit.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideResultsCanvas" width="1100" height="620"></canvas>
-            <figcaption>Current field screening result and dielectric-margin summary</figcaption>
+            <figcaption>Current peak-field result and dielectric-margin summary</figcaption>
           </figure>
         </article>
 
