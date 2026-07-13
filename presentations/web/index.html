@@ -16,8 +16,8 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=2026-07-13-solver-explainer">
-    <script defer src="app.js?v=2026-07-13-dark-mode"></script>
+    <link rel="stylesheet" href="style.css?v=2026-07-13-ladder-model-layout">
+    <script defer src="app.js?v=2026-07-13-ladder-model-layout"></script>
   </head>
   <body>
     <header class="topbar">
@@ -45,6 +45,7 @@
             <button class="control-tab active" type="button" role="tab" aria-selected="true" data-control-tab="electrical">Electrical</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="geometry">Geometry</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="solver">Solver</button>
+            <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="thermal">Thermal</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="files">Files</button>
           </div>
 
@@ -189,7 +190,7 @@
               <output id="mesh_edge_radius_ratio_out"></output>
               <input id="mesh_edge_radius_ratio" type="range" min="0.05" max="0.5" step="0.01">
             </label>
-            <label class="check" title="Use two unique FEniCSx regions to reconstruct the full electric-field stack."><input id="use_repeating_cell_approximation" type="checkbox"> Repeat interior FEA cell</label>
+            <label class="check" title="Default: use two unique FEniCSx regions to reconstruct the full electric-field stack."><input id="use_repeating_cell_approximation" type="checkbox"> Repeat interior FEA cell</label>
             <div class="solver-explainer">
               <strong>What the repeating-cell approximation solves</strong>
               <p>FEniCSx meshes and solves only two unique axial regions:</p>
@@ -204,6 +205,30 @@
             <p class="control-note">Backend auto uses FEniCSx when ready and falls back to adaptive finite difference.</p>
             <div class="actions solver-actions">
               <button id="solve" type="button">Solve field</button>
+            </div>
+          </div>
+
+          <div class="control-group control-panel" data-control-panel="thermal" hidden>
+            <h2>Thermal bond screen</h2>
+            <label title="A what-if temperature for screening transport or operation; this is not a design target."><span>Temperature to evaluate</span><output id="thermal_min_temperature_c_out"></output><input id="thermal_min_temperature_c" type="range" min="-80" max="30" step="1"></label>
+            <label title="MG Chemicals does not publish Young's modulus for 9510. The saved calculation preserves a 2 to 4 GPa sensitivity range."><span>Assumed epoxy E</span><output id="thermal_epoxy_modulus_gpa_out"></output><input id="thermal_epoxy_modulus_gpa" type="range" min="2" max="4" step="0.1"></label>
+            <label title="One is the conservative fully restrained upper bound. Lower values represent strain relief at free edges and interfaces."><span>Effective restraint</span><output id="thermal_restraint_factor_out"></output><input id="thermal_restraint_factor" type="range" min="0.25" max="1" step="0.05"></label>
+            <div class="thermal-summary" aria-label="Thermal stress estimate">
+              <span>Controlling interface <strong id="thermalControllingInterface">--</strong></span>
+              <span>&Delta;&alpha; <strong id="thermalDeltaCte">--</strong></span>
+              <span>Free radial mismatch <strong id="thermalRadialMismatch">--</strong></span>
+              <span>Estimated stress <strong id="thermalStress">--</strong></span>
+              <span>Strength margin <strong id="thermalStrengthMargin">--</strong></span>
+              <span>Estimated risk onset <strong id="thermalFailureOnset">--</strong></span>
+            </div>
+            <div class="thermal-warning" id="thermalStatus" role="status">--</div>
+            <div class="solver-explainer thermal-explainer">
+              <strong>What this screen means</strong>
+              <p>The temperature control is a what-if evaluation, not a design target. The default 20&nbsp;&deg;C setting checks ordinary room-temperature handling.</p>
+              <p>Below the 9510 glass transition at 70&nbsp;&deg;C, the rigid cured epoxy wants to contract much more than alumina or copper. The upper-bound model uses &sigma; = kE&Delta;&alpha;&Delta;T/(1 &minus; &nu;) and compares it with the published 20&nbsp;MPa cured tensile strength.</p>
+              <p>The default k = 1 calculation is intentionally conservative. At k = 0.5, the nominal risk onset moves to <strong id="thermalHalfRestraintOnset">--</strong>, showing why a geometry-specific coupon is required.</p>
+              <p>The published 3.9% cure shrinkage is not added as elastic strain because the locked-in fraction after gel is unknown. Any retained cure stress reduces the available cold margin.</p>
+              <p><a href="https://mgchemicals.com/downloads/tds/tds-9510.pdf">9510 TDS</a> &middot; <a href="https://www2.coorstek.com/media/4235/advanced-alumina.pdf">CoorsTek alumina</a> &middot; <a href="https://alloys.copper.org/alloy/C11000">C110 copper</a></p>
             </div>
           </div>
 
@@ -403,118 +428,188 @@
           <div class="slide-copy">
             <p class="eyebrow">Detector bias filtering</p>
             <h2>SHV Bias Filter</h2>
-            <p>A compact, axisymmetric high-voltage low-current filter for LEGEND-style detector biasing and related experiments.</p>
+            <p>A compact, axisymmetric high-voltage low-current filter with two candidate resistive-core implementations.</p>
           </div>
           <figure class="slide-figure">
             <canvas id="slideCadCanvas" width="1100" height="620"></canvas>
-            <figcaption>Current generated CAD cutaway</figcaption>
+            <figcaption>Alternating bias and ground plates inside a grounded copper tube</figcaption>
           </figure>
         </article>
+
         <article class="slide slide-visual">
-          <div class="slide-copy">
-            <h2>Simulation Focus</h2>
+          <div class="slide-copy slide-copy-compact">
+            <h2>The FEA Model Preserves Field-Critical Geometry</h2>
             <ul>
-              <li>Rounded inner edge of each ground plate.</li>
-              <li>Rounded outer edge of each high-voltage plate.</li>
-              <li>Field effects from the optional outer grounded tube.</li>
-              <li>Dielectric boundaries between the conductive core, washer material, and epoxy fill.</li>
+              <li>Axisymmetric bias and ground plates retain their rounded conductor edges.</li>
+              <li>Alumina washers, epoxy fill, the resistive core, and the grounded tube are distinct regions.</li>
+              <li>The model preserves both the high-capacitance washer overlap and the low-capacitance core-side path.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideMaterialCanvas" width="1100" height="620"></canvas>
-            <figcaption>Current dielectric and conductor regions</figcaption>
+            <figcaption>Conductor and dielectric regions in the axisymmetric model</figcaption>
           </figure>
         </article>
+
         <article class="slide slide-visual">
-          <div class="slide-copy">
-            <h2>Simulation Results</h2>
+          <div class="slide-copy slide-copy-compact">
+            <h2>The Electrical Model Is a Loaded RC Ladder</h2>
             <ul>
-              <li>Report peak electric field in the dielectric, not inside conductor cells.</li>
-              <li>Show where the peak occurs in the r-z half-section.</li>
-              <li>Compare washer and epoxy peak fields to material breakdown placeholders.</li>
-              <li>State whether the slide is showing the latest solved result or a preview solve.</li>
-              <li>Use this as a screening result until the conforming FEA backend is validated.</li>
-            </ul>
-          </div>
-          <figure class="slide-figure">
-            <canvas id="slideResultsCanvas" width="1100" height="620"></canvas>
-            <figcaption>Current field screening result and dielectric margin summary</figcaption>
-          </figure>
-        </article>
-        <article class="slide slide-visual">
-          <div class="slide-copy">
-            <h2>Analytic Sanity Checks</h2>
-            <ul>
-              <li>Use V/d for each local clearance as the baseline stress.</li>
-              <li>Use r as the minimum exposed conductor radius and d as the minimum gap.</li>
-              <li>Bound the screening field by E<sub>max</sub> = V(r + d)/(r d).</li>
-              <li>Keep local 2D and coax checks as lower-order comparisons.</li>
-              <li>Show R<sub>maj</sub>/r so toroidal-curvature limits are visible.</li>
-              <li>Compare both radial sides: HV disc to tube and ground disc to HV core.</li>
-              <li>Use FEA to confirm the actual ring geometry respects the radius and gap assumptions.</li>
-            </ul>
-          </div>
-          <figure class="slide-figure">
-            <canvas id="slideEdgeCanvas" width="1100" height="620"></canvas>
-            <figcaption>Rounded-edge circle cross-section screening estimate</figcaption>
-          </figure>
-        </article>
-        <article class="slide slide-visual">
-          <div class="slide-copy">
-            <h2>Radius-Gap Limit</h2>
-            <ul>
-              <li>Let r be the minimum radius on any exposed conductor feature.</li>
-              <li>Let d be the minimum dielectric gap to the opposite conductor.</li>
-              <li>The limiting geometry is a radius-r sphere inside a radius-(r + d) grounded sphere.</li>
-              <li>Use E<sub>max</sub> = V(r + d)/(r d) as the screening field bound.</li>
-              <li>Use FEA to check the actual geometry and catch any smaller-radius features.</li>
-            </ul>
-          </div>
-          <figure class="slide-figure">
-            <canvas id="slideDeformationCanvas" width="1100" height="620"></canvas>
-            <figcaption>Minimum-radius and minimum-gap electric-field bound</figcaption>
-          </figure>
-        </article>
-        <article class="slide slide-visual">
-          <div class="slide-copy">
-            <h2>Field-Limited Packing</h2>
-            <ul>
-              <li>Assume plate thickness is 2r and dielectric gap is d.</li>
-              <li>Use the radius-gap limit for the most limiting geometry: E<sub>max</sub> = V(r + d)/(r d).</li>
-              <li>Use gap capacitance proportional to 1/d.</li>
-              <li>Use stack pitch L = d + 2r.</li>
-              <li>Figure of merit: FOM = C/(L E<sub>max</sub>).</li>
-              <li>The shape optimum is r/d = 1/&radic;2.</li>
-            </ul>
-          </div>
-          <figure class="slide-figure">
-            <canvas id="slidePackingCanvas" width="1100" height="620"></canvas>
-            <figcaption>Capacitance per length per electric-field stress</figcaption>
-          </figure>
-        </article>
-        <article class="slide slide-visual">
-          <div class="slide-copy">
-            <h2>RC Ladder</h2>
-            <ul>
-              <li>Estimate HV-ground capacitance from the washer overlap area.</li>
-              <li>Estimate bias-to-bias parasitic capacitance through the selected core material and epoxy around the core.</li>
-              <li>Track the high-frequency capacitive feedthrough ratio C<sub>par</sub>/C<sub>g</sub>.</li>
-              <li>Mark where parasitic reactance equals the bias-to-bias resistance.</li>
-              <li>Plot voltage-noise attenuation in dB using 20 log<sub>10</sub>.</li>
+              <li>R<sub>stage</sub> connects bias nodes. Each node sees C<sub>g</sub> = 2C<sub>gap</sub> through its two adjacent washers.</li>
+              <li>C<sub>par</sub> bridges adjacent nodes in parallel with R<sub>stage</sub> and sets the high-frequency feedthrough limit.</li>
+              <li>End resistances occur once. Cable, detector, and load conductance appear only at the final node.</li>
+              <li>The curve is one isolated section; the assembled filter uses the full unbuffered ladder solve.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideRcCanvas" width="1100" height="620"></canvas>
-            <figcaption>Per-stage RC and parasitic divider model</figcaption>
+            <figcaption>Parameter mapping and the transfer curve of one isolated R<sub>stage</sub>&ndash;C<sub>g</sub>&ndash;C<sub>par</sub> section</figcaption>
           </figure>
         </article>
+
+        <article class="slide slide-copy-wide">
+          <p class="eyebrow">Simulation method</p>
+          <h2>Axisymmetric FEA Connects Geometry to Circuit Values</h2>
+          <ol class="method-steps">
+            <li><strong>Mesh the dielectric:</strong> Gmsh creates a conforming r-z domain around the actual rounded conductor boundaries.</li>
+            <li><strong>Solve the potential:</strong> FEniCSx applies conductor voltages and solves the cylindrical electrostatic weak form.</li>
+            <li><strong>Extract field and energy:</strong> the field map supplies dielectric stress; stored energy supplies capacitance.</li>
+            <li><strong>Evaluate the circuit:</strong> the FEA capacitances populate the loaded RC and SPICE ladder models.</li>
+          </ol>
+          <p>The repeating-cell approximation is the default: it solves one physical end and one interior half-cell, then reconstructs the remaining uniform stack. Clear the checkbox to use the exact mirror-half solve.</p>
+        </article>
+
         <article class="slide slide-visual">
           <div class="slide-copy">
+            <h2>FEA Screens the Dielectric Stress</h2>
+            <ul>
+              <li>Peak field is reported in dielectric material rather than inside conductor cells.</li>
+              <li>The field location is retained in the r-z half-section so the limiting edge can be identified.</li>
+              <li>Washer and epoxy fields are compared separately with provisional material limits.</li>
+              <li>Mesh-converged peak values remain a qualification step; the present result is a design screen.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideResultsCanvas" width="1100" height="620"></canvas>
+            <figcaption>Current field screening result and dielectric-margin summary</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Mechanical failure screen</p>
+            <h2>Epoxy Bonding May Require Warm Transport</h2>
+            <ul>
+              <li>The screen treats T<sub>g</sub> = 70&nbsp;&deg;C as the stress-free reference after heat cure, not as the cure temperature; below it, MG 9510 contracts at 74 ppm/&deg;C versus 8.2 for alumina and 16.9 for copper.</li>
+              <li>The nominal full-restraint strength crossing is about +4&nbsp;&deg;C; the assumed 2&ndash;4 GPa modulus range shifts it from &minus;29 to +21&nbsp;&deg;C.</li>
+              <li>At 50% effective restraint the crossing moves near &minus;62&nbsp;&deg;C, showing that free-edge strain relief dominates the uncertainty.</li>
+              <li>Until bonded-ring coupons are qualified, transport at controlled room temperature&mdash;preferably at or above 25&nbsp;&deg;C&mdash;and avoid unheated or freezing shipment.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideThermalCanvas" width="1100" height="620"></canvas>
+            <figcaption>Conservative thermal-mismatch stress and strain-relief sensitivity for the default build</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <h2>MELF + Alumina Falls Short at 50/60 Hz</h2>
+            <ul>
+              <li>The available 12 M&Omega; MELF value is much lower than the desired per-stage resistance.</li>
+              <li>Alumina is practical and robust, but its modest permittivity limits the shunt capacitance.</li>
+              <li>Its intrinsic section attenuation is about 0.1 dB at 50 Hz; the full loaded response still falls short of the desired suppression.</li>
+              <li>The result motivates a higher-resistance ferrite path or a more complex MELF topology.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideLoadedLadderCanvas" width="1100" height="620"></canvas>
+            <figcaption>Loaded-ladder response for the currently selected design</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <h2>SPICE Checks the Loaded-System Trend</h2>
+            <ul>
+              <li>The backend solves the individual R, C<sub>g</sub>, and C<sub>par</sub> ladder elements.</li>
+              <li>The cable is represented by its characteristic impedance and delay rather than only a lumped capacitance.</li>
+              <li>The comparison separates filter limitations from cable and detector loading effects.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
+            <figcaption>SPICE-style ladder with a transmission-line output load</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide prototype-slide">
+          <p class="eyebrow">Proposed prototypes</p>
+          <h2>Two Core Options Share One Mechanical Stack</h2>
+          <p class="prototype-shared"><strong>Both prototypes:</strong> stock alumina washers, copper bias and ground plates, a copper ground tube, and epoxy fill.</p>
+          <div class="prototype-comparison">
+            <section class="prototype-path ferrite-path">
+              <h3>Ferrite-disc core</h3>
+              <ul>
+                <li>Bulk resistivity is near the target, and ferrite can be cut and lapped into matching discs.</li>
+                <li>Main uncertainty: excess 1/f noise from its polycrystalline conduction structure.</li>
+                <li>Measure resistance, stability, and noise under representative bias.</li>
+              </ul>
+            </section>
+            <section class="prototype-path melf-path">
+              <h3>MELF-resistor core</h3>
+              <ul>
+                <li>Thin-film MELF resistors are a known low-noise, repeatable technology.</li>
+                <li>Available resistance is too low; with alumina's modest capacitance, performance is poor at 50/60 Hz.</li>
+                <li>Establish the noise baseline and test higher-R or multi-part layouts.</li>
+              </ul>
+            </section>
+          </div>
+        </article>
+
+        <article class="slide slide-copy-wide">
+          <p class="eyebrow">Prototype plan</p>
+          <h2>One Mechanical Build Can Compare Both Core Inserts</h2>
+          <ul>
+            <li>Use the same purchased alumina washers and machined copper plate/tube envelope for both builds.</li>
+            <li>Bond cut ferrite discs to bias plates with controlled conductive-epoxy joints.</li>
+            <li>Install the MELF alternative as discrete axial stage elements with controlled terminations.</li>
+            <li>Pot both variants with the same epoxy and vacuum/pressure cure process.</li>
+            <li>Compare attenuation, leakage, drift, and low-frequency noise without changing the surrounding geometry.</li>
+          </ul>
+        </article>
+
+        <article class="slide backup-divider">
+          <p class="eyebrow">Backup slides</p>
+          <h2>Analytical and Circuit Checks Support the Main Results</h2>
+          <p>These cross-checks defend the ladder treatment, FEA scale, capacitance extraction, and rounded-edge assumptions if the numerical model is challenged.</p>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: circuit model</p>
+            <h2>One Section Matches; Stage Multiplication Does Not</h2>
+            <ul>
+              <li>For one R<sub>stage</sub>&ndash;C<sub>g</sub> section with no additional end resistance or external load, the analytical divider and full MNA/SPICE solve are identical.</li>
+              <li>With multiple unbuffered sections, downstream capacitors load the upstream nodes, so their transfer functions cannot be multiplied as independent stages.</li>
+              <li>The section-count approximation also repeats the cable and detector load at every section instead of applying it once at the output.</li>
+              <li>The full ladder solve, not the multiplied estimate, is used for design conclusions.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideStageValidationCanvas" width="1100" height="620"></canvas>
+            <figcaption>Single-section identity and loaded-ladder divergence at 50 Hz</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <p class="eyebrow">Backup: capacitance validation</p>
             <h2>Total Capacitance Checks the FEA Scale</h2>
             <ul>
               <li>Compare analytic washer-overlap C<sub>g,total</sub> to FEA energy-extracted C<sub>g,total</sub>.</li>
               <li>Use C = 2U/V<sup>2</sup> with every bias conductor tied together against ground.</li>
-              <li>Treat this as a magnitude check; attenuation remains on the loaded-ladder slides.</li>
+              <li>Treat this as a magnitude check rather than the loaded-ladder calculation itself.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -522,13 +617,15 @@
             <figcaption>Total HV-to-ground capacitance from analytic overlap and FEA energy</figcaption>
           </figure>
         </article>
+
         <article class="slide slide-visual">
           <div class="slide-copy">
+            <p class="eyebrow">Backup: mutual capacitance</p>
             <h2>Three FEA Excitations Isolate C<sub>par</sub></h2>
             <ul>
-              <li>Combine middle-only, neighbors-only, and all-bias energy solves to cancel capacitance to ground and isolate mutual C<sub>par</sub>.</li>
-              <li>Expect the axial &epsilon;A/d estimate to run high: grounded plates intercept part of the fringing flux between bias plates.</li>
-              <li>Treat the analytic result as a conservative screening value; use the shielded FEA result in the loaded ladder.</li>
+              <li>Middle-only, neighbors-only, and all-bias energy solves cancel capacitance-to-ground terms.</li>
+              <li>The resulting polarization identity isolates the mutual capacitance to the two neighboring bias plates.</li>
+              <li>The axial &epsilon;A/d estimate is expected to run high because grounded plates intercept fringing flux.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -536,57 +633,55 @@
             <figcaption>Three energy solves isolate adjacent-bias parasitic capacitance</figcaption>
           </figure>
         </article>
+
         <article class="slide slide-visual">
-          <div class="slide-copy">
-            <h2>Loaded RC Ladder</h2>
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: field validation</p>
+            <h2>Solvable Geometries Bound the Edge Field</h2>
             <ul>
-              <li>Solve the RC ladder as individual R, C<sub>g</sub>, and C<sub>par</sub> elements.</li>
-              <li>Place the expected load only at the output node.</li>
-              <li>Use G<sub>load</sub> = I<sub>load</sub>/V<sub>bias</sub>.</li>
-              <li>Use C<sub>load</sub> = C<sub>detector</sub> + length/(Z<sub>0</sub> v<sub>f</sub> c) for lumped coax capacitance.</li>
+              <li>Use V/d as the flat-gap baseline.</li>
+              <li>Use r as the minimum exposed conductor radius and d as the minimum opposite-conductor gap.</li>
+              <li>Compare the core side, tube side, local 2D, coaxial, and radius-gap estimates.</li>
+              <li>Use FEA to confirm that the modeled geometry respects the analytic assumptions.</li>
             </ul>
           </div>
           <figure class="slide-figure">
-            <canvas id="slideLoadedLadderCanvas" width="1100" height="620"></canvas>
-            <figcaption>Full nodal ladder compared with the resistor-section one-stage approximation</figcaption>
+            <canvas id="slideEdgeCanvas" width="1100" height="620"></canvas>
+            <figcaption>Rounded-edge screening estimates for both radial sides</figcaption>
           </figure>
         </article>
+
         <article class="slide slide-visual">
-          <div class="slide-copy">
-            <h2>SPICE Ladder Backend</h2>
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: limiting geometry</p>
+            <h2>Radius and Gap Set a Conservative Field Bound</h2>
             <ul>
-              <li>Backend solves a SPICE-style small-signal AC netlist.</li>
-              <li>RC ladder uses individual R, C<sub>g</sub>, and C<sub>par</sub> elements.</li>
-              <li>Coax is treated as a lossless transmission line with Z<sub>0</sub>, delay, detector C, and load conductance.</li>
-              <li>Compare full transmission-line solve against lumped coax capacitance and resistor-section one-stage estimates.</li>
+              <li>Let r be the minimum radius on any exposed conductor feature.</li>
+              <li>Let d be the minimum dielectric gap to the opposite conductor.</li>
+              <li>The limiting reference is a radius-r sphere inside a radius-(r + d) grounded sphere.</li>
+              <li>Use E<sub>max</sub> = V(r + d)/(r d), then audit the actual geometry with FEA.</li>
             </ul>
           </div>
           <figure class="slide-figure">
-            <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
-            <figcaption>Pi backend SPICE-style AC solve with transmission-line load</figcaption>
+            <canvas id="slideDeformationCanvas" width="1100" height="620"></canvas>
+            <figcaption>Minimum-radius and minimum-gap electric-field bound</figcaption>
           </figure>
         </article>
-        <article class="slide">
-          <h2>Prototype Materials</h2>
-          <ul>
-            <li>Alumina washer dielectric is the preferred prototype target.</li>
-            <li>FR4/G10 remains the easiest fallback if suitable alumina washers are unavailable.</li>
-            <li>MG Chemicals 9510 heat-cure epoxy as the first potting-fill option.</li>
-            <li>Selectable core/conductor material presets, with Fair-Rite type 61 NiZn ferrite as the first sample set.</li>
-            <li>Copper is the default plate and ground-tube material for RF-loss and skin-depth estimates.</li>
-            <li>Conductive epoxy joints between core discs and bias plates.</li>
-          </ul>
-        </article>
-        <article class="slide">
-          <h2>Construction Plan</h2>
-          <ul>
-            <li>Stack ferrite slices, polished copper bias discs, ground discs, ceramic washers, and mechanical spacers with epoxy flow holes.</li>
-            <li>Use conductive epoxy at ferrite-to-bias-disc contacts before final potting fixes the stack.</li>
-            <li>Fill with heat-cured epoxy, then use repeated vacuum and pressure dwell cycles to reduce trapped voids.</li>
-            <li>Degas controller subproject: two relay-driven valves switch a pressure vessel between vacuum pump and pressure source.</li>
-            <li>Controller inputs: high pressure, low pressure, pressure bands, dwell time at each band, and repeat count.</li>
-            <li>Pressure-cure integration in an oven is possible later, but outside the first prototype scope.</li>
-          </ul>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy">
+            <p class="eyebrow">Backup: geometry optimization</p>
+            <h2>Field-Limited Packing Has a Simple Shape Optimum</h2>
+            <ul>
+              <li>Assume plate thickness is 2r, dielectric gap is d, and stack pitch is L = d + 2r.</li>
+              <li>Combine gap capacitance with the radius-gap field limit.</li>
+              <li>The resulting capacitance-per-length-per-field metric is optimized at r/d = 1/&radic;2.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slidePackingCanvas" width="1100" height="620"></canvas>
+            <figcaption>Capacitance per length per electric-field stress</figcaption>
+          </figure>
         </article>
       </section>
 

@@ -1,0 +1,13 @@
+Reconstructed collaboration record, 2026-07-13
+
+User request:
+"Analyze the thermal expansion and stress resulting from heat curing the epoxy to estimate how cold it can go after construction before there is risk of the epoxy bond breaking. Do this for the default design. Save the calculations done for this and add a new design tab and slide for this addressing this possible failure mode."
+
+Implementation summary:
+- Used the default copper tube/plates, alumina washers, MMB 0207 MELF core, and MG Chemicals 9510 epoxy geometry.
+- Collected current manufacturer/property data for 9510, AD-96 alumina, C110 copper, and the MMB 0207 ceramic body.
+- Added a deterministic closed-form thermal-mismatch calculation and saved its complete JSON output.
+- Added adjustable target-temperature, assumed-modulus, and effective-restraint controls to a Thermal design tab.
+- Added a presentation slide explaining the controlling epoxy-to-alumina interface, conservative risk result, strain-relief sensitivity, and required coupon qualification.
+
+This is a reconstructed record from visible chat context. Intermediate tool steps are omitted.

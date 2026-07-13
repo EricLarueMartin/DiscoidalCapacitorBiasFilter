@@ -70,14 +70,14 @@ Initial meshing requirements:
 
 ## Mirror Symmetry
 
-The alternating stack starts and ends on ground plates and uses uniform plate thicknesses and gaps, so the electrostatic geometry is exactly mirror-symmetric about the center of the middle plate in the idealized axisymmetric model. A full-stack solve is useful for validation, but the FEniCSx backend now defaults to a half domain:
+The alternating stack starts and ends on ground plates and uses uniform plate thicknesses and gaps, so the electrostatic geometry is exactly mirror-symmetric about the center of the middle plate in the idealized axisymmetric model. A full-stack solve is useful for validation. The FEniCSx backend retains the exact half-domain strategy as a reference:
 
 - `mirror_half`: solve one end of the stack through the middle plate, then mirror the field across the center plane. The mirror plane has even-potential symmetry, `dV/dz = 0`, outside regions already fixed as conductor.
 - `full_stack`: keep as a reference solve and as a simple browser-compatible fallback.
 
 The half-domain FEniCSx mesh uses the natural Neumann condition at the center plane, doubles the integrated electrostatic energy for total-capacitance reconstruction, and mirrors field samples back into the full browser grid. The same reduction is used for the three symmetric energy-polarization solves that estimate adjacent-bias parasitic capacitance.
 
-A single repeating interior cell is not exact for a finite stack because electrostatic end effects are global, so only the full-stack center plane is exact without an approximation. The web designer therefore exposes `end_repeat_approx` only as an opt-in checkbox. It solves two regions: (A) the physical axial end through the center of the first bias plate, and (B) that bias-plate center through the center of the next ground plate. Region A is mirrored at the far end. Region B is alternately copied and mirrored across successive bias-plate and ground-plate center planes. Energy is reconstructed as `2 U_A + 2 (N_pairs - 1) U_B`. A one-pair stack falls back to exact `mirror_half` because it has no repeated interior region.
+A single repeating interior cell is not exact for a finite stack because electrostatic end effects are global, so only the full-stack center plane is exact without an approximation. The web designer nevertheless enables `end_repeat_approx` by default for routine screening because the tested error is small and the Pi runtime improvement is substantial. It solves two regions: (A) the physical axial end through the center of the first bias plate, and (B) that bias-plate center through the center of the next ground plate. Region A is mirrored at the far end. Region B is alternately copied and mirrored across successive bias-plate and ground-plate center planes. Energy is reconstructed as `2 U_A + 2 (N_pairs - 1) U_B`. A one-pair stack falls back to exact `mirror_half` because it has no repeated interior region. Clear the checkbox for the exact mirror-half reference solve.
 
 The mirror-half implementation must retain a same-geometry `full_stack` comparison as a regression check:
 

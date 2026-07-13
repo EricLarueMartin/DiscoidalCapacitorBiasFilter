@@ -143,6 +143,34 @@ The designer tab reports the same single-stage attenuation values numerically:
 
 The RC ladder slide also labels the 50 Hz attenuation point on the plotted transfer curve and draws the high-frequency attenuation ceiling implied by that same single-stage `C_parasitic / C_g_stage` ratio.
 
+## Single-section validation and multiplication limit
+
+For one isolated `R_stage`-`C_g_stage` section with no additional end
+resistance or external load, the analytical divider and the full MNA/SPICE
+solution are exactly the same. With the current default values at 50 Hz, both
+give 0.0668998 dB. This is the limiting test that validates the individual
+resistance and shunt-capacitance definitions.
+
+That identity does not justify raising the one-section transfer function to a
+stage count for the assembled filter. The physical ladder is unbuffered, so
+downstream shunt capacitors load upstream nodes. The current section-count
+comparison is still more aggressive because it applies the cable and detector
+load to every multiplied section and counts every nonzero end resistance as a
+full stage. The full ladder applies the external load once at the output.
+
+At 50 Hz with the default loaded design, the multiplied and full-ladder results
+diverge with stage count: 36.75 versus 18.16 dB for two bias stages, 73.51
+versus 26.76 dB for five, and 134.76 versus 37.22 dB for ten. The apparent
+two-to-one dB ratio at two stages is therefore coincidental rather than evidence
+that the two washer capacitors were counted twice. Use the full ladder or
+backend SPICE/MNA result for design conclusions.
+
+The main loaded-ladder and SPICE slides therefore omit the multiplied-stage
+curve. The electrical-model slide uses a one-section curve only to explain how
+`R_stage`, `C_g`, and `C_parasitic` shape a single divider. The stage-count
+divergence comparison is retained as a backup slide for questions about why the
+one-section transfer cannot simply be raised to a power.
+
 Washer dielectric comparison:
 
 ```text

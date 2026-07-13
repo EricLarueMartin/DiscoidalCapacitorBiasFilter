@@ -62,8 +62,11 @@ const defaults = {
   grid_z_count: 150,
   solver_iterations: 700,
   solver_tolerance_v: 0.01,
-  solve_strategy: "mirror_half",
-  use_repeating_cell_approximation: false
+  solve_strategy: "end_repeat_approx",
+  use_repeating_cell_approximation: true,
+  thermal_min_temperature_c: 20,
+  thermal_epoxy_modulus_gpa: 3,
+  thermal_restraint_factor: 1
 };
 
 const FIELD_SOLVER_ENDPOINT = "/api/field-solve";
@@ -199,7 +202,10 @@ const ids = [
   "ground_plate_thickness_mm",
   "edge_diameter_percent",
   "mesh_edge_radius_ratio",
-  "plate_pairs"
+  "plate_pairs",
+  "thermal_min_temperature_c",
+  "thermal_epoxy_modulus_gpa",
+  "thermal_restraint_factor"
 ];
 
 const units = {
@@ -236,7 +242,10 @@ const units = {
   ground_plate_thickness_mm: " mm",
   edge_diameter_percent: "%",
   mesh_edge_radius_ratio: "",
-  plate_pairs: ""
+  plate_pairs: "",
+  thermal_min_temperature_c: " &deg;C",
+  thermal_epoxy_modulus_gpa: " GPa",
+  thermal_restraint_factor: ""
 };
 
 const EPSILON_0_F_PER_M = 8.8541878128e-12;
@@ -307,6 +316,71 @@ const conductorMaterialPresets = {
   brass: { label: "Brass", conductivity: 1.6e7, mur: 1 },
   stainless_316: { label: "316 stainless", conductivity: 1.35e6, mur: 1.02 }
 };
+
+const THERMAL_SCREEN = {
+  stressFreeTemperatureC: 70,
+  epoxyCtePpmPerC: 74,
+  epoxyTensileStrengthMpa: 20,
+  epoxyPoissonRatio: 0.35,
+  epoxyServiceMinimumC: -65,
+  aluminaCtePpmPerC: 8.2,
+  copperCtePpmPerC: 16.9
+};
+
+function thermalInterfaceEstimate(label, substrateCtePpmPerC, radiusMm, p, restraint = null) {
+  const effectiveRestraint = restraint ?? p.thermal_restraint_factor;
+  const temperatureDropC = Math.max(0, THERMAL_SCREEN.stressFreeTemperatureC - p.thermal_min_temperature_c);
+  const deltaCtePpmPerC = Math.abs(THERMAL_SCREEN.epoxyCtePpmPerC - substrateCtePpmPerC);
+  const mismatchStrain = deltaCtePpmPerC * 1e-6 * temperatureDropC;
+  const stressMpa = effectiveRestraint
+    * p.thermal_epoxy_modulus_gpa * 1000
+    * mismatchStrain / (1 - THERMAL_SCREEN.epoxyPoissonRatio);
+  const onsetDropC = THERMAL_SCREEN.epoxyTensileStrengthMpa
+    * (1 - THERMAL_SCREEN.epoxyPoissonRatio)
+    / (Math.max(1e-9, effectiveRestraint) * p.thermal_epoxy_modulus_gpa * 1000 * deltaCtePpmPerC * 1e-6);
+  return {
+    label,
+    deltaCtePpmPerC,
+    mismatchStrain,
+    radialMismatchUm: mismatchStrain * radiusMm * 1000,
+    stressMpa,
+    strengthMargin: stressMpa > 0 ? THERMAL_SCREEN.epoxyTensileStrengthMpa / stressMpa : Number.POSITIVE_INFINITY,
+    failureOnsetC: THERMAL_SCREEN.stressFreeTemperatureC - onsetDropC
+  };
+}
+
+function thermalStressEstimate(p = params, restraint = null) {
+  const interfaces = [
+    thermalInterfaceEstimate("Epoxy to alumina washer", THERMAL_SCREEN.aluminaCtePpmPerC, p.washer_od_mm / 2, p, restraint),
+    thermalInterfaceEstimate("Epoxy to copper tube", THERMAL_SCREEN.copperCtePpmPerC, p.tube_id_mm / 2, p, restraint)
+  ];
+  return interfaces.sort((a, b) => b.stressMpa - a.stressMpa)[0];
+}
+
+function formatTemperatureC(value) {
+  if (!Number.isFinite(value)) return "--";
+  const rounded = Math.abs(value) < 0.05 ? 0 : value;
+  return `${rounded.toLocaleString(undefined, { maximumFractionDigits: 1 })} &deg;C`;
+}
+
+function updateThermalReadouts() {
+  const estimate = thermalStressEstimate(params);
+  const halfRestraint = thermalStressEstimate(params, 0.5);
+  document.getElementById("thermalControllingInterface").textContent = estimate.label;
+  document.getElementById("thermalDeltaCte").textContent = `${estimate.deltaCtePpmPerC.toFixed(1)} ppm/°C`;
+  document.getElementById("thermalRadialMismatch").textContent = `${estimate.radialMismatchUm.toFixed(1)} µm`;
+  document.getElementById("thermalStress").textContent = `${estimate.stressMpa.toFixed(1)} MPa`;
+  document.getElementById("thermalStrengthMargin").textContent = Number.isFinite(estimate.strengthMargin) ? `${estimate.strengthMargin.toFixed(2)}×` : "--";
+  document.getElementById("thermalFailureOnset").innerHTML = formatTemperatureC(estimate.failureOnsetC);
+  document.getElementById("thermalHalfRestraintOnset").innerHTML = formatTemperatureC(halfRestraint.failureOnsetC);
+  const status = document.getElementById("thermalStatus");
+  const atRisk = estimate.strengthMargin < 1;
+  status.classList.toggle("risk", atRisk);
+  status.classList.toggle("pass", !atRisk);
+  status.textContent = atRisk
+    ? `Risk screen: estimated stress exceeds the 20 MPa cured tensile strength at ${params.thermal_min_temperature_c.toFixed(0)} °C.`
+    : `Screening margin remains above 1 at ${params.thermal_min_temperature_c.toFixed(0)} °C; bonded-coupon qualification is still required.`;
+}
 const hvSpacingControlIds = [
   "plate_gap_mm"
 ];
@@ -2106,8 +2180,14 @@ function normalizeParams() {
     "washer_od_mm",
     "bias_plate_thickness_mm",
     "ground_plate_thickness_mm",
-    "plate_pairs"
+    "plate_pairs",
+    "thermal_min_temperature_c",
+    "thermal_epoxy_modulus_gpa",
+    "thermal_restraint_factor"
   ];
+  for (const id of ["thermal_min_temperature_c", "thermal_epoxy_modulus_gpa", "thermal_restraint_factor"]) {
+    if (!Number.isFinite(params[id])) params[id] = defaults[id];
+  }
   for (const id of genericRangeIds) {
     const range = controlRange(id);
     params[id] = clamp(params[id], range.min, range.max);
@@ -2278,6 +2358,7 @@ function syncControls() {
   updateRfMaterialReadouts();
   updateEdgeEstimate();
   updateCircuitEstimates();
+  updateThermalReadouts();
   drawSlideGraphics();
 }
 
@@ -3865,7 +3946,7 @@ function drawAttenuationPlot(ctx, circuit, p, x, y, width, height) {
   ctx.fillStyle = "#17202a";
   ctx.font = "20px Arial";
   drawSubscriptText(ctx, [
-    { text: "Attenuation dB, -20 log" },
+    { text: "One-section example: attenuation dB, -20 log" },
     { text: "10", sub: true },
     { text: "(|V" },
     { text: "out", sub: true },
@@ -4226,7 +4307,6 @@ function drawCparExtractionSlide(canvas) {
 function loadedLadderSamples(circuit, p, fMin, fMax, steps = 150) {
   const loaded = [];
   const unloaded = [];
-  const scaled = [];
   for (let index = 0; index <= steps; index += 1) {
     const t = index / steps;
     const frequency = fMin * (fMax / fMin) ** t;
@@ -4238,12 +4318,8 @@ function loadedLadderSamples(circuit, p, fMin, fMax, steps = 150) {
       frequency,
       attenuationDb: attenuationDbFromMagnitude(ladderTransferMagnitude(circuit, p, frequency))
     });
-    scaled.push({
-      frequency,
-      attenuationDb: scaledSingleStageAttenuationDb(circuit, p, frequency, true)
-    });
   }
-  return { loaded, unloaded, scaled };
+  return { loaded, unloaded };
 }
 
 function drawDbFrequencyFrame(ctx, x, y, width, height, fMin, fMax, maxDb, title) {
@@ -4296,7 +4372,6 @@ function drawLoadedLadderSlide(canvas) {
   const w = canvas.width;
   const h = canvas.height;
   const circuit = circuitEstimates(params);
-  const sections = activeSeriesSectionCount(circuit, params, true);
   const cableCapPf = cableCapacitancePf(params);
   const detectorCapPf = detectorCapacitancePf(params);
   const externalLoadCapPf = cableCapPf + detectorCapPf;
@@ -4305,13 +4380,10 @@ function drawLoadedLadderSlide(canvas) {
   const fMax = ATTENUATION_PLOT_FMAX_HZ;
   const samples = loadedLadderSamples(circuit, params, fMin, fMax);
   const fiftyLoaded = attenuationDbFromMagnitude(ladderTransferMagnitude(circuit, params, 50, { includeLoad: true }));
-  const fiftyScaled = scaledSingleStageAttenuationDb(circuit, params, 50, true);
   const plottedValues = [
     ...samples.loaded.map((sample) => sample.attenuationDb),
     ...samples.unloaded.map((sample) => sample.attenuationDb),
-    ...samples.scaled.map((sample) => sample.attenuationDb),
-    fiftyLoaded,
-    fiftyScaled
+    fiftyLoaded
   ].filter((value) => Number.isFinite(value) && value >= 0);
   const maxDb = Math.max(5, Math.ceil(Math.max(...plottedValues, 1) / 10) * 10);
 
@@ -4324,7 +4396,6 @@ function drawLoadedLadderSlide(canvas) {
 
   const plot = drawDbFrequencyFrame(ctx, 88, 104, 735, 330, fMin, fMax, maxDb, "|Vout/Vin| attenuation");
   drawLogCurve(ctx, samples.unloaded, plot.xFor, plot.yFor, "attenuationDb", "#8a5b30", { dashed: [4, 6], lineWidth: 3 });
-  drawLogCurve(ctx, samples.scaled, plot.xFor, plot.yFor, "attenuationDb", "#1f6f78", { dashed: [9, 7] });
   drawLogCurve(ctx, samples.loaded, plot.xFor, plot.yFor, "attenuationDb", "#b73e3e");
 
   const fiftyX = plot.xFor(50);
@@ -4342,14 +4413,13 @@ function drawLoadedLadderSlide(canvas) {
 
   drawSlideLegend(ctx, [
     { label: "Full ladder + load", color: "#b73e3e" },
-    { label: `${sections} section${sections === 1 ? "" : "s"} x one-stage + load`, color: "#1f6f78", dashed: [9, 7] },
     { label: "Full ladder unloaded", color: "#8a5b30", dashed: [4, 6] }
   ], 850, 132, { maxWidth: 190 });
 
   const cardRows = [
     ["Load C", formatCapacitance(externalLoadCapPf), `${formatCapacitance(cableCapPf)} cable + ${formatCapacitance(detectorCapPf)} det.`],
     ["Load G", formatAdmittance(loadG), `Iload ${formatCurrentFromNa(params.load_current_na)}`],
-    ["50 Hz", formatAttenuationDb(fiftyLoaded), `scaled ${formatAttenuationDb(fiftyScaled)}`]
+    ["50 Hz", formatAttenuationDb(fiftyLoaded), "full ladder + load"]
   ];
   cardRows.forEach((row, index) => {
     const x = 88 + index * 315;
@@ -4458,15 +4528,13 @@ function drawSpiceLadderSlide(canvas) {
 
   const tlineSamples = backendSpiceCurve(payload.samples, "fullTline");
   const lumpedSamples = backendSpiceCurve(payload.samples, "fullLumped");
-  const scaledSamples = backendSpiceCurve(payload.samples, "scaledStage");
-  const allValues = [...tlineSamples, ...lumpedSamples, ...scaledSamples]
+  const allValues = [...tlineSamples, ...lumpedSamples]
     .map((sample) => sample.attenuationDb)
     .filter((value) => Number.isFinite(value) && value >= 0);
   const fMin = Math.min(...tlineSamples.map((sample) => sample.frequency));
   const fMax = Math.max(...tlineSamples.map((sample) => sample.frequency));
   const maxDb = Math.max(5, Math.ceil(Math.max(...allValues, 1) / 10) * 10);
   const plot = drawDbFrequencyFrame(ctx, 88, 104, 735, 330, fMin, fMax, maxDb, "|Vout/Vin| attenuation");
-  drawLogCurve(ctx, scaledSamples, plot.xFor, plot.yFor, "attenuationDb", "#1f6f78", { dashed: [9, 7] });
   drawLogCurve(ctx, lumpedSamples, plot.xFor, plot.yFor, "attenuationDb", "#8a5b30", { dashed: [4, 6], lineWidth: 3 });
   drawLogCurve(ctx, tlineSamples, plot.xFor, plot.yFor, "attenuationDb", "#b73e3e");
 
@@ -4487,8 +4555,7 @@ function drawSpiceLadderSlide(canvas) {
 
   drawSlideLegend(ctx, [
     { label: "Backend full ladder + T-line", color: "#b73e3e" },
-    { label: "Backend full ladder + lumped C", color: "#8a5b30", dashed: [4, 6] },
-    { label: "Section-count approximation", color: "#1f6f78", dashed: [9, 7] }
+    { label: "Backend full ladder + lumped C", color: "#8a5b30", dashed: [4, 6] }
   ], 845, 126, { maxWidth: 190 });
 
   const summary50 = payload.summary?.at50Hz || {};
@@ -4521,6 +4588,211 @@ function drawSpiceLadderSlide(canvas) {
     "The Pi backend runs ngspice batch AC analysis when available, with an internal MNA fallback.",
     "The returned netlist uses R, C, and T-line terms so it can also be inspected or reused directly."
   ], 845, 318, 21, "#5b6670", "15px Arial", 230);
+}
+
+function stageMultiplicationValidationData(p, frequencyHz = 50) {
+  const isolatedParams = {
+    ...p,
+    plate_pairs: 1,
+    input_series_matches_stage: true,
+    output_series_matches_stage: false,
+    output_series_resistance_ohm: 0,
+    load_cable_length_m: 0,
+    detector_capacitance_pf: 0,
+    load_current_na: 0
+  };
+  const isolatedCircuit = circuitEstimates(isolatedParams);
+  const isolatedAnalyticDb = singleStageAttenuationDb(isolatedCircuit, frequencyHz);
+  const isolatedMnaDb = attenuationDbFromMagnitude(
+    ladderTransferMagnitude(isolatedCircuit, isolatedParams, frequencyHz, { includeLoad: false })
+  );
+  const stageCounts = [2, 5, 10, 20];
+  const loaded = [{
+    stageCount: 1,
+    fullDb: isolatedMnaDb,
+    multipliedDb: isolatedAnalyticDb,
+    isolated: true
+  }, ...stageCounts.map((stageCount) => {
+    const caseParams = { ...p, plate_pairs: stageCount };
+    const circuit = circuitEstimates(caseParams);
+    return {
+      stageCount,
+      fullDb: attenuationDbFromMagnitude(
+        ladderTransferMagnitude(circuit, caseParams, frequencyHz, { includeLoad: true })
+      ),
+      multipliedDb: scaledSingleStageAttenuationDb(circuit, caseParams, frequencyHz, true)
+    };
+  })];
+  return { frequencyHz, isolatedAnalyticDb, isolatedMnaDb, loaded };
+}
+
+function drawStageValidationSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  const data = stageMultiplicationValidationData(params, 50);
+  const plot = { left: 82, top: 92, right: 770, bottom: 520 };
+  const maxValue = Math.max(...data.loaded.flatMap((item) => [item.fullDb, item.multipliedDb]), 1);
+  const yMax = Math.max(50, Math.ceil(maxValue / 50) * 50);
+  const y = (value) => plot.bottom - Math.max(0, value) / yMax * (plot.bottom - plot.top);
+  const x = (index) => plot.left + index / Math.max(1, data.loaded.length - 1) * (plot.right - plot.left);
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText("One stage isolated; 2+ stages use the default load at 50 Hz", plot.left, 52);
+
+  ctx.strokeStyle = "#d8d1c3";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "15px Arial";
+  ctx.textAlign = "right";
+  const yStep = yMax <= 100 ? 20 : 50;
+  for (let tick = 0; tick <= yMax; tick += yStep) {
+    const yy = y(tick);
+    ctx.beginPath();
+    ctx.moveTo(plot.left, yy);
+    ctx.lineTo(plot.right, yy);
+    ctx.stroke();
+    ctx.fillText(`${tick}`, plot.left - 12, yy + 5);
+  }
+  ctx.strokeStyle = "#17202a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(plot.left, plot.top);
+  ctx.lineTo(plot.left, plot.bottom);
+  ctx.lineTo(plot.right, plot.bottom);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.translate(24, (plot.top + plot.bottom) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.font = "17px Arial";
+  ctx.fillText("Attenuation (dB)", 0, 0);
+  ctx.restore();
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "16px Arial";
+  ctx.fillText("Bias stages", (plot.left + plot.right) / 2, plot.bottom + 52);
+
+  data.loaded.forEach((item, index) => {
+    const xx = x(index);
+    ctx.strokeStyle = "rgba(201, 193, 176, 0.55)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(xx, plot.top);
+    ctx.lineTo(xx, plot.bottom);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.textAlign = "center";
+    ctx.font = "15px Arial";
+    ctx.fillText(`${item.stageCount}`, xx, plot.bottom + 25);
+  });
+
+  const drawSeries = (key, color, dashed = []) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.setLineDash(dashed);
+    ctx.beginPath();
+    data.loaded.forEach((item, index) => {
+      const xx = x(index);
+      const yy = y(item[key]);
+      if (index === 0) ctx.moveTo(xx, yy);
+      else ctx.lineTo(xx, yy);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    data.loaded.forEach((item, index) => {
+      const xx = x(index);
+      const yy = y(item[key]);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(xx, yy, 6, 0, 2 * Math.PI);
+      ctx.fill();
+      if (item.isolated && key === "multipliedDb") return;
+      ctx.font = "14px Arial";
+      ctx.textAlign = index === data.loaded.length - 1 ? "right" : "center";
+      const label = item.isolated ? `${item[key].toFixed(3)} both` : item[key].toFixed(1);
+      ctx.fillText(label, index === data.loaded.length - 1 ? xx - 8 : xx, yy - 13);
+    });
+  };
+  drawSeries("multipliedDb", "#1f6f78", [9, 7]);
+  drawSeries("fullDb", "#b73e3e");
+
+  const isolatedX = x(0);
+  const isolatedY = y(data.loaded[0].fullDb);
+  ctx.strokeStyle = "#1f6f78";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(isolatedX, isolatedY, 9, 0, 2 * Math.PI);
+  ctx.stroke();
+  ctx.fillStyle = "#b73e3e";
+  ctx.beginPath();
+  ctx.arc(isolatedX, isolatedY, 5, 0, 2 * Math.PI);
+  ctx.fill();
+
+  const loadedDividerX = (x(0) + x(1)) / 2;
+  ctx.strokeStyle = "#8a6a18";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 6]);
+  ctx.beginPath();
+  ctx.moveTo(loadedDividerX, plot.top);
+  ctx.lineTo(loadedDividerX, plot.bottom);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#8a6a18";
+  ctx.font = "14px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("default loaded cases", loadedDividerX + 8, plot.top + 22);
+
+  const drawRightSwatchLegend = (label, color, yy, dashed = []) => {
+    ctx.fillStyle = color;
+    ctx.font = "15px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(label, 845, yy);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.setLineDash(dashed);
+    ctx.beginPath();
+    ctx.moveTo(1030, yy - 6);
+    ctx.lineTo(1070, yy - 6);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  drawRightSwatchLegend("Multiplied section", "#1f6f78", 68, [9, 7]);
+  drawRightSwatchLegend("Full ladder", "#b73e3e", 98);
+
+  const panelX = 845;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText("Isolated section check", panelX, 180);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "15px Arial";
+  ctx.fillText("one Rstage–Cg section", panelX, 208);
+  ctx.fillText("no extra end R or load", panelX, 232);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "26px Arial";
+  ctx.fillText(`${data.isolatedAnalyticDb.toFixed(5)} dB`, panelX, 276);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "15px Arial";
+  ctx.fillText("analytical divider", panelX, 300);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "26px Arial";
+  ctx.fillText(`${data.isolatedMnaDb.toFixed(5)} dB`, panelX, 342);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "15px Arial";
+  ctx.fillText("full MNA/SPICE", panelX, 366);
+  ctx.fillStyle = "#557a38";
+  ctx.font = "20px Arial";
+  ctx.fillText("Exact match", panelX, 408);
+  drawWrappedLines(ctx, [
+    "Agreement validates Rstage and Cg. Divergence begins only when unbuffered sections and the one-time output load are multiplied as though independent."
+  ], panelX, 450, 21, "#5b6670", "15px Arial", 225);
 }
 
 function slideResultParameters() {
@@ -4795,6 +5067,145 @@ function drawSimulationResultsSlide(canvas) {
   ], 52, 560, 23, "#5b6670", "17px Arial");
 }
 
+function drawThermalSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, w, h);
+
+  const plot = { left: 82, top: 58, right: 790, bottom: 520 };
+  const tMin = -80;
+  const tMax = THERMAL_SCREEN.stressFreeTemperatureC;
+  const stressMax = 50;
+  const x = (temperatureC) => plot.left + (temperatureC - tMin) / (tMax - tMin) * (plot.right - plot.left);
+  const y = (stressMpa) => plot.bottom - stressMpa / stressMax * (plot.bottom - plot.top);
+  const stressAt = (temperatureC, restraint) => {
+    const sample = { ...params, thermal_min_temperature_c: temperatureC };
+    return thermalStressEstimate(sample, restraint).stressMpa;
+  };
+
+  ctx.strokeStyle = "#d8d1c3";
+  ctx.lineWidth = 1;
+  ctx.font = "15px Arial";
+  ctx.fillStyle = "#5b6670";
+  for (let stress = 0; stress <= stressMax; stress += 10) {
+    const yy = y(stress);
+    ctx.beginPath();
+    ctx.moveTo(plot.left, yy);
+    ctx.lineTo(plot.right, yy);
+    ctx.stroke();
+    ctx.textAlign = "right";
+    ctx.fillText(`${stress}`, plot.left - 12, yy + 5);
+  }
+  for (let temperature = -80; temperature <= 60; temperature += 20) {
+    const xx = x(temperature);
+    ctx.beginPath();
+    ctx.moveTo(xx, plot.top);
+    ctx.lineTo(xx, plot.bottom);
+    ctx.stroke();
+    ctx.textAlign = "center";
+    ctx.fillText(`${temperature}`, xx, plot.bottom + 25);
+  }
+  ctx.textAlign = "center";
+  ctx.fillText(`${THERMAL_SCREEN.stressFreeTemperatureC}`, plot.right, plot.bottom + 25);
+  ctx.strokeStyle = "#17202a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(plot.left, plot.top);
+  ctx.lineTo(plot.left, plot.bottom);
+  ctx.lineTo(plot.right, plot.bottom);
+  ctx.stroke();
+  ctx.save();
+  ctx.translate(23, (plot.top + plot.bottom) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.font = "17px Arial";
+  ctx.fillText("Estimated epoxy stress (MPa)", 0, 0);
+  ctx.restore();
+  ctx.textAlign = "center";
+  ctx.fillText("Assembly temperature (°C)", (plot.left + plot.right) / 2, plot.bottom + 52);
+
+  const drawCurve = (restraint, color, width) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    for (let temperature = tMin; temperature <= tMax; temperature += 2) {
+      const xx = x(temperature);
+      const yy = y(stressAt(temperature, restraint));
+      if (temperature === tMin) ctx.moveTo(xx, yy);
+      else ctx.lineTo(xx, yy);
+    }
+    ctx.stroke();
+  };
+  drawCurve(1, "#b73e3e", 4);
+  drawCurve(0.5, "#1f6f78", 4);
+
+  const strengthY = y(THERMAL_SCREEN.epoxyTensileStrengthMpa);
+  ctx.strokeStyle = "#8a6a18";
+  ctx.lineWidth = 3;
+  ctx.setLineDash([10, 7]);
+  ctx.beginPath();
+  ctx.moveTo(plot.left, strengthY);
+  ctx.lineTo(plot.right, strengthY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.textAlign = "right";
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "#8a6a18";
+  ctx.fillText("Published cured tensile strength: 20 MPa", plot.right - 12, strengthY - 10);
+
+  const full = thermalStressEstimate(params, 1);
+  const half = thermalStressEstimate(params, 0.5);
+  const lowModulus = thermalStressEstimate({ ...params, thermal_epoxy_modulus_gpa: 2 }, 1);
+  const highModulus = thermalStressEstimate({ ...params, thermal_epoxy_modulus_gpa: 4 }, 1);
+
+  const panelX = 840;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#17202a";
+  ctx.font = "27px Arial";
+  ctx.fillText("Transport screen", panelX, 76);
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "#5b6670";
+  ctx.fillText("9510 / alumina controls", panelX, 106);
+  ctx.fillText(`Δα ${full.deltaCtePpmPerC.toFixed(1)} ppm/°C`, panelX, 132);
+  ctx.fillText("No cold target assumed", panelX, 158);
+
+  ctx.fillStyle = "#b73e3e";
+  ctx.font = "21px Arial";
+  ctx.fillText("100% restraint", panelX, 204);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "30px Arial";
+  ctx.fillText(`${full.failureOnsetC.toFixed(0)} °C onset`, panelX, 244);
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "#5b6670";
+  ctx.fillText("2–4 GPa modulus range:", panelX, 276);
+  ctx.fillText(`${lowModulus.failureOnsetC.toFixed(0)} to +${highModulus.failureOnsetC.toFixed(0)} °C`, panelX, 300);
+
+  ctx.fillStyle = "#1f6f78";
+  ctx.font = "21px Arial";
+  ctx.fillText("50% restraint", panelX, 354);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "30px Arial";
+  ctx.fillText(`${half.failureOnsetC.toFixed(0)} °C onset`, panelX, 394);
+  drawWrappedLines(ctx, [
+    "Interim handling: transport at controlled room temperature, preferably at or above 25 °C.",
+    "Avoid unheated or freezing shipment until bonded coupons are qualified."
+  ], panelX, 444, 22, "#5b6670", "15px Arial", 230);
+
+  ctx.fillStyle = "#b73e3e";
+  ctx.fillRect(105, 24, 25, 4);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "15px Arial";
+  ctx.fillText("fully restrained", 140, 30);
+  ctx.fillStyle = "#1f6f78";
+  ctx.fillRect(280, 24, 25, 4);
+  ctx.fillStyle = "#17202a";
+  ctx.fillText("50% restraint sensitivity", 315, 30);
+}
+
 function drawSlideGraphics() {
   const slideCad = document.getElementById("slideCadCanvas");
   if (!slideCad) return;
@@ -4802,6 +5213,7 @@ function drawSlideGraphics() {
   drawCadModel(slideCad, slideView, false);
   drawMaterialSlide(document.getElementById("slideMaterialCanvas"));
   drawSimulationResultsSlide(document.getElementById("slideResultsCanvas"));
+  drawThermalSlide(document.getElementById("slideThermalCanvas"));
   drawEdgeSlide(document.getElementById("slideEdgeCanvas"));
   drawDeformationSlide(document.getElementById("slideDeformationCanvas"));
   drawPackingSlide(document.getElementById("slidePackingCanvas"));
@@ -4810,6 +5222,7 @@ function drawSlideGraphics() {
   drawCparExtractionSlide(document.getElementById("slideCparExtractionCanvas"));
   drawLoadedLadderSlide(document.getElementById("slideLoadedLadderCanvas"));
   drawSpiceLadderSlide(document.getElementById("slideSpiceLadderCanvas"));
+  drawStageValidationSlide(document.getElementById("slideStageValidationCanvas"));
 }
 
 function sortedUniqueCoords(values, lower, upper) {

@@ -307,7 +307,7 @@ def stack_symmetry_plan(p: dict[str, Any]) -> dict[str, Any]:
         "mirror_z_mm": length / 2.0,
         "mirror_plate_kind": center_plate_kind(p),
         "full_stack_plate_pairs": pairs,
-        "recommended_default": SOLVE_STRATEGY_MIRROR_HALF,
+        "recommended_default": SOLVE_STRATEGY_END_REPEAT_APPROX,
         "available_strategies": [
             {
                 "name": SOLVE_STRATEGY_FULL_STACK,
@@ -364,7 +364,7 @@ def symmetry_validation_plan(p: dict[str, Any]) -> dict[str, Any]:
         ],
         "notes": [
             "Mirror symmetry is exact for the idealized uniform stack; this validation checks the implementation, not the physics assumption.",
-            "The FEniCSx mirror-half path is exact; a separate repeating-cell approximation is not used because finite-stack end effects are global.",
+            "The repeating-cell approximation is the operational default; retain mirror-half and full-stack cases as validation references for finite-stack end effects.",
             "Tolerances allow for discretization and interpolation differences between full and reconstructed grids during solver development.",
         ],
         "applies_to_plate_pairs": pairs,

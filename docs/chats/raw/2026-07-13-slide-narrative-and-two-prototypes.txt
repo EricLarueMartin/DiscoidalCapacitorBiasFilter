@@ -1,0 +1,8 @@
+User request:
+Rearrange the slides so the model, simulation, simulation-derived results, and proposed prototype appear first, with comparisons to solvable geometry moved to backup slides. Present two prototype concepts sharing alumina washers and copper plates/tube: a machinable bulk-resistive ferrite core with possible 1/f-noise risk, and a low-noise MELF-resistor core whose available resistance and alumina capacitance give poor power-line-frequency attenuation.
+
+Implementation:
+- Reordered the web deck into model, electrical model, FEA method, simulation results, system response, prototype decision, construction plan, then analytical-validation backup slides.
+- Added a two-column prototype comparison and updated the construction slide for a shared mechanical stack with interchangeable ferrite and MELF core implementations.
+- Reframed the loaded-ladder result around the weak 50/60 Hz performance of the present MELF-plus-alumina configuration.
+- Updated the durable materials note to treat ferrite and MELF as co-equal prototype paths and to record their principal noise/resistance tradeoff.

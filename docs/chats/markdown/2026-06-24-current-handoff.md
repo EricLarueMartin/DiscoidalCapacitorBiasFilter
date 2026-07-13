@@ -1,5 +1,8 @@
 # Current Handoff: 2026-06-25
 
+> Superseded by `docs/chats/markdown/2026-07-13-current-handoff.md`. This file
+> remains as a historical snapshot of the earlier solver/deployment state.
+
 ## Access From Home
 
 The active host details are local deployment information and should be kept in an ignored `.secrets/` note, not in committed handoff docs. For a configured Pi, the expected endpoints are:

@@ -1,0 +1,8 @@
+User request:
+"default to using repeat interior FEA cell"
+
+Implemented interpretation:
+- Browser defaults enable Repeat interior FEA cell.
+- The saved default parameter set records solve_strategy=end_repeat_approx and use_repeating_cell_approximation=true.
+- Backend symmetry metadata recommends end_repeat_approx as the operational default while retaining mirror_half as the exact unchecked reference.
+- One-pair models continue to fall back to exact mirror_half because there is no repeated interior region.

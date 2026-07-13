@@ -2,11 +2,13 @@
 
 ## Current Candidate Stack
 
-Status: candidate stack for Prototype 0, not yet validated by high-voltage testing.
+Status: two candidate prototype cores sharing one mechanical stack; neither has yet been validated by high-voltage or low-frequency-noise testing.
 
-- Washer dielectric: alumina is the preferred Prototype 0 target because the current RC estimates are already below 50 Hz with obtainable geometry, and dense alumina is a conservative high-voltage ceramic choice. FR4/G10 remains the practical fallback if suitable alumina washers cannot be sourced. Piezoelectric or ferroelectric high-permittivity ceramics are screening-only because microphonics, voltage coefficient, loss, and temperature dependence are likely unacceptable.
+- Washer dielectric: both prototype paths use stock alumina washers. Alumina is readily sourced, mechanically robust, and a conservative high-voltage ceramic choice, but its moderate relative permittivity limits the available shunt capacitance compared with high-k ceramics. That limitation is especially important for the lower-resistance MELF option at 50/60 Hz.
 - Potting and fill: MG Chemicals 9510 One-Part Epoxy Potting Compound, Heat Cure. MG's SDS/TDS database lists 9510 as a one-part epoxy potting compound in liquid format. Pull the dielectric constant, dielectric strength, volume resistivity, cure schedule, shrinkage, and thermal limits from the current TDS before freezing model defaults.
-- Resistive core / conductor path: Fair-Rite type 61 NiZn ferrite is the first concrete sample set, but the web model should keep this generic as a core/conductor material. Fair-Rite lists type 61 as NiZn with initial permeability 125, Curie temperature greater than 300 C, and resistivity around 1e8 ohm-cm. Treat this as a sizing estimate until the actual 4 mm, 5 mm, and 6 mm diameter samples are cut, polished, contacted, and measured.
+- Resistive core / conductor path A: Fair-Rite type 61 NiZn ferrite is the first concrete bulk-resistive sample set. Its nominal resistivity is near the compact high-resistance target and it can be machined into discs, but excess 1/f noise from the polycrystalline conduction path is a primary measurement risk.
+- Resistive core / conductor path B: high-value MELF resistors provide a specified, repeatable, low-noise component path. Readily available per-stage resistance is lower than preferred; combined with alumina's modest capacitance, the present simulated ladder gives poor attenuation at power-line frequency.
+- Shared conductors: both prototypes use machined copper bias/ground plates and a copper ground tube because those parts are readily sourced and fabricated.
 - Ferrite-to-plate contact: conductive epoxy between ferrite discs and bias plates. Exact product is TBD; verify contact resistance, cure compatibility, squeeze-out control, HV behavior, outgassing, and long-term stability.
 - Mechanical positioning: temporary or permanent spacers to hold the plate, ferrite-disc, and washer stack aligned during conductive-epoxy cure and final potting.
 
@@ -117,6 +119,32 @@ Current web presets:
 | Generic potting epoxy | 3.2 | 15 kV/mm | Sensitivity placeholder for ordinary epoxy potting compounds. |
 | Low-k epoxy | 2.8 | 15 kV/mm | Sensitivity placeholder for lower-permittivity fill choices. |
 | Custom | user-set | unset | Manual value for datasheet or measured candidates. |
+
+## Thermal mismatch warning
+
+The heat-cured default 9510/alumina/copper assembly has a potentially limiting
+cold-temperature bond risk even though the cured epoxy itself is specified to
+-65 °C. The conservative fully restrained screen predicts a nominal strength
+crossing near +4 °C; the assumed 2 to 4 GPa modulus range moves the crossing
+from approximately -29 to +21 °C, while a 50% restraint sensitivity moves it
+to approximately -62 °C. This wide range is caused by
+unpublished 9510 modulus/interface-fracture data and uncertain free-edge relief.
+
+Treat `docs/knowledge/thermal-stress.md` and
+`simulations/thermal/outputs/default-thermal-stress.json` as the calculation of
+record. Do not assign a subzero assembly rating until representative bonded-ring
+coupons survive staged thermal cycling. Until then, transport the assembly at
+controlled room temperature, preferably at or above 25 °C, and avoid unheated
+or freezing shipment.
+
+The 3.9% shrinkage number currently carried by the thermal calculation comes
+from the MG Chemicals 9510 TDS, version 5.2 (23 January 2026), page 2. In the
+Liquid Properties table the complete entry is `Shrinkage 3.9% Calculated`.
+The TDS does not say whether it is linear, volumetric, mass-based, or tied to a
+specific cure/gel reference state. It also reports a separate 3.9% weight loss
+at 155 °C after 600 hours on page 3; do not confuse that unrelated property
+with shrinkage. Resolving the definition and the post-gel locked-in fraction is
+a priority follow-up before residual cure stress is added to the model.
 
 ## Alumina And Partial Discharge Notes
 

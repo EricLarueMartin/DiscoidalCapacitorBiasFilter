@@ -1,0 +1,26 @@
+User request:
+"add a slide about this. for a single stage with no input/output or load it should be the same"
+
+Implemented interpretation:
+- Add a circuit-model validation slide after the SPICE model slide.
+- Show that one isolated Rstage-Cg section, with no additional end resistance or external load, gives exactly the same analytical and full-MNA attenuation.
+- Compare the default loaded full ladder with the multiplied-section estimate for 2, 5, 10, and 20 bias stages at 50 Hz.
+- Explain that downstream capacitors load upstream nodes in the unbuffered ladder and that the external cable/detector load occurs only once at the output.
+- Preserve regression tests for the exact single-section identity and the growing multi-stage discrepancy.
+
+Follow-up request:
+"On the one section matches include a 1 bias stage point on the plot instead of starting at 2. also the legend the line example is on top of the text and needs to be moved to the right"
+
+Follow-up implementation:
+- Add a one-bias-stage isolated point where the analytical and MNA results coincide.
+- Separate that isolated point visually from the default-loaded 2, 5, 10, and 20-stage cases.
+- Place each legend line swatch to the right of its text.
+
+Second follow-up request:
+"when i look at the plots and use 5 stages it still seem to be a little less than half for full ladder + load compared to 6 sections x one-0stage + load. since that doesn't really work let's just use the electic al model is a loaded rc ladder slide to explain how the parameters are used and have the curve for one stage as an example and get rid of that whole single stage * stage count line on the other plots. move that divergence slide to a backup in case anyone wonders if they can just do that"
+
+Second follow-up implementation:
+- Expand the electrical-model slide copy to map Rstage, Cg, Cpar, end resistances, and the one-time output load onto the ladder.
+- Explicitly label its curve as a one-section example.
+- Remove the multiplied-stage curve from the main loaded-ladder and SPICE plots.
+- Move the divergence validation slide immediately after the backup divider.

@@ -1,0 +1,9 @@
+User request:
+"get rid of the target temperature, i don't really have a target but need to know if this needs to be transported warm, which looks like it probably should be"
+
+Implemented interpretation:
+- Remove the -40 C target marker and target-dependent callouts from the thermal slide.
+- Preserve the designer temperature control as a what-if evaluation, explicitly not a design target.
+- Use 20 C as the default room-temperature evaluation point.
+- Present the full-restraint failure-onset range and 50% restraint sensitivity.
+- Until representative bonded-ring coupons are qualified, recommend controlled room-temperature transport, preferably at or above 25 C, and avoid unheated or freezing shipment.

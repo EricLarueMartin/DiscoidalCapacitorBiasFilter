@@ -1,0 +1,22 @@
+Reconstructed collaboration record, 2026-07-13
+
+User request:
+"update the markdown files for a handoff. i'm going to head to work and continue this in a new chat. something i'll be looking into is that comment about published 3.9% cure shrinkage. that's substantial so it needs to be addressed somehow. don't address that yet, but make sure the markdown for handoff is fully informed about where that came from for the hand off. then commit and push to git as this isn't s shared workspace in onedrive so i need to work from the git repo version from the lab office."
+
+Recorded outcome:
+- Added a new current handoff covering the promoted defaults, FEA symmetry and
+  repeat approximation, parasitic-capacitance solve, loaded RC ladder, slide
+  narrative, thermal screen, validation commands, and open work.
+- Traced the 3.9% value to the official MG Chemicals 9510 TDS, version 5.2,
+  dated 23 January 2026, page 2, Liquid Properties table: "Shrinkage 3.9%
+  Calculated."
+- Recorded that the TDS does not define whether the shrinkage is linear,
+  volumetric, mass-based, or referenced to a particular cure/gel state.
+- Recorded the separate page-3 entry "Weight Loss @ 155 C (600 hrs) 3.9%" so
+  the identical number is not mistaken for the shrinkage property.
+- Did not propose or implement a cure-shrinkage mitigation. Investigation of
+  the definition, post-gel locked-in fraction, and residual-stress relevance is
+  explicitly left for the next chat.
+
+This is a reconstructed record from visible chat context. Intermediate tool
+steps are omitted.

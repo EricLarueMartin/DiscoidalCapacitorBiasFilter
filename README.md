@@ -86,3 +86,6 @@ The backend also provides RC-ladder and SPICE-style response calculations using 
 ## AI Collaboration
 
 Agents should read the root `AGENT.md`, the nearest directory-specific `AGENT.md`, and [deploy/pi/agent-setup.md](deploy/pi/agent-setup.md) before installing or deploying the project. Hostnames, IP addresses, passwords, private keys, and current deployment paths belong in ignored local files, never in committed documentation.
+
+The current cross-computer continuation note is
+[docs/chats/markdown/2026-07-13-current-handoff.md](docs/chats/markdown/2026-07-13-current-handoff.md).

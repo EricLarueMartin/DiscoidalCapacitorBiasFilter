@@ -74,6 +74,44 @@ class FieldBackendTests(unittest.TestCase):
         legacy_circuit = spice_ladder.circuit_estimates(legacy)
         self.assertEqual(spice_ladder.series_resistance_ohm(legacy, legacy_circuit, "output"), 50.0)
 
+    def test_isolated_single_stage_analytic_transfer_matches_full_mna(self) -> None:
+        params = axisymmetric_model.normalize_parameters({
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "plate_pairs": 1,
+            "input_series_matches_stage": True,
+            "output_series_matches_stage": False,
+            "output_series_resistance_ohm": 0.0,
+            "load_cable_length_m": 0.0,
+            "detector_capacitance_pf": 0.0,
+            "load_current_na": 0.0,
+        })
+        circuit = spice_ladder.circuit_estimates(params)
+        frequency_hz = 50.0
+        analytic = spice_ladder.scaled_stage_transfer(circuit, params, frequency_hz)
+        full_mna = spice_ladder.ladder_transfer(circuit, params, frequency_hz, "none")
+        self.assertAlmostEqual(abs(analytic), abs(full_mna), places=14)
+        self.assertAlmostEqual(
+            spice_ladder.attenuation_db(analytic),
+            spice_ladder.attenuation_db(full_mna),
+            places=12,
+        )
+
+    def test_loaded_stage_multiplication_error_grows_with_stage_count(self) -> None:
+        base = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        ratios = []
+        for stage_count in (2, 5, 10):
+            params = axisymmetric_model.normalize_parameters({**base, "plate_pairs": stage_count})
+            circuit = spice_ladder.circuit_estimates(params)
+            multiplied_db = spice_ladder.attenuation_db(
+                spice_ladder.scaled_stage_transfer(circuit, params, 50.0)
+            )
+            full_db = spice_ladder.attenuation_db(
+                spice_ladder.ladder_transfer(circuit, params, 50.0, "lumped")
+            )
+            ratios.append(multiplied_db / full_db)
+        self.assertLess(ratios[0], ratios[1])
+        self.assertLess(ratios[1], ratios[2])
+
     def test_femtofarad_scale_capacitance_is_preserved(self) -> None:
         params = field_backend.sanitized_parameters({
             "melf_stage_parasitic_pf": 0.001,
@@ -150,7 +188,7 @@ class FieldBackendTests(unittest.TestCase):
         self.assertEqual(params["ground_plate_inner_diameter_mm"], 10.0)
         self.assertEqual(params["ground_plate_od_mm"], 36.0)
         self.assertEqual(params["hv_plate_od_mm"], 32.0)
-        self.assertEqual(params["solve_strategy"], field_backend.SOLVE_STRATEGY_MIRROR_HALF)
+        self.assertEqual(params["solve_strategy"], field_backend.SOLVE_STRATEGY_END_REPEAT_APPROX)
         self.assertLessEqual(params["grid_r_count"], field_backend.MAX_GRID_R_COUNT)
         self.assertLessEqual(params["grid_z_count"], field_backend.MAX_GRID_Z_COUNT)
         self.assertLessEqual(params["solver_iterations"], field_backend.MAX_SOLVER_ITERATIONS)
@@ -214,7 +252,7 @@ class FieldBackendTests(unittest.TestCase):
                 )
                 self.assertEqual(result["source"], expected_source)
                 self.assertEqual(completed["source"], expected_source)
-                self.assertEqual(result["solveStrategy"], field_backend.SOLVE_STRATEGY_MIRROR_HALF)
+                self.assertEqual(result["solveStrategy"], field_backend.SOLVE_STRATEGY_END_REPEAT_APPROX)
                 self.assertTrue(result["symmetryPlan"]["stack_is_mirror_symmetric"])
                 self.assertIn(result["symmetryPlan"]["mirror_plate_kind"], {"ground", "hv"})
                 self.assertTrue(result["symmetryValidation"]["required_before_using_reduced_strategy"])
@@ -361,7 +399,7 @@ class FieldBackendTests(unittest.TestCase):
 
         self.assertTrue(plan["stack_is_mirror_symmetric"])
         self.assertAlmostEqual(plan["mirror_z_mm"], field_backend.axisymmetric_model.stack_length_mm(params) / 2.0)
-        self.assertEqual(plan["recommended_default"], field_backend.SOLVE_STRATEGY_MIRROR_HALF)
+        self.assertEqual(plan["recommended_default"], field_backend.SOLVE_STRATEGY_END_REPEAT_APPROX)
         self.assertEqual(
             set(strategies),
             {

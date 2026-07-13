@@ -61,5 +61,9 @@
   "grid_z_count": 150,
   "solver_iterations": 700,
   "solver_tolerance_v": 0.01,
-  "solve_strategy": "mirror_half"
+  "solve_strategy": "end_repeat_approx",
+  "use_repeating_cell_approximation": true,
+  "thermal_min_temperature_c": 20.0,
+  "thermal_epoxy_modulus_gpa": 3.0,
+  "thermal_restraint_factor": 1.0
 }

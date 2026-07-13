@@ -1,0 +1,123 @@
+{
+  "model": "equibiaxial restrained-epoxy thermal-mismatch screen",
+  "model_status": "screening only; not a bonded-joint qualification",
+  "parameters_file": "hardware/geometry/default-parameters.json",
+  "default_design": {
+    "epoxy_material": "mg_9510",
+    "washer_material": "alumina",
+    "plate_material": "copper",
+    "tube_material": "copper",
+    "core_material": "mmb0207_melf",
+    "tube_id_mm": 26.0,
+    "washer_od_mm": 20.0,
+    "washer_id_mm": 6.6,
+    "washer_thickness_mm": 1.5,
+    "stack_length_mm": 13.5
+  },
+  "materials": {
+    "mg_9510_epoxy": {
+      "cte_ppm_per_c_below_tg": 74.0,
+      "tg_c": 70.0,
+      "tensile_strength_mpa": 20.0,
+      "lap_shear_stainless_mpa": 9.2,
+      "lap_shear_aluminum_mpa": 5.8,
+      "cure_shrinkage_percent": 3.9,
+      "service_min_c": -65.0,
+      "service_max_c": 150.0,
+      "cure_schedule": "3 h at 80 C (minimum-temperature schedule)",
+      "source": "https://mgchemicals.com/downloads/tds/tds-9510.pdf"
+    },
+    "c110_copper": {
+      "cte_ppm_per_c": 16.9,
+      "source": "https://alloys.copper.org/alloy/C11000"
+    },
+    "ad_96_alumina": {
+      "cte_ppm_per_c": 8.2,
+      "elastic_modulus_gpa": 303.0,
+      "poisson_ratio": 0.21,
+      "source": "https://www2.coorstek.com/media/4235/advanced-alumina.pdf"
+    }
+  },
+  "assumed_epoxy_mechanics": {
+    "elastic_modulus_nominal_gpa": 3.0,
+    "elastic_modulus_range_gpa": [
+      2.0,
+      4.0
+    ],
+    "poisson_ratio": 0.35,
+    "basis": "engineering assumption for a rigid Shore-D-84 epoxy; measure 9510 coupons before qualification"
+  },
+  "calculation": {
+    "stress_free_reference_c": 70.0,
+    "reason_for_reference": "9510 is cured above Tg; the screen assumes stress relaxes above Tg and freezes in below Tg",
+    "evaluation_temperature_c": 20.0,
+    "effective_restraint_factor": 1.0,
+    "epoxy_elastic_modulus_gpa": 3.0,
+    "equations": {
+      "mismatch_strain": "abs(alpha_epoxy - alpha_substrate) * (Tg - T)",
+      "stress": "restraint * E_epoxy * mismatch_strain / (1 - nu_epoxy)",
+      "failure_onset": "stress = published cured tensile strength"
+    },
+    "interfaces_at_evaluation_temperature": [
+      {
+        "interface": "epoxy-to-alumina washer",
+        "substrate_cte_ppm_per_c": 8.2,
+        "delta_cte_ppm_per_c": 65.8,
+        "temperature_c": 20.0,
+        "temperature_drop_below_tg_c": 50.0,
+        "free_mismatch_strain_percent": 0.329,
+        "free_radial_mismatch_um": 32.9,
+        "estimated_stress_mpa": 15.184615384615382,
+        "strength_margin": 1.3171225937183386,
+        "estimated_failure_onset_c": 4.143870314083074
+      },
+      {
+        "interface": "epoxy-to-copper tube",
+        "substrate_cte_ppm_per_c": 16.9,
+        "delta_cte_ppm_per_c": 57.1,
+        "temperature_c": 20.0,
+        "temperature_drop_below_tg_c": 50.0,
+        "free_mismatch_strain_percent": 0.2855,
+        "free_radial_mismatch_um": 37.114999999999995,
+        "estimated_stress_mpa": 13.176923076923076,
+        "strength_margin": 1.5178050204319908,
+        "estimated_failure_onset_c": -5.890251021599525
+      }
+    ],
+    "controlling_interface": "epoxy-to-alumina washer",
+    "controlling_evaluation_stress_mpa": 15.184615384615382,
+    "controlling_strength_margin": 1.3171225937183386,
+    "conservative_full_restraint_failure_onset_c": 4.143870314083074,
+    "half_restraint_sensitivity_failure_onset_c": -61.71225937183385,
+    "full_restraint_modulus_sensitivity": [
+      {
+        "elastic_modulus_gpa": 2.0,
+        "full_restraint_failure_onset_c": -28.78419452887539
+      },
+      {
+        "elastic_modulus_gpa": 4.0,
+        "full_restraint_failure_onset_c": 20.607902735562305
+      }
+    ],
+    "room_temperature_full_restraint": {
+      "interface": "epoxy-to-alumina washer",
+      "substrate_cte_ppm_per_c": 8.2,
+      "delta_cte_ppm_per_c": 65.8,
+      "temperature_c": 20.0,
+      "temperature_drop_below_tg_c": 50.0,
+      "free_mismatch_strain_percent": 0.329,
+      "free_radial_mismatch_um": 32.9,
+      "estimated_stress_mpa": 15.184615384615382,
+      "strength_margin": 1.3171225937183386,
+      "estimated_failure_onset_c": 4.143870314083074
+    },
+    "bulk_material_service_floor_c": -65.0
+  },
+  "interpretation": {
+    "cold_limit_estimate": "Use the full-restraint onset as a conservative risk screen, not an operating rating.",
+    "interim_transport_guidance": "Until bonded coupons establish a cold rating, use controlled room-temperature transport, preferably at or above 25 C, and avoid unheated or freezing shipment.",
+    "why_not_a_rating": "9510 modulus, copper/alumina pull-off strength, interface fracture toughness, and actual strain-relief factor are not published.",
+    "cure_shrinkage_handling": "The published 3.9% liquid-to-cured shrinkage is not added as elastic strain because most develops before/around gel and its locked-in fraction is unknown. Residual cure stress can only make the cold screen less favorable.",
+    "qualification": "Build representative copper/9510/alumina ring coupons, instrument for debonding, and thermal-cycle in 10 C steps before assigning a subzero operating limit."
+  }
+}
