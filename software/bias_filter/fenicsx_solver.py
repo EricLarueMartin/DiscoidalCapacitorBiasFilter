@@ -244,7 +244,7 @@ def _build_gmsh_model(
     r_min = 0.0 if include_core_dielectric else core_r
 
     gmsh.initialize()
-    gmsh.model.add("shv_bias_filter_axisymmetric")
+    gmsh.model.add("discoidal_capacitor_bias_filter_axisymmetric")
     gmsh.option.setNumber("General.Terminal", 0)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", sizes["fine"])
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", sizes["coarse"])

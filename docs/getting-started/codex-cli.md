@@ -8,14 +8,14 @@ Follow OpenAI's current [Codex CLI guide](https://developers.openai.com/codex/cl
 
 ## 2. Download The Project
 
-Return to the top of the SHVBiasFilter GitHub repository page, select **Code**, and copy the HTTPS address. In a terminal, clone the repository and enter it:
+Return to the top of the DiscoidalCapacitorBiasFilter GitHub repository page, select **Code**, and copy the HTTPS address. In a terminal, clone the repository and enter it:
 
 ```text
-git clone https://github.com/EricLarueMartin/SHVBiasFilter.git
-cd SHVBiasFilter
+git clone https://github.com/EricLarueMartin/DiscoidalCapacitorBiasFilter.git
+cd DiscoidalCapacitorBiasFilter
 ```
 
-If you do not want to use Git, choose **Download ZIP** from the same **Code** menu, extract it, and open a terminal in the extracted `SHVBiasFilter` folder. A project folder outside OneDrive, iCloud Drive, or another live-sync service is preferable.
+If you do not want to use Git, choose **Download ZIP** from the same **Code** menu, extract it, and open a terminal in the extracted `DiscoidalCapacitorBiasFilter` folder. A project folder outside OneDrive, iCloud Drive, or another live-sync service is preferable.
 
 ## 3. Start The Setup Task
 

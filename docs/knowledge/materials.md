@@ -141,16 +141,27 @@ current-pulse test.
 
 ## Epoxy Fill Options
 
-The epoxy fill should be a selectable material in the web model. MG Chemicals 9510 is the first concrete option under consideration, not the generic name of the epoxy region.
+The epoxy fill is selectable in the web model. MG Chemicals 9510 remains the
+mechanical-analysis baseline, while flexible candidates are included for
+electrical and process comparison.
 
 Current web presets:
 
-| Preset | Web epsr placeholder | Web dielectric-strength placeholder | Use |
+| Preset | Web epsr | Dielectric strength | Use |
 | --- | ---: | ---: | --- |
-| MG Chemicals 9510 | 3.4 | 15 kV/mm | First potting-fill candidate. Confirm with current TDS before freezing the value. |
+| MG Chemicals 9510 | 3.7 | 15.75 kV/mm | One-part, heat-cured mechanical baseline. |
+| MG Chemicals 832FX | 3.1 | 12.99 kV/mm | Low-viscosity flexible epoxy with two-hour working time. |
+| MG Chemicals 832FXT | 3.1, provisional | 13.78 kV/mm | Flexible small-package prototype candidate. |
+| MG Chemicals 832FXC | 3.1, provisional | 18.58 kV/mm | Clear, very low-viscosity option for void inspection. |
+| Epoxies Etc. 20-3241 | 4.7 | 22.05 kV/mm | Low-stress candidate with strong published electrical data but short pot life. |
 | Generic potting epoxy | 3.2 | 15 kV/mm | Sensitivity placeholder for ordinary epoxy potting compounds. |
 | Low-k epoxy | 2.8 | 15 kV/mm | Sensitivity placeholder for lower-permittivity fill choices. |
 | Custom | user-set | unset | Manual value for datasheet or measured candidates. |
+
+See `docs/knowledge/epoxy-selection.md` for the complete process/property
+comparison, source links, silicone alternatives, and qualification plan. The
+832FXT and 832FXC permittivities are explicit estimates from the related 832FX,
+not published values.
 
 ## Thermal mismatch warning
 

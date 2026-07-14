@@ -44,7 +44,7 @@
   "washer_material": "alumina",
   "washer_epsr": 10.0,
   "epoxy_material": "mg_9510",
-  "epoxy_epsr": 3.4,
+  "epoxy_epsr": 3.7,
   "plate_material": "copper",
   "plate_conductivity_log10_s_per_m": 7.763427993562937,
   "plate_relative_permeability": 1.0,
@@ -66,5 +66,6 @@
   "use_repeating_cell_approximation": true,
   "thermal_min_temperature_c": 20.0,
   "thermal_epoxy_modulus_gpa": 3.0,
-  "thermal_restraint_factor": 1.0
+  "thermal_restraint_factor": 1.0,
+  "thermal_mesh_size_mm": 0.3
 }

@@ -27,3 +27,5 @@ scratch/
 .codex-tmp/
 .secrets/
 simulations/axisymmetric/test_jobs_tmp/
+simulations/axisymmetric/jobs/
+simulations/axisymmetric/logs/

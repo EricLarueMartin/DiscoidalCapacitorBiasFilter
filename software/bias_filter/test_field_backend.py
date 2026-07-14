@@ -13,6 +13,7 @@ import urllib.request
 import uuid
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -23,6 +24,40 @@ import spice_ladder
 
 
 class FieldBackendTests(unittest.TestCase):
+    def test_linux_meminfo_parser_returns_bytes(self) -> None:
+        parsed = field_backend.parse_linux_meminfo(
+            "MemTotal:       8192000 kB\nMemAvailable:   2048000 kB\nSwapTotal:      1024 kB\n"
+        )
+        self.assertEqual(parsed["MemTotal"], 8192000 * 1024)
+        self.assertEqual(parsed["MemAvailable"], 2048000 * 1024)
+        self.assertEqual(parsed["SwapTotal"], 1024 * 1024)
+
+    def test_resource_log_records_field_model_reductions(self) -> None:
+        params = field_backend.sanitized_parameters({"solve_strategy": "end_repeat_approx"})
+        record = field_backend._resource_log_record("electric_field", params, {"samples": 3}, "complete")
+        self.assertTrue(record["model_reduction"]["exact_mirror_symmetry_used"])
+        self.assertTrue(record["model_reduction"]["repeating_cell_approximation_used"])
+        self.assertFalse(record["model_reduction"]["full_stack_solved"])
+        self.assertEqual(record["geometry_and_simulation_parameters"]["solve_strategy"], "end_repeat_approx")
+
+    def test_resource_log_records_thermal_exact_mirror_model(self) -> None:
+        params = field_backend.sanitized_parameters({})
+        record = field_backend._resource_log_record("thermal", params, {}, "complete")
+        self.assertTrue(record["model_reduction"]["exact_mirror_symmetry_used"])
+        self.assertFalse(record["model_reduction"]["repeating_cell_approximation_used"])
+
+    def test_thermal_parameters_are_sanitized(self) -> None:
+        params = field_backend.sanitized_parameters({
+            "thermal_min_temperature_c": -40.0,
+            "thermal_epoxy_modulus_gpa": 3.2,
+            "thermal_restraint_factor": 0.6,
+            "thermal_mesh_size_mm": 0.25,
+        })
+        self.assertEqual(params["thermal_min_temperature_c"], -40.0)
+        self.assertEqual(params["thermal_epoxy_modulus_gpa"], 3.2)
+        self.assertEqual(params["thermal_restraint_factor"], 0.6)
+        self.assertEqual(params["thermal_mesh_size_mm"], 0.25)
+
     def test_adjacent_pair_capacitance_energy_polarization_cancels_ground_terms(self) -> None:
         # Middle Cg = 33 pF, neighbor Cg total = 68 pF, and each of two
         # adjacent mutual capacitances is 0.4 pF.
@@ -49,7 +84,7 @@ class FieldBackendTests(unittest.TestCase):
         })
         self.assertAlmostEqual(
             fenicsx_solver._analytic_parallel_plate_cpar_pf(params),
-            0.25358071031137513,
+            0.2691060599222756,
         )
 
     def test_direct_stage_resistance_and_capacitance_modes_are_independent(self) -> None:
@@ -62,8 +97,8 @@ class FieldBackendTests(unittest.TestCase):
         }))
 
         self.assertEqual(calculated["stageResistanceOhm"], 12e6)
-        self.assertAlmostEqual(calculated["parasiticPf"], 0.25782883409865776)
-        self.assertAlmostEqual(entered["parasiticPf"], 0.41123100790420386)
+        self.assertAlmostEqual(calculated["parasiticPf"], 0.26764333479608754)
+        self.assertAlmostEqual(entered["parasiticPf"], 0.42104550860163364)
 
     def test_output_series_resistance_is_entered_in_ohms(self) -> None:
         params = field_backend.sanitized_parameters({"output_series_resistance_ohm": 50.0})
@@ -95,6 +130,23 @@ class FieldBackendTests(unittest.TestCase):
             spice_ladder.attenuation_db(full_mna),
             places=12,
         )
+
+    def test_unloaded_spice_model_ends_at_filter_output(self) -> None:
+        params = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        circuit = spice_ladder.circuit_estimates(params)
+        unloaded_netlist = spice_ladder.netlist_text(circuit, params, include_load=False)
+        self.assertIn("Cg0", unloaded_netlist)
+        self.assertNotIn("Tload", unloaded_netlist)
+        self.assertNotIn("Cdet", unloaded_netlist)
+        self.assertNotIn("Rload", unloaded_netlist)
+        self.assertNotIn("Rout", unloaded_netlist)
+        loaded_db = spice_ladder.attenuation_db(
+            spice_ladder.ladder_transfer(circuit, params, 50.0, "transmission_line")
+        )
+        unloaded_db = spice_ladder.attenuation_db(
+            spice_ladder.ladder_transfer(circuit, params, 50.0, "none")
+        )
+        self.assertGreater(loaded_db, unloaded_db)
 
     def test_loaded_stage_multiplication_error_grows_with_stage_count(self) -> None:
         base = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
@@ -300,7 +352,7 @@ class FieldBackendTests(unittest.TestCase):
 
             try:
                 index = urllib.request.urlopen(base_url + "/index.html", timeout=5).read().decode("utf-8")
-                self.assertIn("SHV Bias Filter", index)
+                self.assertIn("Discoidal Capacitor Bias Filter", index)
 
                 with self.assertRaises(urllib.error.HTTPError) as raised:
                     urllib.request.urlopen(base_url + "/../hardware/geometry/default-parameters.json", timeout=5)
@@ -381,8 +433,40 @@ class FieldBackendTests(unittest.TestCase):
                 first = payload["samples"][0]
                 self.assertIn("fullTline", first)
                 self.assertIn("fullLumped", first)
+                self.assertIn("fullUnloaded", first)
                 self.assertIn("scaledStage", first)
                 self.assertGreaterEqual(payload["summary"]["at50Hz"]["fullTlineAttenuationDb"], 0.0)
+                self.assertGreaterEqual(payload["summary"]["at50Hz"]["fullUnloadedAttenuationDb"], 0.0)
+            finally:
+                server.shutdown()
+                server.server_close()
+                state.stop()
+                thread.join(timeout=2.0)
+
+    def test_thermal_solve_endpoint_returns_fenicsx_result(self) -> None:
+        with self._temporary_job_dir() as temp_dir:
+            state = field_backend.BackendState(field_backend.DEFAULT_STATIC_DIR, Path(temp_dir))
+            server = ThreadingHTTPServer(("127.0.0.1", 0), field_backend.make_handler(state))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base_url = f"http://127.0.0.1:{server.server_port}"
+            mocked_result = {
+                "status": "ok",
+                "source": "thermal-fenicsx",
+                "epoxy_principal_tensile_stress_mpa": {"p99": 11.5, "raw_max": 14.0},
+                "mesh": {"cells": 1234},
+            }
+
+            try:
+                with mock.patch.object(field_backend, "solve_thermal_fenicsx_subprocess", return_value=mocked_result) as solve_mock:
+                    payload = self._post_json(
+                        base_url + "/api/thermal-solve",
+                        {"parameters": {"thermal_min_temperature_c": -20.0, "thermal_mesh_size_mm": 0.2}},
+                    )
+                self.assertEqual(payload, mocked_result)
+                submitted = solve_mock.call_args.args[0]
+                self.assertEqual(submitted["thermal_min_temperature_c"], -20.0)
+                self.assertEqual(submitted["thermal_mesh_size_mm"], 0.2)
             finally:
                 server.shutdown()
                 server.server_close()

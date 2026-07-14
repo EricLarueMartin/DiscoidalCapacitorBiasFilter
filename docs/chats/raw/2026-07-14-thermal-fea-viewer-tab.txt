@@ -1,0 +1,11 @@
+The Designer viewer gained a Thermal FEA tab showing the solved epoxy
+maximum-principal tensile-stress distribution. The FEniCSx backend returns
+cell-center stress points from its exact half-stack solve; the browser mirrors
+them for a full-stack display, caps the color scale at P99, and marks the raw
+mesh-sensitive peak separately.
+
+The old Geometry half-section tab was renamed FEA model regions. Its caption
+now says it shows representative r-z material regions used by the
+cylindrically symmetric FEA models rather than claiming to be a literal
+half-section. The default thermal response contains 2,362 epoxy points and is
+about 75 kB.

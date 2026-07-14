@@ -1,6 +1,6 @@
 # Raspberry Pi Web Host
 
-This directory contains reusable Raspberry Pi hosting support for the SHV Bias Filter web app and solver backend. Keep site-specific hostnames, IP addresses, local checkout paths, passwords, and private keys in ignored local notes such as `.secrets/current-deployment.md`.
+This directory contains reusable Raspberry Pi hosting support for the Discoidal Capacitor Bias Filter web app and solver backend. Keep site-specific hostnames, IP addresses, local checkout paths, passwords, and private keys in ignored local notes such as `.secrets/current-deployment.md`.
 
 The recommended deployment is a dedicated AI development Pi with blanket passwordless sudo for the `agent` account. The agent may administer the machine as needed, while Git or other off-device storage holds the durable copy of the work. Reimage the microSD card if experimentation leaves the OS in an inconvenient state. Use narrower privileges when adapting these files to a shared or production host.
 
@@ -12,7 +12,7 @@ The agent setup guide uses these variables:
 
 - `PROJECT_DIR` - repository checkout or synced working tree on the Pi.
 - `STATIC_ROOT` - web server document root on the Pi.
-- `APP_PATH` - URL path for the app, usually `/shv-bias-filter/`.
+- `APP_PATH` - URL path for the app, usually `/discoidal-capacitor-bias-filter/`.
 - `STATIC_DIR` - static files for the app, usually `STATIC_ROOT` plus `APP_PATH`.
 - `SERVICE_NAME` - systemd service name.
 
@@ -20,7 +20,7 @@ The included service file contains placeholders. The setup agent must render it 
 
 ## Service
 
-`agent-sites.service` runs the repository's dependency-free Python field backend on port 80 as the agent user. It serves the landing page, the SHV Bias Filter web app, and `/api/field-solve` job endpoints. The service uses `AmbientCapabilities=CAP_NET_BIND_SERVICE` so it can bind port 80 without running as root.
+`agent-sites.service` runs the repository's dependency-free Python field backend on port 80 as the agent user. It serves the landing page, the Discoidal Capacitor Bias Filter web app, and `/api/field-solve` job endpoints. The service uses `AmbientCapabilities=CAP_NET_BIND_SERVICE` so it can bind port 80 without running as root.
 
 The backend accepts `--solver fd`, `--solver auto`, and `--solver fenicsx`. The Pi package stack for FEniCSx/DOLFINx/Gmsh is installed and the conforming worker is implemented. The service is still intentionally started with requested/effective default solver `fd` so normal page loads use the faster screening path; use the web dropdown's `FEniCSx required` option when deliberately running the conforming FEA worker.
 

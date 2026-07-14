@@ -17,7 +17,7 @@ Confirm the trust model only when it has not already been established. If the Pi
 
 ## Phase 1: Establish The Pi
 
-First determine what the user already has. Do not repeat completed steps. The normal hardware target is a Raspberry Pi 5 with 8 GB RAM, a 64 GB high-endurance microSD card, the correct power supply, and Ethernet or Wi-Fi on the same reachable network as the agent's computer. A Pi 4 with at least 4 GB is a slower fallback.
+First determine what the user already has. Do not repeat completed steps. The normal hardware target is a Raspberry Pi 5 with 4 GB RAM, a 64 GB high-endurance microSD card, the correct power supply, and Ethernet or Wi-Fi on the same reachable network as the agent's computer. A 2 GB Pi is the practical minimum for the current single-worker service; measured default electric and thermal FEniCSx subprocesses peaked at about 157 MiB and 252 MiB RSS, with peak total system use below 0.8 GiB. A Pi 4 with 2 GB or more is a slower fallback. Prefer 8 GB only when the user expects unusually fine meshes, other substantial services, or broader development work on the same Pi.
 
 If the OS is not installed, walk the user through the current Raspberry Pi Imager interface:
 
@@ -37,8 +37,8 @@ On the agent's local computer, choose a dedicated key path appropriate to the OS
 
 Example key names:
 
-- Linux/macOS: `~/.ssh/shv_bias_filter_agent_ed25519`
-- Windows: `%USERPROFILE%\.ssh\shv_bias_filter_agent_ed25519`
+- Linux/macOS: `~/.ssh/discoidal_capacitor_bias_filter_agent_ed25519`
+- Windows: `%USERPROFILE%\.ssh\discoidal_capacitor_bias_filter_agent_ed25519`
 
 Read the generated `.pub` file. Then render one complete bootstrap command for the user to paste into a terminal logged into the Pi as their human administrator. The rendered command must:
 
@@ -46,7 +46,7 @@ Read the generated `.pub` file. Then render one complete bootstrap command for t
 2. Create `/home/agent/.ssh` with mode `700` and correct ownership.
 3. Write the actual public key to `/home/agent/.ssh/authorized_keys` with mode `600`.
 4. Write a temporary sudoers rule containing `agent ALL=(ALL) NOPASSWD: ALL`.
-5. Validate the temporary file with `visudo -cf`, then install it as `/etc/sudoers.d/shv-bias-filter-agent` with mode `440`.
+5. Validate the temporary file with `visudo -cf`, then install it as `/etc/sudoers.d/discoidal-capacitor-bias-filter-agent` with mode `440`.
 
 Use careful shell quoting around the actual public key. Build the command internally from a fixed account name and the public key you just generated; do not interpolate untrusted text from the user. The command shown to the human must contain no unresolved variables or placeholder tokens. It is acceptable for their existing administrator account to prompt for its sudo password; never ask them to share it with the agent.
 
@@ -76,7 +76,7 @@ Before running commands, identify:
 - `REPOSITORY_URL`: Git URL for this repository, if cloning from Git.
 - `PROJECT_DIR`: repository checkout or synced working tree on the Pi.
 - `STATIC_ROOT`: document root served by the backend.
-- `APP_PATH`: URL path for the app, usually `/shv-bias-filter/`.
+- `APP_PATH`: URL path for the app, usually `/discoidal-capacitor-bias-filter/`.
 - `STATIC_DIR`: static app directory, usually `STATIC_ROOT` plus `APP_PATH`.
 - `SERVICE_NAME`: systemd service name.
 
@@ -86,10 +86,10 @@ Use shell variables for the rest of setup so the commands can be adapted to the 
 
 ```bash
 export AGENT_USER="${AGENT_USER:-$(whoami)}"
-export REPOSITORY_URL="${REPOSITORY_URL:-https://github.com/EricLarueMartin/SHVBiasFilter.git}"
-export PROJECT_DIR="${PROJECT_DIR:-$HOME/projects/SHVBiasFilter}"
+export REPOSITORY_URL="${REPOSITORY_URL:-https://github.com/EricLarueMartin/DiscoidalCapacitorBiasFilter.git}"
+export PROJECT_DIR="${PROJECT_DIR:-$HOME/projects/DiscoidalCapacitorBiasFilter}"
 export STATIC_ROOT="${STATIC_ROOT:-$HOME/sites/public}"
-export APP_PATH="${APP_PATH:-/shv-bias-filter/}"
+export APP_PATH="${APP_PATH:-/discoidal-capacitor-bias-filter/}"
 export STATIC_DIR="${STATIC_DIR:-${STATIC_ROOT%/}${APP_PATH}}"
 export SERVICE_NAME="${SERVICE_NAME:-agent-sites.service}"
 ```
@@ -144,21 +144,21 @@ rsync -a --delete "$PROJECT_DIR/presentations/web/" "$STATIC_DIR/"
 Create a landing page that redirects to the project:
 
 ```bash
-cat > /tmp/shv-index.html <<HTML
+cat > /tmp/discoidal-filter-index.html <<HTML
 <!doctype html>
 <html>
   <head>
     <meta charset="utf-8">
     <meta http-equiv="refresh" content="0; url=$APP_PATH">
-    <title>SHV Bias Filter</title>
+    <title>Discoidal Capacitor Bias Filter</title>
   </head>
   <body>
-    <p><a href="$APP_PATH">SHV Bias Filter</a></p>
+    <p><a href="$APP_PATH">Discoidal Capacitor Bias Filter</a></p>
   </body>
 </html>
 HTML
 sudo install -d -m 755 -o "$AGENT_USER" -g "$AGENT_USER" "$STATIC_ROOT"
-sudo install -m 644 -o "$AGENT_USER" -g "$AGENT_USER" /tmp/shv-index.html "$STATIC_ROOT/index.html"
+sudo install -m 644 -o "$AGENT_USER" -g "$AGENT_USER" /tmp/discoidal-filter-index.html "$STATIC_ROOT/index.html"
 ```
 
 ## 4. Install The systemd Service
@@ -184,7 +184,7 @@ Local Pi checks:
 
 ```bash
 curl -fsS http://127.0.0.1/api/health
-curl -fsS "http://127.0.0.1$APP_PATH" | grep -i "SHV Bias Filter"
+curl -fsS "http://127.0.0.1$APP_PATH" | grep -i "Discoidal Capacitor Bias Filter"
 ```
 
 Finite-difference job and automatic polling:
@@ -269,7 +269,7 @@ python3 -B -m unittest software.bias_filter.test_field_backend
 Keep broad sudo on a Pi designated as an expendable AI development device. For a shared or longer-lived host that does not use that trust model, agree on and install a narrow sudoers file:
 
 ```bash
-sudo visudo -f /etc/sudoers.d/shv-bias-filter-agent
+sudo visudo -f /etc/sudoers.d/discoidal-capacitor-bias-filter-agent
 ```
 
 Suggested contents:

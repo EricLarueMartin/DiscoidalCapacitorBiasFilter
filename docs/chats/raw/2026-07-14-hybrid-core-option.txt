@@ -1,0 +1,5 @@
+The Two Core Options slide was shortened from "Two Core Options Share One
+Mechanical Stack" to "Two Core Options". After the ferrite and MELF pros and
+cons, it now identifies a conditional hybrid to consider after ferrite excess
+noise is measured: ferrite stages first for 50/60 Hz attenuation, followed by
+MELF stages for lower resistor noise near the detector.

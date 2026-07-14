@@ -158,6 +158,17 @@ comparison is still more aggressive because it applies the cable and detector
 load to every multiplied section and counts every nonzero end resistance as a
 full stage. The full ladder applies the external load once at the output.
 
+The SPICE slide also includes a separate **full ladder unloaded** curve. This
+retains the input series resistance, every internal stage resistance, every
+stage-to-ground capacitance, and every adjacent-stage parasitic capacitance.
+It removes load conductance, output-series current, cable, transmission line,
+and detector capacitance, then measures voltage at the last filter node with
+infinite input impedance. It therefore answers a different question from the
+loaded detector curve: how much source voltage noise the filter itself removes
+at its bare output terminal. For the default design at 50 Hz, the backend gives
+about 0.45 dB unloaded versus 18.16 dB with the specified transmission-line
+load.
+
 At 50 Hz with the default loaded design, the multiplied and full-ladder results
 diverge with stage count: 36.75 versus 18.16 dB for two bias stages, 73.51
 versus 26.76 dB for five, and 134.76 versus 37.22 dB for ten. The apparent

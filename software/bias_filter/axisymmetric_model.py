@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate and solve a simple axisymmetric SHV bias-filter model.
+"""Generate and solve a simple axisymmetric discoidal capacitor bias-filter model.
 
 The electrostatic solver uses a finite-difference r-z grid with spatially
 varying relative permittivity. It is intended for early design screening, not
@@ -1153,7 +1153,7 @@ def write_obj_and_stl(p: dict[str, Any], obj_path: Path, mtl_path: Path, stl_pat
     mtl_path.write_text("\n".join(mtl_lines), encoding="utf-8")
 
     obj_lines = [f"mtllib {mtl_path.name}"]
-    stl_lines = ["solid shv_bias_filter"]
+    stl_lines = ["solid discoidal_capacitor_bias_filter"]
     vertex_offset = 1
     for component in component_profiles(p):
         vertices, faces = profile_to_mesh(component["profile"])
@@ -1174,7 +1174,7 @@ def write_obj_and_stl(p: dict[str, Any], obj_path: Path, mtl_path: Path, stl_pat
             stl_lines.append("    endloop")
             stl_lines.append("  endfacet")
         vertex_offset += len(vertices)
-    stl_lines.append("endsolid shv_bias_filter")
+    stl_lines.append("endsolid discoidal_capacitor_bias_filter")
     obj_path.write_text("\n".join(obj_lines), encoding="utf-8")
     stl_path.write_text("\n".join(stl_lines), encoding="utf-8")
 

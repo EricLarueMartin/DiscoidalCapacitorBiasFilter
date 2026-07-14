@@ -8,13 +8,13 @@ Install [Visual Studio Code](https://code.visualstudio.com/) and the [official C
 
 ## 2. Download And Open The Project
 
-Return to the top of the SHVBiasFilter GitHub repository page, select **Code**, and copy the HTTPS address. Use VS Code's **Clone Git Repository** command with that address:
+Return to the top of the DiscoidalCapacitorBiasFilter GitHub repository page, select **Code**, and copy the HTTPS address. Use VS Code's **Clone Git Repository** command with that address:
 
 ```text
-https://github.com/EricLarueMartin/SHVBiasFilter.git
+https://github.com/EricLarueMartin/DiscoidalCapacitorBiasFilter.git
 ```
 
-Choose a project folder outside a live-sync service when practical, then open the cloned `SHVBiasFilter` folder. If you do not want to use Git, choose **Download ZIP** from GitHub's **Code** menu, extract it, and open the extracted folder in VS Code.
+Choose a project folder outside a live-sync service when practical, then open the cloned `DiscoidalCapacitorBiasFilter` folder. If you do not want to use Git, choose **Download ZIP** from GitHub's **Code** menu, extract it, and open the extracted folder in VS Code.
 
 ## 3. Start The Setup Task
 

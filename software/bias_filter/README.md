@@ -28,9 +28,14 @@ Open `http://<pi-hostname-or-ip>:8765/` from the browser. The server exposes:
 - `GET /api/field-solve/{job_id}`: returns queued, running, failed, or complete job state.
 - `POST /api/geometry`: accepts `{ "parameters": { ... } }` and returns the sanitized solver-side r-z component profiles without running a field solve.
 - `POST /api/spice-ladder`: accepts `{ "parameters": { ... } }` and returns a SPICE-style small-signal AC ladder sweep, generated netlist text, and summaries for the RC ladder plus coax transmission-line load.
+- `POST /api/thermal-solve`: runs the axisymmetric linear-thermoelastic FEniCSx solid model synchronously and returns epoxy tensile-stress percentiles, the raw corner peak, mesh statistics, and model assumptions.
 - `GET /api/health`: lightweight server status.
 
 Jobs are independent and write under `simulations/axisymmetric/jobs/{job_id}/`, avoiding shared `latest-*` output files for browser requests. The default worker uses the repository finite-difference axisymmetric solver; explicit FEniCSx jobs run in a subprocess so Gmsh and PETSc are isolated from the web worker thread.
+
+Every electric-field or thermal FEniCSx subprocess is sampled from Linux `/proc` at 0.1 s intervals. The solve tabs show peak solver-process RSS, peak system memory use, lowest available system memory, and maximum system swap use. The backend appends the complete sanitized inputs, solve status, mesh summary, full-stack/mirror/repeating-cell choices, process-tree RSS and swap, and system-memory extrema to `simulations/axisymmetric/logs/fea-resource-usage.jsonl`. This runtime log is intentionally ignored by Git; retain or analyze it on each Pi when developing hardware recommendations.
+
+The first monitored default solves on a Raspberry Pi 5 used 156.5 MiB peak process RSS for the electric FEA and 251.8 MiB for the thermal FEA. Corresponding peak total system use was approximately 655 MiB and 771 MiB, with no swap use. The project therefore recommends 4 GB RAM for comfortable development and treats 2 GB as the practical minimum for the present single-worker service. Fine meshes and larger direct solves can require substantially more memory; continue using the accumulated runtime log rather than treating these first measurements as fixed upper bounds.
 
 The backend has a staged solver selector:
 
@@ -45,6 +50,8 @@ python software/bias_filter/field_backend.py --solver fenicsx
 The field backend is still electrostatic. Plate and tube conductivity/permeability parameters are passed through job inputs and summaries so a later frequency-domain admittance or RF backend can consume the same design payload, but the present `fd` solver treats conductors as equipotential boundaries.
 
 The `/api/spice-ladder` endpoint is separate from the electrostatic field solve. On the deployed Pi it uses `ngspice` batch AC analysis when available, with an internal Python modified-nodal AC solve as a fallback for development machines without ngspice. The returned netlist uses ordinary SPICE concepts (`R`, `C`, and a lossless transmission-line `T` element), so the simulation can be inspected or rerun directly in ngspice.
+
+The `/api/thermal-solve` endpoint is also separate from the electrostatic field solve. It meshes the full bonded copper/alumina/epoxy/core r-z solid and uses exact cylindrical and center-plane symmetry. The closed-form differential-contraction estimate remains in the web app as an independent baseline. The FEA assumes perfect bonds, traction-free exposed surfaces, linear elasticity, and a 70 C stress-free reference; it does not model cure shrinkage, relaxation, voids, or debonding.
 
 The backend SPICE sweep and matching web attenuation plots are fixed at 1 Hz to 100 MHz. This makes the low-frequency rolloff around power-line noise easier to read while avoiding excessive very-slow-drift plot space, and 100 MHz is a practical upper view limit for the current detector readout context because the DAQ sample rate is only about 200 MS/s.
 

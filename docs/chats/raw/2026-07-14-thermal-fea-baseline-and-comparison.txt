@@ -1,0 +1,23 @@
+User requested retaining the simple differential-thermal-contraction stress
+calculation as a transparent baseline while adding a geometry-based FEA.
+
+Implemented an axisymmetric linear-thermoelastic FEniCSx model of the bonded
+copper, alumina, epoxy, and core solids. Cylindrical symmetry and the axial
+center-plane symmetry are exact for the idealized stack. Interfaces are
+perfectly bonded and exposed surfaces are traction-free. The model excludes
+cure shrinkage, viscoelastic relaxation, voids, cohesive interfaces, debonding,
+and fracture.
+
+The default 20 C result is 32.175 MPa epoxy maximum-principal tensile P99 on a
+0.30 mm / 9,005-cell mesh, compared with the 15.2 MPa closed-form baseline.
+Refining to 0.20 mm / 21,006 cells gives 32.115 MPa P99. The raw corner peak
+moves from 53.254 to 61.985 MPa and is retained only as a mesh-sensitive
+diagnostic.
+
+The analytical baseline is an equibiaxial plane-stress calculation. It uses
+sigma = k E delta_alpha delta_T / (1 - nu). For epoxy versus alumina at 20 C,
+delta_alpha = 65.8e-6 /C and delta_T = 50 C, giving mismatch strain 0.00329.
+With E = 3000 MPa, nu = 0.35, and k = 1, sigma = 15.1846 MPa. Setting sigma to
+the published 20 MPa tensile strength gives an onset reference of 4.1439 C.
+The full derivation and sensitivity substitutions are in
+docs/knowledge/thermal-stress.md.

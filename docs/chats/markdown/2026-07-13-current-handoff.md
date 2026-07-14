@@ -1,4 +1,14 @@
-# Current Handoff: 2026-07-13
+# Current Handoff: 2026-07-14
+
+## Project Rename
+
+The project and GitHub repository are now named **Discoidal Capacitor Bias
+Filter** and `EricLarueMartin/DiscoidalCapacitorBiasFilter`. The name describes
+the geometry being analyzed. A later implementation is expected to serve SHV
+connector inputs, but connector packaging is not part of the current analysis.
+Active documentation, setup guides, web titles, generated identifiers, and
+deployment defaults use the new name. Historical raw collaboration records
+retain their original wording.
 
 ## Start Here
 
@@ -28,6 +38,11 @@ Neither option is selected or qualified. The presentation now tells the main
 story in this order: physical/electrical model, simulation method,
 simulation-derived results, two proposed prototypes, construction, then backup
 validation slides.
+
+The two core options slide also records a conditional hybrid worth evaluating
+after ferrite excess-noise measurements: ferrite stages first for stronger
+50/60 Hz attenuation, followed by MELF stages near the detector for lower
+resistor noise.
 
 ## Promoted Default Geometry and Circuit
 
@@ -100,6 +115,15 @@ section for explanation only. Multiplied-section curves were removed from the
 main loaded-ladder and SPICE plots. The divergence comparison remains as the
 first backup circuit-model slide.
 
+The slide formerly titled `SPICE Checks the Loaded-System Trend` is now
+`SPICE Simulation on RC Ladder`. It compares the full ladder with its coax and
+detector load against a full-ladder unloaded solve. The unloaded topology has
+no load current, output-series current, cable, transmission line, or detector
+capacitance and measures the last filter node at infinite input impedance. The
+default 50 Hz results are about 18.16 dB loaded and 0.45 dB unloaded. The
+preceding MELF + alumina slide is text-only so it does not show a live graphic
+that may reflect different currently selected materials.
+
 The web presentation includes dark mode, subscripted technical notation,
 separate total-capacitance and parasitic-capacitance explanations, the repeat
 cell sidebar explanation, two prototype concepts, and a thermal-risk slide.
@@ -135,14 +159,44 @@ or current-pulse test. Product comparisons should request open porosity, water
 absorption, surface finish, dielectric-strength test method, and edge quality
 in addition to alumina percentage.
 
-## Thermal-Mismatch Screen
+## Thermal-Mismatch Analysis
 
-`software/bias_filter/thermal_stress.py` and
-`simulations/thermal/outputs/default-thermal-stress.json` are the executable
-calculation and saved result. The current closed-form model is deliberately a
-screen, not an adhesive-fracture prediction. It uses an assumed 2--4 GPa epoxy
-modulus range because MG Chemicals does not publish the 9510 modulus or the
-needed copper/alumina interface-fracture properties.
+The web app now retains the closed-form differential-contraction calculation
+as an independent baseline and adds a separate axisymmetric thermoelastic
+FEniCSx solve. `software/bias_filter/thermal_stress.py` and
+`simulations/thermal/outputs/default-thermal-stress.json` contain the baseline;
+`software/bias_filter/thermal_fenicsx_solver.py` implements the bonded-solid
+FEA and is exposed as `POST /api/thermal-solve`.
+
+For the default design at 20 C, the baseline is 15.2 MPa. The 0.30 mm FEA mesh
+reports 32.175 MPa epoxy maximum-principal tensile P99 and a 53.254 MPa raw
+corner peak. A 0.20 mm mesh reports 32.115 MPa P99 and 61.985 MPa raw peak.
+The P99 comparison changes by 0.19%; the raw corner peak remains deliberately
+identified as mesh-sensitive.
+
+The FEA uses exact cylindrical and axial center-plane symmetry, perfect bonds,
+traction-free exposed surfaces, linear elasticity, and a 70 C stress-free
+reference. It excludes cure shrinkage, viscoelastic relaxation, voids,
+cohesive interfaces, and debonding. It is a geometry-aware elastic comparison,
+not an adhesive-fracture prediction. The 2--4 GPa epoxy modulus uncertainty
+remains because MG Chemicals does not publish the 9510 modulus.
+
+The Designer viewer now has four tabs: `CAD mesh`, `FEA model regions`,
+`Electric field`, and `Thermal FEA`. The renamed FEA-regions view represents
+the r-z materials used by the cylindrical solves rather than claiming to be a
+literal half-section. The thermal tab maps epoxy maximum-principal tensile
+stress, mirrors the exact solved half-stack for display, uses P99 as the color
+scale maximum, and marks the raw corner peak separately. The default response
+contains 2,362 epoxy cell-center samples and is about 75 kB.
+
+The complete analytical derivation and numerical substitution are recorded in
+`docs/knowledge/thermal-stress.md`. In brief, the baseline uses equibiaxial
+plane stress, for which `epsilon = sigma (1 - nu) / E`, and sets this equal to
+`k delta_alpha delta_T`. For the default alumina interface at 20 C,
+`delta_alpha = 65.8e-6 /C`, `delta_T = 50 C`, and the mismatch strain is
+0.00329. With `E = 3000 MPa`, `nu = 0.35`, and `k = 1`, the result is
+15.1846 MPa. Solving the same expression at 20 MPa gives the +4.1439 C
+closed-form strength crossing.
 
 The current presentation has no claimed cold target. It shows a conservative
 fully restrained risk onset and recommends controlled room-temperature
@@ -179,7 +233,7 @@ Important provenance and limits:
   fraction after gel, restraint during cure, stress relaxation near/above Tg,
   and local free-edge relief are unknown.
 
-The next chat should investigate this before relying on the thermal-risk
+Future work should investigate this before relying on the thermal-risk
 conclusion: determine exactly how MG defines/calculates the value, whether a
 more detailed application guide or technical-support response exists, and how
 much post-gel shrinkage can become residual stress in this geometry. This
@@ -234,6 +288,7 @@ source of truth.
 - `software/bias_filter/field_backend.py`
 - `software/bias_filter/fenicsx_solver.py`
 - `software/bias_filter/thermal_stress.py`
+- `software/bias_filter/thermal_fenicsx_solver.py`
 - `simulations/thermal/outputs/default-thermal-stress.json`
 - `presentations/web/index.html`
 - `presentations/web/app.js`

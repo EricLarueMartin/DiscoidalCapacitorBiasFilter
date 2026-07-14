@@ -3,11 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SHV Bias Filter</title>
+    <title>Discoidal Capacitor Bias Filter</title>
     <script>
       (() => {
         try {
-          const savedTheme = localStorage.getItem("shv-bias-filter-theme");
+          const savedTheme = localStorage.getItem("discoidal-capacitor-bias-filter-theme")
+            || localStorage.getItem("shv-bias-filter-theme");
           document.documentElement.dataset.theme = savedTheme === "dark" || savedTheme === "light"
             ? savedTheme
             : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -16,14 +17,14 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=2026-07-13-ladder-model-layout">
-    <script defer src="app.js?v=2026-07-13-ladder-model-layout"></script>
+    <link rel="stylesheet" href="style.css?v=2026-07-14-project-rename">
+    <script defer src="app.js?v=2026-07-14-project-rename"></script>
   </head>
   <body>
     <header class="topbar">
       <div>
         <p class="eyebrow">Axisymmetric high-voltage filter</p>
-        <h1>SHV Bias Filter</h1>
+        <h1>Discoidal Capacitor Bias Filter</h1>
       </div>
       <div class="topbar-actions">
         <nav class="tabs" aria-label="Views">
@@ -91,6 +92,10 @@
             <label>Epoxy material
               <select id="epoxy_material">
                 <option value="mg_9510">MG Chemicals 9510</option>
+                <option value="mg_832fx">MG Chemicals 832FX</option>
+                <option value="mg_832fxt">MG Chemicals 832FXT</option>
+                <option value="mg_832fxc">MG Chemicals 832FXC</option>
+                <option value="epoxies_etc_20_3241">Epoxies Etc. 20-3241</option>
                 <option value="generic_potting">Generic potting epoxy</option>
                 <option value="low_k_epoxy">Low-&kappa; epoxy</option>
                 <option value="custom">Custom</option>
@@ -207,15 +212,23 @@
             <div class="actions solver-actions">
               <button id="solve" type="button">Solve field</button>
             </div>
+            <div class="thermal-summary" aria-label="Electric-field FEA memory use">
+              <span>Peak FEA process memory <strong id="fieldFeaPeakRss">Not solved</strong></span>
+              <span>Peak system memory used <strong id="fieldFeaPeakSystemMemory">--</strong></span>
+              <span>Lowest available memory <strong id="fieldFeaLowestAvailableMemory">--</strong></span>
+              <span>Maximum swap used <strong id="fieldFeaMaximumSwap">--</strong></span>
+            </div>
+            <p class="control-note" id="fieldFeaResourceLog">FEniCSx resource use is recorded with each solve.</p>
           </div>
 
           <div class="control-group control-panel" data-control-panel="thermal" hidden>
-            <h2>Thermal bond screen</h2>
-            <label title="A what-if temperature for screening transport or operation; this is not a design target."><span>Temperature to evaluate</span><output id="thermal_min_temperature_c_out"></output><input id="thermal_min_temperature_c" type="range" min="-80" max="30" step="1"></label>
+            <h2>Thermal bond analysis</h2>
+            <label title="A what-if temperature for evaluating transport or operation; this is not a design target."><span>Temperature to evaluate</span><output id="thermal_min_temperature_c_out"></output><input id="thermal_min_temperature_c" type="range" min="-80" max="30" step="1"></label>
             <label title="MG Chemicals does not publish Young's modulus for 9510. The saved calculation preserves a 2 to 4 GPa sensitivity range."><span>Assumed epoxy E</span><output id="thermal_epoxy_modulus_gpa_out"></output><input id="thermal_epoxy_modulus_gpa" type="range" min="2" max="4" step="0.1"></label>
-            <label title="One is the conservative fully restrained upper bound. Lower values represent strain relief at free edges and interfaces."><span>Effective restraint</span><output id="thermal_restraint_factor_out"></output><input id="thermal_restraint_factor" type="range" min="0.25" max="1" step="0.05"></label>
+            <label title="This affects only the closed-form baseline. One is the fully restrained value; lower values represent strain relief at free edges and interfaces."><span>Closed-form restraint</span><output id="thermal_restraint_factor_out"></output><input id="thermal_restraint_factor" type="range" min="0.25" max="1" step="0.05"></label>
+            <label title="Target element size for the axisymmetric thermoelastic FEniCSx mesh."><span>Thermal FEA mesh</span><output id="thermal_mesh_size_mm_out"></output><input id="thermal_mesh_size_mm" type="range" min="0.1" max="1" step="0.05"></label>
             <div class="thermal-summary" aria-label="Thermal stress estimate">
-              <span>Controlling interface <strong id="thermalControllingInterface">--</strong></span>
+              <span>Largest CTE mismatch <strong id="thermalControllingInterface">--</strong></span>
               <span>&Delta;&alpha; <strong id="thermalDeltaCte">--</strong></span>
               <span>Free radial mismatch <strong id="thermalRadialMismatch">--</strong></span>
               <span>Estimated stress <strong id="thermalStress">--</strong></span>
@@ -223,11 +236,29 @@
               <span>Estimated risk onset <strong id="thermalFailureOnset">--</strong></span>
             </div>
             <div class="thermal-warning" id="thermalStatus" role="status">--</div>
+            <div class="actions solver-actions">
+              <button id="solveThermalFea" type="button">Solve thermal FEA</button>
+            </div>
+            <div class="thermal-summary" aria-label="Thermal FEA comparison">
+              <span>FEA epoxy tensile P99 <strong id="thermalFeaP99">Not solved</strong></span>
+              <span>FEA raw peak <strong id="thermalFeaRawPeak">--</strong></span>
+              <span>FEA / closed form <strong id="thermalFeaRatio">--</strong></span>
+              <span>FEA mesh <strong id="thermalFeaMesh">--</strong></span>
+            </div>
+            <div class="thermal-summary" aria-label="Thermal FEA memory use">
+              <span>Peak FEA process memory <strong id="thermalFeaPeakRss">Not solved</strong></span>
+              <span>Peak system memory used <strong id="thermalFeaPeakSystemMemory">--</strong></span>
+              <span>Lowest available memory <strong id="thermalFeaLowestAvailableMemory">--</strong></span>
+              <span>Maximum swap used <strong id="thermalFeaMaximumSwap">--</strong></span>
+            </div>
+            <p class="control-note" id="thermalFeaResourceLog">FEniCSx resource use is recorded with each solve.</p>
+            <div class="thermal-warning" id="thermalFeaStatus" role="status">Run the thermal FEA for a geometry-based comparison.</div>
             <div class="solver-explainer thermal-explainer">
-              <strong>What this screen means</strong>
+              <strong>Calculation method</strong>
               <p>The temperature control is a what-if evaluation, not a design target. The default 20&nbsp;&deg;C setting checks ordinary room-temperature handling.</p>
-              <p>Below the 9510 glass transition at 70&nbsp;&deg;C, the rigid cured epoxy wants to contract much more than alumina or copper. The upper-bound model uses &sigma; = kE&Delta;&alpha;&Delta;T/(1 &minus; &nu;) and compares it with the published 20&nbsp;MPa cured tensile strength.</p>
+              <p>This is a closed-form thermal-mismatch estimate, not a thermal-stress FEA. Below the 9510 glass transition at 70&nbsp;&deg;C, the rigid cured epoxy wants to contract much more than alumina or copper. The estimate uses &sigma; = kE&Delta;&alpha;&Delta;T/(1 &minus; &nu;) and compares it with the published 20&nbsp;MPa cured tensile strength.</p>
               <p>The default k = 1 calculation is intentionally conservative. At k = 0.5, the nominal risk onset moves to <strong id="thermalHalfRestraintOnset">--</strong>, showing why a geometry-specific coupon is required.</p>
+              <p>The FEniCSx model solves the bonded copper, alumina, epoxy, and core solids with axisymmetric linear elasticity and exact center-plane symmetry. Interfaces are perfectly bonded and exposed surfaces are traction-free. It reports epoxy maximum-principal tensile stress; it does not model debonding or viscoelastic relaxation.</p>
               <p>The published 3.9% cure shrinkage is not added as elastic strain because the locked-in fraction after gel is unknown. Any retained cure stress reduces the available cold margin.</p>
               <p><a href="https://mgchemicals.com/downloads/tds/tds-9510.pdf">9510 TDS</a> &middot; <a href="https://www2.coorstek.com/media/4235/advanced-alumina.pdf">CoorsTek alumina</a> &middot; <a href="https://alloys.copper.org/alloy/C11000">C110 copper</a></p>
             </div>
@@ -389,8 +420,9 @@
           <div class="viewer-shell" aria-label="Design viewers">
             <div class="viewer-tabs" role="tablist" aria-label="Design viewer tabs">
               <button class="viewer-tab active" type="button" data-viewer-panel="cadPanel" role="tab" aria-selected="true">CAD mesh</button>
-              <button class="viewer-tab" type="button" data-viewer-panel="geometryPanel" role="tab" aria-selected="false">Geometry half-section</button>
+              <button class="viewer-tab" type="button" data-viewer-panel="geometryPanel" role="tab" aria-selected="false">FEA model regions</button>
               <button class="viewer-tab" type="button" data-viewer-panel="fieldPanel" role="tab" aria-selected="false">Electric field</button>
+              <button class="viewer-tab" type="button" data-viewer-panel="thermalFeaPanel" role="tab" aria-selected="false">Thermal FEA</button>
             </div>
 
             <figure class="viewer-panel cad-figure active" id="cadPanel" role="tabpanel">
@@ -412,13 +444,18 @@
             </figure>
 
             <figure class="viewer-panel" id="geometryPanel" role="tabpanel" hidden>
-              <figcaption>Geometry half-section</figcaption>
+              <figcaption>Representative r-z material regions used by the cylindrically symmetric FEA models</figcaption>
               <canvas id="geometryCanvas" width="900" height="440"></canvas>
             </figure>
 
             <figure class="viewer-panel" id="fieldPanel" role="tabpanel" hidden>
               <figcaption>Electric field magnitude</figcaption>
               <canvas id="fieldCanvas" width="900" height="440"></canvas>
+            </figure>
+
+            <figure class="viewer-panel" id="thermalFeaPanel" role="tabpanel" hidden>
+              <figcaption>Epoxy maximum-principal tensile stress from the axisymmetric thermal FEA</figcaption>
+              <canvas id="thermalFeaCanvas" width="900" height="440"></canvas>
             </figure>
           </div>
         </section>
@@ -428,8 +465,8 @@
         <article class="slide slide-visual">
           <div class="slide-copy">
             <p class="eyebrow">Detector bias filtering</p>
-            <h2>SHV Bias Filter</h2>
-            <p>A compact, axisymmetric high-voltage low-current filter with two candidate resistive-core implementations.</p>
+            <h2>Discoidal Capacitor Bias Filter</h2>
+            <p>A compact, axisymmetric high-voltage, low-current filter with a resistive core.</p>
           </div>
           <figure class="slide-figure">
             <canvas id="slideCadCanvas" width="1100" height="620"></canvas>
@@ -439,22 +476,22 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <h2>The FEA Model Preserves Field-Critical Geometry</h2>
+            <h2>FEA Model</h2>
             <ul>
-              <li>Axisymmetric bias and ground plates retain their rounded conductor edges.</li>
-              <li>Alumina washers, epoxy fill, the resistive core, and the grounded tube are distinct regions.</li>
-              <li>The model preserves both the high-capacitance washer overlap and the low-capacitance core-side path.</li>
+              <li>The r-z model uses cylindrical symmetry about the filter axis.</li>
+              <li>The complete idealized stack has exact mirror symmetry about its axial center plane.</li>
+              <li>By default, FEA solves one physical end region and one inner region, then copies and mirrors them to reconstruct the stack; reuse of the inner region is the finite-stack approximation.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideMaterialCanvas" width="1100" height="620"></canvas>
-            <figcaption>Conductor and dielectric regions in the axisymmetric model</figcaption>
+            <figcaption>Cylindrical r-z half-section used by the axisymmetric FEA model</figcaption>
           </figure>
         </article>
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <h2>The Electrical Model Is a Loaded RC Ladder</h2>
+            <h2>Electrical Model for SPICE Simulation</h2>
             <ul>
               <li>R<sub>stage</sub> connects bias nodes. Each node sees C<sub>g</sub> = 2C<sub>gap</sub> through its two adjacent washers.</li>
               <li>C<sub>par</sub> bridges adjacent nodes in parallel with R<sub>stage</sub> and sets the high-frequency feedthrough limit.</li>
@@ -470,7 +507,7 @@
 
         <article class="slide slide-copy-wide">
           <p class="eyebrow">Simulation method</p>
-          <h2>Axisymmetric FEA Connects Geometry to Circuit Values</h2>
+          <h2>FEA Connects Geometry to Circuit Values</h2>
           <ol class="method-steps">
             <li><strong>Mesh the dielectric:</strong> Gmsh creates a conforming r-z domain around the actual rounded conductor boundaries.</li>
             <li><strong>Solve the potential:</strong> FEniCSx applies conductor voltages and solves the cylindrical electrostatic weak form.</li>
@@ -482,7 +519,7 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy">
-            <h2>FEA for Peak Electric Field</h2>
+            <h2>Peak Electric Field from FEA</h2>
             <ul>
               <li>Washer and epoxy fields are compared separately with provisional material limits.</li>
               <li>The peak field must converge as the mesh is refined before it is used as a breakdown limit.</li>
@@ -496,55 +533,51 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Mechanical failure screen</p>
-            <h2>Epoxy Bonding May Require Warm Transport</h2>
+            <p class="eyebrow">Mechanical failure analysis</p>
+            <h2>Epoxy Bonding Thermal Limit</h2>
             <ul>
-              <li>The screen treats T<sub>g</sub> = 70&nbsp;&deg;C as the stress-free reference after heat cure, not as the cure temperature; below it, MG 9510 contracts at 74 ppm/&deg;C versus 8.2 for alumina and 16.9 for copper.</li>
+              <li>The closed-form baseline uses differential thermal contraction; the axisymmetric FEA solves the perfectly bonded solid geometry with exact center-plane symmetry.</li>
               <li>The nominal full-restraint strength crossing is about +4&nbsp;&deg;C; the assumed 2&ndash;4 GPa modulus range shifts it from &minus;29 to +21&nbsp;&deg;C.</li>
-              <li>At 50% effective restraint the crossing moves near &minus;62&nbsp;&deg;C, showing that free-edge strain relief dominates the uncertainty.</li>
+              <li>FEA reports the 99th-percentile epoxy principal tensile stress; its raw material-corner peak remains a mesh-sensitive diagnostic.</li>
+              <li>Neither model includes cure shrinkage, viscoelastic relaxation, voids, or interface debonding.</li>
               <li>Until bonded-ring coupons are qualified, transport at controlled room temperature&mdash;preferably at or above 25&nbsp;&deg;C&mdash;and avoid unheated or freezing shipment.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideThermalCanvas" width="1100" height="620"></canvas>
-            <figcaption>Conservative thermal-mismatch stress and strain-relief sensitivity for the default build</figcaption>
+            <figcaption>Closed-form differential-contraction baseline compared with axisymmetric thermal FEA</figcaption>
           </figure>
+        </article>
+
+        <article class="slide slide-copy-wide">
+          <p class="eyebrow">Candidate limitation</p>
+          <h2>MELF + Alumina Falls Short at 50/60 Hz</h2>
+          <ul>
+            <li>The available 12 M&Omega; MELF value is much lower than the desired per-stage resistance.</li>
+            <li>Alumina is practical and robust, but its modest permittivity limits the shunt capacitance.</li>
+            <li>Its intrinsic section attenuation is about 0.1 dB at 50 Hz; the full loaded response still falls short of the desired suppression.</li>
+            <li>The result motivates a higher-resistance ferrite path or a more complex MELF topology.</li>
+          </ul>
         </article>
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <h2>MELF + Alumina Falls Short at 50/60 Hz</h2>
-            <ul>
-              <li>The available 12 M&Omega; MELF value is much lower than the desired per-stage resistance.</li>
-              <li>Alumina is practical and robust, but its modest permittivity limits the shunt capacitance.</li>
-              <li>Its intrinsic section attenuation is about 0.1 dB at 50 Hz; the full loaded response still falls short of the desired suppression.</li>
-              <li>The result motivates a higher-resistance ferrite path or a more complex MELF topology.</li>
-            </ul>
-          </div>
-          <figure class="slide-figure">
-            <canvas id="slideLoadedLadderCanvas" width="1100" height="620"></canvas>
-            <figcaption>Loaded-ladder response for the currently selected design</figcaption>
-          </figure>
-        </article>
-
-        <article class="slide slide-visual">
-          <div class="slide-copy slide-copy-compact">
-            <h2>SPICE Checks the Loaded-System Trend</h2>
+            <h2>SPICE Simulation on RC Ladder</h2>
             <ul>
               <li>The backend solves the individual R, C<sub>g</sub>, and C<sub>par</sub> ladder elements.</li>
-              <li>The cable is represented by its characteristic impedance and delay rather than only a lumped capacitance.</li>
-              <li>The comparison separates filter limitations from cable and detector loading effects.</li>
+              <li>The loaded curve includes the cable as a transmission line terminated by the detector capacitance and DC load conductance.</li>
+              <li>The unloaded curve removes load current, cable, and detector capacitance, giving the voltage-noise attenuation measured at the filter output terminal alone.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
-            <figcaption>SPICE-style ladder with a transmission-line output load</figcaption>
+            <figcaption>Full RC ladder with loaded and unloaded output conditions</figcaption>
           </figure>
         </article>
 
         <article class="slide prototype-slide">
           <p class="eyebrow">Proposed prototypes</p>
-          <h2>Two Core Options Share One Mechanical Stack</h2>
+          <h2>Two Core Options</h2>
           <p class="prototype-shared"><strong>Both prototypes:</strong> stock alumina washers, copper bias and ground plates, a copper ground tube, and epoxy fill.</p>
           <div class="prototype-comparison">
             <section class="prototype-path ferrite-path">
@@ -564,6 +597,31 @@
               </ul>
             </section>
           </div>
+          <p class="prototype-hybrid"><strong>Hybrid to consider:</strong> after ferrite excess noise is measured, use ferrite stages first for 50/60&nbsp;Hz attenuation, followed by MELF stages for lower resistor noise near the detector.</p>
+        </article>
+
+        <article class="slide slide-copy-wide epoxy-choice-slide">
+          <p class="eyebrow">Potting material trade</p>
+          <h2>Epoxy Choice</h2>
+          <p>Lower viscosity and adequate working time help remove gas and fill narrow interfaces. Compliance may reduce thermal stress, but only representative cured coupons can qualify adhesion and partial-discharge behavior.</p>
+          <div class="epoxy-table-wrap">
+            <table class="epoxy-choice-table">
+              <thead>
+                <tr>
+                  <th scope="col">Material</th>
+                  <th scope="col">Working time</th>
+                  <th scope="col">Viscosity</th>
+                  <th scope="col">Hardness</th>
+                  <th scope="col">T<sub>g</sub></th>
+                  <th scope="col">Resistivity</th>
+                  <th scope="col">Dielectric strength</th>
+                  <th scope="col">Decision note</th>
+                </tr>
+              </thead>
+              <tbody id="epoxyChoiceTableBody"></tbody>
+            </table>
+          </div>
+          <p class="epoxy-table-note" id="epoxyChoiceNote">Shore A and Shore D values are not directly comparable. Dielectric strength is a bulk coupon result, not a DC partial-discharge rating.</p>
         </article>
 
         <article class="slide slide-copy-wide">

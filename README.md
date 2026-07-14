@@ -1,12 +1,12 @@
-# SHV Bias Filter
+# Discoidal Capacitor Bias Filter
 
-This repository contains the design, simulation, prototyping, and presentation tools for a high-voltage, low-current detector bias filter. The project was developed around an AI-managed Raspberry Pi: the AI works from your computer, connects to the Pi over SSH, installs the solver stack, hosts the web interface, and tests the deployment.
+This repository contains the design, simulation, prototyping, and presentation tools for a high-voltage, low-current detector bias filter built from a discoidal capacitor stack. The project is named for the geometry being analyzed; a later implementation is expected to serve SHV connector inputs, but connector packaging is outside the present analysis. The project was developed around an AI-managed Raspberry Pi: the AI works from your computer, connects to the Pi over SSH, installs the solver stack, hosts the web interface, and tests the deployment.
 
 ## What You Need
 
 The recommended setup is:
 
-- A Raspberry Pi 5 with 8 GB RAM. A Pi 4 with at least 4 GB should also be usable, but finite-element solves will be slower.
+- A Raspberry Pi 5 with 4 GB RAM is the recommended target. The measured default FEniCSx solves also fit comfortably on a 2 GB Pi when the backend runs its normal single worker. A Pi 4 with 2 GB or more should be usable, but finite-element solves will be slower. An 8 GB model is useful for unusually fine meshes or additional development services, but is not required for the present application.
 - A 64 GB high-endurance microSD card. A 32 GB card is a practical minimum.
 - The correct Raspberry Pi power supply.
 - Ethernet or Wi-Fi access to the same network as your computer, with Internet access during installation.
@@ -16,6 +16,12 @@ The recommended setup is:
 A monitor and keyboard for the Pi are optional. Raspberry Pi Imager can preconfigure the network and SSH, and Raspberry Pi Connect is a useful fallback during initial setup.
 
 If you already have a suitable Pi running on your network, use it; the agent runbook begins by discovering what is already complete and skips unnecessary setup.
+
+### Measured Memory Use
+
+Resource monitoring around the actual FEniCSx subprocesses was added before setting the hardware recommendation. With the default two-pair geometry and default meshes on a Raspberry Pi 5, the electric-field solve peaked at 156.5 MiB of solver-process RSS and the thermal-stress solve peaked at 251.8 MiB. Peak total system memory in use was approximately 655 MiB and 771 MiB respectively, and neither solve used swap.
+
+These measurements support 2 GB as a practical minimum and 4 GB as the recommended capacity for ordinary development. They are not hard upper bounds: the FEniCSx direct linear solver can grow substantially faster than the mesh dimensions, so aggressive mesh refinement, larger full-stack models, parallel solves, or unrelated services may need more RAM. The backend intentionally runs one FEA worker at a time. Each solve records its geometry, reduction strategy, peak process memory, lowest available system memory, and swap use in the ignored runtime log `simulations/axisymmetric/logs/fea-resource-usage.jsonl` so this guidance can be updated as larger cases are exercised.
 
 Setting up a Pi is worthwhile beyond this one project. Once provisioned, it becomes a reusable development and test environment for other web services, simulations, instruments, and automation projects. It can communicate over Wi-Fi, run without a monitor or keyboard, and be placed wherever it is convenient for the work at hand while your AI agent continues to control it remotely over SSH.
 

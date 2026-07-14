@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a compact high-voltage bias filter for detector systems that need high bias voltage and very low current. The first target is LEGEND-style detector biasing with SHV connectors and sub-nA detector currents.
+Build a compact high-voltage bias filter around a discoidal capacitor stack for detector systems that need high bias voltage and very low current. The electrical and geometric analysis is connector-independent. A later implementation is expected to serve LEGEND-style SHV inputs and sub-nA detector currents.
 
 ## Baseline Architecture
 

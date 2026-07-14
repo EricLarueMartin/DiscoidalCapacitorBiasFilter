@@ -1,10 +1,10 @@
-# Agent Guide: SHV Bias Filter
+# Agent Guide: Discoidal Capacitor Bias Filter
 
 This repository is intended to be readable and useful to AI coding, documentation, simulation, and design agents.
 
 ## Project Purpose
 
-Develop a high-voltage, low-current bias filter initially for LEGEND-style detector biasing, but adaptable to other experiments. The baseline system uses SHV connectors, implying an initial practical voltage ceiling near 6 kV. Detector bias currents are expected to be sub-nA.
+Develop a high-voltage, low-current detector bias filter based on a discoidal capacitor stack. The geometry and electrical analysis are connector-independent. A later implementation is expected to serve SHV connector inputs, with an initial practical voltage ceiling near 6 kV, but SHV packaging is not part of the current model. Detector bias currents are expected to be sub-nA.
 
 ## Design Summary
 

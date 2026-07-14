@@ -42,7 +42,7 @@ const defaults = {
   washer_material: "alumina",
   washer_epsr: 10,
   epoxy_material: "mg_9510",
-  epoxy_epsr: 3.4,
+  epoxy_epsr: 3.7,
   plate_material: "copper",
   plate_conductivity_log10_s_per_m: Math.log10(5.8e7),
   plate_relative_permeability: 1,
@@ -67,17 +67,20 @@ const defaults = {
   use_repeating_cell_approximation: true,
   thermal_min_temperature_c: 20,
   thermal_epoxy_modulus_gpa: 3,
-  thermal_restraint_factor: 1
+  thermal_restraint_factor: 1,
+  thermal_mesh_size_mm: 0.3
 };
 
 const FIELD_SOLVER_ENDPOINT = "/api/field-solve";
 const GEOMETRY_ENDPOINT = "/api/geometry";
 const SPICE_LADDER_ENDPOINT = "/api/spice-ladder";
+const THERMAL_SOLVER_ENDPOINT = "/api/thermal-solve";
 const FIELD_SOLVER_CONNECT_TIMEOUT_MS = 1800;
 const GEOMETRY_CONNECT_TIMEOUT_MS = 900;
 const SPICE_CONNECT_TIMEOUT_MS = 1800;
 const FIELD_SOLVER_POLL_MS = 850;
 const FIELD_SOLVER_JOB_TIMEOUT_MS = 120000;
+const THERMAL_SOLVER_TIMEOUT_MS = 15 * 60 * 1000;
 const FIELD_ADAPTIVE_PROBE_SWEEPS = 90;
 const FIELD_ADAPTIVE_MAX_POINTS = 18;
 const FIELD_ADAPTIVE_THRESHOLD_FRACTION = 0.45;
@@ -127,6 +130,9 @@ let spiceLadderCache = null;
 let spiceLadderRequestId = 0;
 let spiceLadderPendingKey = null;
 let spiceLadderDisabled = false;
+let thermalFeaCache = null;
+let thermalFeaPending = false;
+let thermalFeaError = null;
 const customControlRanges = {};
 const defaultControlRanges = {};
 const defaultCadView = {
@@ -140,7 +146,8 @@ const defaultCadView = {
 
 let cadView = structuredClone(defaultCadView);
 
-const THEME_STORAGE_KEY = "shv-bias-filter-theme";
+const THEME_STORAGE_KEY = "discoidal-capacitor-bias-filter-theme";
+const LEGACY_THEME_STORAGE_KEY = "shv-bias-filter-theme";
 
 function setTheme(theme, persist = false) {
   const resolvedTheme = theme === "dark" ? "dark" : "light";
@@ -165,6 +172,13 @@ function setTheme(theme, persist = false) {
 function setupThemeToggle() {
   const initialTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
   setTheme(initialTheme);
+  try {
+    if (!localStorage.getItem(THEME_STORAGE_KEY) && localStorage.getItem(LEGACY_THEME_STORAGE_KEY)) {
+      localStorage.setItem(THEME_STORAGE_KEY, localStorage.getItem(LEGACY_THEME_STORAGE_KEY));
+    }
+  } catch {
+    // Theme migration is optional when storage is unavailable.
+  }
   document.getElementById("themeToggle")?.addEventListener("click", () => {
     setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark", true);
   });
@@ -206,7 +220,8 @@ const ids = [
   "plate_pairs",
   "thermal_min_temperature_c",
   "thermal_epoxy_modulus_gpa",
-  "thermal_restraint_factor"
+  "thermal_restraint_factor",
+  "thermal_mesh_size_mm"
 ];
 
 const units = {
@@ -246,7 +261,8 @@ const units = {
   plate_pairs: "",
   thermal_min_temperature_c: " &deg;C",
   thermal_epoxy_modulus_gpa: " GPa",
-  thermal_restraint_factor: ""
+  thermal_restraint_factor: "",
+  thermal_mesh_size_mm: " mm"
 };
 
 const EPSILON_0_F_PER_M = 8.8541878128e-12;
@@ -307,7 +323,31 @@ const washerMaterialPresets = {
   high_k: { label: "High-K screen only", epsr: 100, breakdownKvPerMm: null, componentName: "High-K screening washer" }
 };
 const epoxyMaterialPresets = {
-  mg_9510: { label: "MG Chemicals 9510", epsr: 3.4, breakdownKvPerMm: DEFAULT_EPOXY_BREAKDOWN_KV_PER_MM, componentName: "MG 9510 epoxy fill" },
+  mg_9510: {
+    label: "MG 9510", epsr: 3.7, breakdownKvPerMm: 15.75, componentName: "MG 9510 epoxy fill",
+    workingTime: "Unlimited", viscosity: "4,800 cP", hardness: "D84", tg: "70 C", resistivity: "2.6e13 ohm-cm",
+    decisionNote: "One-part baseline; rigid, 80 C minimum cure"
+  },
+  mg_832fx: {
+    label: "MG 832FX", epsr: 3.1, breakdownKvPerMm: 12.99, componentName: "MG 832FX epoxy fill",
+    workingTime: "2 h", viscosity: "700 cP", hardness: "A88", tg: "8.8 C", resistivity: "5.8e12 ohm-cm",
+    decisionNote: "Best-flowing balanced flexible option"
+  },
+  mg_832fxt: {
+    label: "MG 832FXT", epsr: 3.1, breakdownKvPerMm: 13.78, componentName: "MG 832FXT epoxy fill",
+    workingTime: "170 min", viscosity: "1,920 cP", hardness: "A80", tg: "20 C", resistivity: "1.5e13 ohm-cm",
+    decisionNote: "Flexible; available in 25 mL trial size", epsrEstimated: true
+  },
+  mg_832fxc: {
+    label: "MG 832FXC", epsr: 3.1, breakdownKvPerMm: 18.58, componentName: "MG 832FXC epoxy fill",
+    workingTime: "170 min", viscosity: "410 cP", hardness: "A60", tg: "12 C", resistivity: "1.0e13 ohm-cm",
+    decisionNote: "Clear, soft, and easiest to degas", epsrEstimated: true
+  },
+  epoxies_etc_20_3241: {
+    label: "20-3241", epsr: 4.7, breakdownKvPerMm: 22.05, componentName: "20-3241 epoxy fill",
+    workingTime: "30-45 min", viscosity: "1,000 cP", hardness: "A75", tg: "Not published", resistivity: "5e15 ohm-cm",
+    decisionNote: "Strong electrical data; short pot life, bulk pack"
+  },
   generic_potting: { label: "Generic potting epoxy", epsr: 3.2, breakdownKvPerMm: DEFAULT_EPOXY_BREAKDOWN_KV_PER_MM, componentName: "Generic epoxy fill" },
   low_k_epoxy: { label: "Low-k epoxy", epsr: 2.8, breakdownKvPerMm: DEFAULT_EPOXY_BREAKDOWN_KV_PER_MM, componentName: "Low-k epoxy fill" }
 };
@@ -375,12 +415,282 @@ function updateThermalReadouts() {
   document.getElementById("thermalFailureOnset").innerHTML = formatTemperatureC(estimate.failureOnsetC);
   document.getElementById("thermalHalfRestraintOnset").innerHTML = formatTemperatureC(halfRestraint.failureOnsetC);
   const status = document.getElementById("thermalStatus");
+  if (params.epoxy_material !== "mg_9510") {
+    status.classList.remove("risk", "pass");
+    status.textContent = "The electrical preset is active, but this thermal baseline contains MG 9510 properties only.";
+    updateThermalFeaReadouts();
+    return;
+  }
   const atRisk = estimate.strengthMargin < 1;
   status.classList.toggle("risk", atRisk);
   status.classList.toggle("pass", !atRisk);
   status.textContent = atRisk
-    ? `Risk screen: estimated stress exceeds the 20 MPa cured tensile strength at ${params.thermal_min_temperature_c.toFixed(0)} °C.`
-    : `Screening margin remains above 1 at ${params.thermal_min_temperature_c.toFixed(0)} °C; bonded-coupon qualification is still required.`;
+    ? `Estimated stress exceeds the 20 MPa cured tensile strength at ${params.thermal_min_temperature_c.toFixed(0)} °C.`
+    : `Estimated strength margin remains above 1 at ${params.thermal_min_temperature_c.toFixed(0)} °C; bonded-coupon qualification is still required.`;
+  updateThermalFeaReadouts();
+}
+
+function thermalFeaKey(p = params) {
+  return JSON.stringify(backendParameters(p));
+}
+
+function thermalFeaResultForCurrentDesign() {
+  if (!thermalFeaCache || thermalFeaCache.key !== thermalFeaKey(params)) return null;
+  return thermalFeaCache.result;
+}
+
+function formatResourceBytes(value) {
+  if (!Number.isFinite(value)) return "--";
+  const units = ["B", "KiB", "MiB", "GiB"];
+  let scaled = Math.max(0, value);
+  let unitIndex = 0;
+  while (scaled >= 1024 && unitIndex < units.length - 1) {
+    scaled /= 1024;
+    unitIndex += 1;
+  }
+  const decimals = unitIndex >= 2 ? 2 : unitIndex === 1 ? 1 : 0;
+  return `${scaled.toFixed(decimals)} ${units[unitIndex]}`;
+}
+
+function updateFeaResourceReadouts(prefix, result) {
+  const usage = result?.resource_usage;
+  document.getElementById(`${prefix}PeakRss`).textContent = usage
+    ? formatResourceBytes(usage.peak_process_tree_rss_bytes)
+    : "Not solved";
+  document.getElementById(`${prefix}PeakSystemMemory`).textContent = formatResourceBytes(usage?.peak_system_memory_used_bytes);
+  document.getElementById(`${prefix}LowestAvailableMemory`).textContent = formatResourceBytes(usage?.lowest_system_available_memory_bytes);
+  document.getElementById(`${prefix}MaximumSwap`).textContent = formatResourceBytes(usage?.maximum_system_swap_used_bytes);
+  const log = document.getElementById(`${prefix}ResourceLog`);
+  log.textContent = result?.resource_log
+    ? `Recorded on the server in ${result.resource_log}.`
+    : "FEniCSx resource use is recorded with each solve.";
+}
+
+function updateThermalFeaReadouts() {
+  const result = thermalFeaResultForCurrentDesign();
+  const p99 = result?.epoxy_principal_tensile_stress_mpa?.p99;
+  const rawPeak = result?.epoxy_principal_tensile_stress_mpa?.raw_max;
+  const baseline = thermalStressEstimate(params).stressMpa;
+  const status = document.getElementById("thermalFeaStatus");
+  document.getElementById("thermalFeaP99").textContent = Number.isFinite(p99) ? `${p99.toFixed(2)} MPa` : "Not solved";
+  document.getElementById("thermalFeaRawPeak").textContent = Number.isFinite(rawPeak) ? `${rawPeak.toFixed(2)} MPa` : "--";
+  document.getElementById("thermalFeaRatio").textContent = Number.isFinite(p99) && baseline > 0 ? `${(p99 / baseline).toFixed(2)}x` : "--";
+  document.getElementById("thermalFeaMesh").textContent = result?.mesh?.cells
+    ? `${result.mesh.cells.toLocaleString()} cells at ${result.mesh.target_size_mm.toFixed(2)} mm`
+    : "--";
+  updateFeaResourceReadouts("thermalFea", result);
+  drawThermalFeaViewer();
+  status.classList.remove("risk", "pass");
+  if (thermalFeaPending) {
+    status.textContent = "Thermal FEA is running on the backend.";
+    return;
+  }
+  if (thermalFeaError) {
+    status.classList.add("risk");
+    status.textContent = `Thermal FEA failed: ${thermalFeaError}`;
+    return;
+  }
+  if (result) {
+    const overStrength = p99 >= THERMAL_SCREEN.epoxyTensileStrengthMpa;
+    status.classList.add(overStrength ? "risk" : "pass");
+    status.textContent = overStrength
+      ? "FEA epoxy P99 exceeds the published cured tensile strength; the raw corner peak is diagnostic only."
+      : "FEA epoxy P99 remains below the published cured tensile strength; perfect bonding and linear elasticity are assumed.";
+    return;
+  }
+  status.textContent = thermalFeaCache
+    ? "Inputs changed since the thermal FEA solve; rerun for this design."
+    : "Run the thermal FEA for a geometry-based comparison.";
+}
+
+function thermalStressColor(value, scaleMax) {
+  const t = scaleMax > 0 ? Math.max(0, Math.min(1, value / scaleMax)) : 0;
+  const stops = [
+    [217, 228, 226],
+    [31, 111, 120],
+    [214, 183, 93],
+    [183, 62, 62]
+  ];
+  const scaled = t * (stops.length - 1);
+  const index = Math.min(stops.length - 2, Math.floor(scaled));
+  const fraction = scaled - index;
+  const rgb = stops[index].map((component, channel) =>
+    Math.round(component + (stops[index + 1][channel] - component) * fraction)
+  );
+  return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+}
+
+function drawThermalStressScale(ctx, x, y, width, height, scaleMax) {
+  const gradient = ctx.createLinearGradient(x, y + height, x, y);
+  for (let index = 0; index <= 12; index += 1) {
+    const fraction = index / 12;
+    gradient.addColorStop(fraction, thermalStressColor(fraction * scaleMax, scaleMax));
+  }
+  ctx.fillStyle = gradient;
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = "#c9c1b0";
+  ctx.strokeRect(x, y, width, height);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "12px Arial";
+  ctx.fillText(`${scaleMax.toFixed(1)} MPa P99`, x + width + 8, y + 5);
+  ctx.fillText(`${(scaleMax / 2).toFixed(1)}`, x + width + 8, y + height / 2 + 4);
+  ctx.fillText("0", x + width + 8, y + height);
+}
+
+function drawThermalRawPeakMarker(ctx, m, location, fullLength) {
+  if (!Number.isFinite(location?.r) || !Number.isFinite(location?.z)) return;
+  const locations = [location.z];
+  const mirrored = fullLength - location.z;
+  if (Math.abs(mirrored - location.z) > 1e-6) locations.push(mirrored);
+  for (const z of locations) {
+    const x = m.x(z);
+    const y = m.y(location.r);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.strokeStyle = "#17202a";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, 2 * Math.PI);
+    ctx.stroke();
+  }
+}
+
+function drawThermalFeaViewer(canvas = document.getElementById("thermalFeaCanvas")) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const result = thermalFeaResultForCurrentDesign();
+  const field = result?.epoxy_principal_tensile_field;
+  const points = field?.points;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!result || !Array.isArray(points) || !points.length) {
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "16px Arial";
+    const message = thermalFeaPending
+      ? "Thermal FEA is running on the backend."
+      : thermalFeaError
+        ? `Thermal FEA failed: ${thermalFeaError}`
+        : "Run Solve thermal FEA in the Thermal settings to update this view.";
+    drawWrappedLines(ctx, [message], 32, 48, 23, "#5b6670", "16px Arial", canvas.width - 64);
+    return;
+  }
+
+  const m = canvasMetrics(canvas, params, { reservedLeftPx: 185 });
+  const drawOrder = ["epoxy", "washer", "ferrite", "ground", "hv"];
+  const components = componentProfiles(params);
+  for (const material of drawOrder) {
+    for (const component of components) {
+      if (component.material !== material) continue;
+      ctx.save();
+      ctx.globalAlpha = material === "epoxy" ? 0.08 : Math.min(0.42, component.alpha ?? 1);
+      ctx.fillStyle = component.color;
+      drawRzProfileFill(ctx, m, component.profile);
+      ctx.restore();
+    }
+  }
+
+  const fullLength = geometryBounds(params).length;
+  const scaleMax = Number(field.display_scale_max_mpa)
+    || Number(result.epoxy_principal_tensile_stress_mpa?.p99)
+    || 1;
+  const pointRadius = Math.max(1.2, Math.min(4.5, Number(result.mesh?.target_size_mm || 0.3) * m.sx * 0.62));
+  for (const point of points) {
+    const r = Number(point[0]);
+    const z = Number(point[1]);
+    const stress = Number(point[2]);
+    if (!Number.isFinite(r) || !Number.isFinite(z) || !Number.isFinite(stress)) continue;
+    ctx.fillStyle = thermalStressColor(stress, scaleMax);
+    const displayZ = [z];
+    const mirroredZ = fullLength - z;
+    if (Math.abs(mirroredZ - z) > 1e-6) displayZ.push(mirroredZ);
+    for (const zPosition of displayZ) {
+      ctx.beginPath();
+      ctx.arc(m.x(zPosition), m.y(r), pointRadius, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  }
+
+  drawConductorOutlines(ctx, m, params);
+  drawThermalRawPeakMarker(
+    ctx,
+    m,
+    result.epoxy_principal_tensile_stress_mpa?.raw_max_location_mm,
+    fullLength
+  );
+  drawAxes(ctx, canvas, m);
+
+  const p99 = result.epoxy_principal_tensile_stress_mpa?.p99;
+  const raw = result.epoxy_principal_tensile_stress_mpa?.raw_max;
+  ctx.fillStyle = "#17202a";
+  ctx.font = "17px Arial";
+  ctx.fillText("Epoxy tensile stress", 22, 48);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "13px Arial";
+  ctx.fillText("maximum principal", 22, 68);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText(`${p99.toFixed(2)} MPa`, 22, 104);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "12px Arial";
+  ctx.fillText("P99 comparison value", 22, 122);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "18px Arial";
+  ctx.fillText(`${raw.toFixed(2)} MPa raw`, 22, 152);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "12px Arial";
+  ctx.fillText("ring marker; mesh-sensitive", 22, 170);
+  drawThermalStressScale(ctx, 24, 198, 18, 142, scaleMax);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "12px Arial";
+  ctx.fillText(`${result.evaluation_temperature_c.toFixed(0)} C evaluation`, 22, 374);
+  ctx.fillText(`${result.mesh.cells.toLocaleString()} cells`, 22, 393);
+  ctx.fillText(`target ${result.mesh.target_size_mm.toFixed(2)} mm`, 22, 412);
+}
+
+async function solveThermalFea() {
+  const button = document.getElementById("solveThermalFea");
+  if (params.epoxy_material !== "mg_9510") {
+    thermalFeaCache = null;
+    thermalFeaError = "Mechanical properties are currently implemented only for MG 9510. Use this preset for thermal FEA, or qualify and add the selected epoxy's modulus, CTE, and strength data.";
+    updateThermalFeaReadouts();
+    drawSlideGraphics();
+    return;
+  }
+  const key = thermalFeaKey(params);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), THERMAL_SOLVER_TIMEOUT_MS);
+  thermalFeaPending = true;
+  thermalFeaError = null;
+  button.disabled = true;
+  button.textContent = "Solving thermal FEA...";
+  updateThermalFeaReadouts();
+  try {
+    const payload = await fetchJson(THERMAL_SOLVER_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parameters: backendParameters(params) }),
+      signal: controller.signal
+    });
+    if (payload.status === "failed" || payload.error) {
+      throw new Error(payload.error || "Thermal FEA failed.");
+    }
+    thermalFeaCache = { key, result: payload };
+  } catch (error) {
+    thermalFeaCache = null;
+    thermalFeaError = error.message;
+  } finally {
+    window.clearTimeout(timeout);
+    thermalFeaPending = false;
+    button.disabled = false;
+    button.textContent = "Solve thermal FEA";
+    updateThermalFeaReadouts();
+    drawSlideGraphics();
+  }
 }
 const hvSpacingControlIds = [
   "plate_gap_mm"
@@ -614,9 +924,10 @@ function setModelStatus(text) {
 }
 
 function clientId() {
-  const key = "shv_bias_filter_client_id";
+  const key = "discoidal_capacitor_bias_filter_client_id";
+  const legacyKey = "shv_bias_filter_client_id";
   try {
-    let value = window.localStorage.getItem(key);
+    let value = window.localStorage.getItem(key) || window.localStorage.getItem(legacyKey);
     if (!value) {
       value = window.crypto?.randomUUID?.() || `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
       window.localStorage.setItem(key, value);
@@ -1009,12 +1320,12 @@ function closeRangeEditor() {
 
 function settingsFileName() {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  return `shv-bias-filter-settings-${stamp}.json`;
+  return `discoidal-capacitor-bias-filter-settings-${stamp}.json`;
 }
 
 function exportedSettingsPayload() {
   return {
-    format: "shv-bias-filter-settings",
+    format: "discoidal-capacitor-bias-filter-settings",
     version: 1,
     exportedAt: new Date().toISOString(),
     settings: structuredClone(params),
@@ -1941,6 +2252,7 @@ function setupControls() {
     params.epoxy_material = epoxyMaterial.value;
     const preset = epoxyMaterialPresets[params.epoxy_material];
     if (preset) params.epoxy_epsr = preset.epsr;
+    thermalFeaError = null;
     normalizeParams();
     syncControls();
     drawCadModel();
@@ -2101,6 +2413,9 @@ function setupControls() {
   document.getElementById("solve").addEventListener("click", () => {
     solveAndDraw();
   });
+  document.getElementById("solveThermalFea").addEventListener("click", () => {
+    solveThermalFea();
+  });
   document.getElementById("reset").addEventListener("click", () => {
     params = structuredClone(defaults);
     lastResult = null;
@@ -2209,9 +2524,10 @@ function normalizeParams() {
     "plate_pairs",
     "thermal_min_temperature_c",
     "thermal_epoxy_modulus_gpa",
-    "thermal_restraint_factor"
+    "thermal_restraint_factor",
+    "thermal_mesh_size_mm"
   ];
-  for (const id of ["thermal_min_temperature_c", "thermal_epoxy_modulus_gpa", "thermal_restraint_factor"]) {
+  for (const id of ["thermal_min_temperature_c", "thermal_epoxy_modulus_gpa", "thermal_restraint_factor", "thermal_mesh_size_mm"]) {
     if (!Number.isFinite(params[id])) params[id] = defaults[id];
   }
   for (const id of genericRangeIds) {
@@ -4549,7 +4865,7 @@ function drawSpiceLadderSlide(canvas) {
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = "#17202a";
   ctx.font = "22px Arial";
-  ctx.fillText("SPICE-style ladder backend", 88, 52);
+  ctx.fillText("SPICE AC simulation of the full RC ladder", 88, 52);
 
   if (!payload?.samples?.length) {
     ctx.fillStyle = "#5b6670";
@@ -4558,14 +4874,15 @@ function drawSpiceLadderSlide(canvas) {
       spiceLadderDisabled
         ? "Backend SPICE-style endpoint is not available from this page load."
         : "Waiting for the Pi backend SPICE-style solve.",
-      "The backend endpoint is POST /api/spice-ladder. It returns a generated netlist and an AC sweep for the ladder, transmission line, and load."
+      "The backend endpoint is POST /api/spice-ladder. It returns AC sweeps for the unloaded filter output and the ladder with its transmission-line load."
     ], 88, 118, 26, "#5b6670", "18px Arial", 880);
     return;
   }
 
   const tlineSamples = backendSpiceCurve(payload.samples, "fullTline");
   const lumpedSamples = backendSpiceCurve(payload.samples, "fullLumped");
-  const allValues = [...tlineSamples, ...lumpedSamples]
+  const unloadedSamples = backendSpiceCurve(payload.samples, "fullUnloaded");
+  const allValues = [...tlineSamples, ...lumpedSamples, ...unloadedSamples]
     .map((sample) => sample.attenuationDb)
     .filter((value) => Number.isFinite(value) && value >= 0);
   const fMin = Math.min(...tlineSamples.map((sample) => sample.frequency));
@@ -4573,6 +4890,7 @@ function drawSpiceLadderSlide(canvas) {
   const maxDb = Math.max(5, Math.ceil(Math.max(...allValues, 1) / 10) * 10);
   const plot = drawDbFrequencyFrame(ctx, 88, 104, 735, 330, fMin, fMax, maxDb, "|Vout/Vin| attenuation");
   drawLogCurve(ctx, lumpedSamples, plot.xFor, plot.yFor, "attenuationDb", "#8a5b30", { dashed: [4, 6], lineWidth: 3 });
+  drawLogCurve(ctx, unloadedSamples, plot.xFor, plot.yFor, "attenuationDb", "#1f6f78", { dashed: [10, 5, 2, 5], lineWidth: 3 });
   drawLogCurve(ctx, tlineSamples, plot.xFor, plot.yFor, "attenuationDb", "#b73e3e");
 
   const fiftyX = plot.xFor(50);
@@ -4591,15 +4909,16 @@ function drawSpiceLadderSlide(canvas) {
   }
 
   drawSlideLegend(ctx, [
-    { label: "Backend full ladder + T-line", color: "#b73e3e" },
-    { label: "Backend full ladder + lumped C", color: "#8a5b30", dashed: [4, 6] }
+    { label: "Full ladder + T-line", color: "#b73e3e" },
+    { label: "Full ladder + lumped C", color: "#8a5b30", dashed: [4, 6] },
+    { label: "Full ladder unloaded", color: "#1f6f78", dashed: [10, 5, 2, 5] }
   ], 845, 126, { maxWidth: 190 });
 
   const summary50 = payload.summary?.at50Hz || {};
   const circuit = payload.circuit || {};
   const cardRows = [
-    ["50 Hz T-line", formatAttenuationDb(summary50.fullTlineAttenuationDb), "backend MNA"],
-    ["Cable delay", Number.isFinite(circuit.cableDelayS) ? `${(circuit.cableDelayS * 1e9).toLocaleString(undefined, { maximumFractionDigits: 1 })} ns` : "--", `${formatCapacitance(circuit.cableCapPf)} lumped equiv.`],
+    ["50 Hz loaded", formatAttenuationDb(summary50.fullTlineAttenuationDb), "full ladder + T-line"],
+    ["50 Hz unloaded", formatAttenuationDb(summary50.fullUnloadedAttenuationDb), "filter output terminal"],
     ["Backend", shortSpicePackageLabel(payload.spicePackage), payload.method || payload.source]
   ];
   cardRows.forEach((row, index) => {
@@ -4622,9 +4941,9 @@ function drawSpiceLadderSlide(canvas) {
   });
 
   drawWrappedLines(ctx, [
-    "The Pi backend runs ngspice batch AC analysis when available, with an internal MNA fallback.",
-    "The returned netlist uses R, C, and T-line terms so it can also be inspected or reused directly."
-  ], 845, 318, 21, "#5b6670", "15px Arial", 230);
+    "ngspice runs separate loaded and unloaded AC analyses.",
+    "Unloaded is measured at the final filter node with no load current, cable, or detector capacitance."
+  ], 845, 278, 19, "#5b6670", "14px Arial", 230);
 }
 
 function stageMultiplicationValidationData(p, frequencyHz = 50) {
@@ -5116,7 +5435,14 @@ function drawThermalSlide(canvas) {
   const plot = { left: 82, top: 58, right: 790, bottom: 520 };
   const tMin = -80;
   const tMax = THERMAL_SCREEN.stressFreeTemperatureC;
-  const stressMax = 50;
+  const thermalFea = thermalFeaResultForCurrentDesign();
+  const feaP99 = thermalFea?.epoxy_principal_tensile_stress_mpa?.p99;
+  const feaSolvedDropC = thermalFea
+    ? thermalFea.reference_temperature_c - thermalFea.evaluation_temperature_c
+    : 0;
+  const feaStressPerDegree = Number.isFinite(feaP99) && feaSolvedDropC > 0 ? feaP99 / feaSolvedDropC : null;
+  const feaStressAtMin = feaStressPerDegree === null ? 0 : feaStressPerDegree * (tMax - tMin);
+  const stressMax = Math.ceil(Math.max(50, feaStressAtMin * 1.1) / 10) * 10;
   const x = (temperatureC) => plot.left + (temperatureC - tMin) / (tMax - tMin) * (plot.right - plot.left);
   const y = (stressMpa) => plot.bottom - stressMpa / stressMax * (plot.bottom - plot.top);
   const stressAt = (temperatureC, restraint) => {
@@ -5160,7 +5486,7 @@ function drawThermalSlide(canvas) {
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign = "center";
   ctx.font = "17px Arial";
-  ctx.fillText("Estimated epoxy stress (MPa)", 0, 0);
+  ctx.fillText("Epoxy tensile stress (MPa)", 0, 0);
   ctx.restore();
   ctx.textAlign = "center";
   ctx.fillText("Assembly temperature (°C)", (plot.left + plot.right) / 2, plot.bottom + 52);
@@ -5179,6 +5505,18 @@ function drawThermalSlide(canvas) {
   };
   drawCurve(1, "#b73e3e", 4);
   drawCurve(0.5, "#1f6f78", 4);
+  if (feaStressPerDegree !== null) {
+    ctx.strokeStyle = "#7354a3";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (let temperature = tMin; temperature <= tMax; temperature += 2) {
+      const xx = x(temperature);
+      const yy = y(feaStressPerDegree * (tMax - temperature));
+      if (temperature === tMin) ctx.moveTo(xx, yy);
+      else ctx.lineTo(xx, yy);
+    }
+    ctx.stroke();
+  }
 
   const strengthY = y(THERMAL_SCREEN.epoxyTensileStrengthMpa);
   ctx.strokeStyle = "#8a6a18";
@@ -5203,34 +5541,37 @@ function drawThermalSlide(canvas) {
   ctx.textAlign = "left";
   ctx.fillStyle = "#17202a";
   ctx.font = "27px Arial";
-  ctx.fillText("Transport screen", panelX, 76);
-  ctx.font = "16px Arial";
+  ctx.fillText("Thermal stress comparison", panelX, 76);
+  ctx.font = "15px Arial";
   ctx.fillStyle = "#5b6670";
-  ctx.fillText("9510 / alumina controls", panelX, 106);
-  ctx.fillText(`Δα ${full.deltaCtePpmPerC.toFixed(1)} ppm/°C`, panelX, 132);
-  ctx.fillText("No cold target assumed", panelX, 158);
+  ctx.fillText(`Closed form: ${thermalStressEstimate(params).stressMpa.toFixed(1)} MPa`, panelX, 106);
+  ctx.fillStyle = Number.isFinite(feaP99) ? "#7354a3" : "#5b6670";
+  ctx.fillText(Number.isFinite(feaP99) ? `FEA epoxy P99: ${feaP99.toFixed(1)} MPa` : "FEA epoxy P99: not solved", panelX, 132);
+  ctx.fillStyle = "#5b6670";
+  ctx.fillText("Largest CTE mismatch:", panelX, 156);
+  ctx.fillText("9510 / alumina", panelX, 180);
 
   ctx.fillStyle = "#b73e3e";
   ctx.font = "21px Arial";
-  ctx.fillText("100% restraint", panelX, 204);
+  ctx.fillText("100% restraint", panelX, 224);
   ctx.fillStyle = "#17202a";
   ctx.font = "30px Arial";
-  ctx.fillText(`${full.failureOnsetC.toFixed(0)} °C onset`, panelX, 244);
+  ctx.fillText(`${full.failureOnsetC.toFixed(0)} °C onset`, panelX, 264);
   ctx.font = "16px Arial";
   ctx.fillStyle = "#5b6670";
-  ctx.fillText("2–4 GPa modulus range:", panelX, 276);
-  ctx.fillText(`${lowModulus.failureOnsetC.toFixed(0)} to +${highModulus.failureOnsetC.toFixed(0)} °C`, panelX, 300);
+  ctx.fillText("2–4 GPa modulus range:", panelX, 296);
+  ctx.fillText(`${lowModulus.failureOnsetC.toFixed(0)} to +${highModulus.failureOnsetC.toFixed(0)} °C`, panelX, 320);
 
   ctx.fillStyle = "#1f6f78";
   ctx.font = "21px Arial";
-  ctx.fillText("50% restraint", panelX, 354);
+  ctx.fillText("50% restraint", panelX, 374);
   ctx.fillStyle = "#17202a";
   ctx.font = "30px Arial";
-  ctx.fillText(`${half.failureOnsetC.toFixed(0)} °C onset`, panelX, 394);
+  ctx.fillText(`${half.failureOnsetC.toFixed(0)} °C onset`, panelX, 414);
   drawWrappedLines(ctx, [
     "Interim handling: transport at controlled room temperature, preferably at or above 25 °C.",
     "Avoid unheated or freezing shipment until bonded coupons are qualified."
-  ], panelX, 444, 22, "#5b6670", "15px Arial", 230);
+  ], panelX, 458, 22, "#5b6670", "15px Arial", 230);
 
   ctx.fillStyle = "#b73e3e";
   ctx.fillRect(105, 24, 25, 4);
@@ -5241,6 +5582,12 @@ function drawThermalSlide(canvas) {
   ctx.fillRect(280, 24, 25, 4);
   ctx.fillStyle = "#17202a";
   ctx.fillText("50% restraint sensitivity", 315, 30);
+  if (feaStressPerDegree !== null) {
+    ctx.fillStyle = "#7354a3";
+    ctx.fillRect(535, 24, 25, 4);
+    ctx.fillStyle = "#17202a";
+    ctx.fillText("FEA epoxy P99", 570, 30);
+  }
 }
 
 function drawSlideGraphics() {
@@ -5260,6 +5607,42 @@ function drawSlideGraphics() {
   drawLoadedLadderSlide(document.getElementById("slideLoadedLadderCanvas"));
   drawSpiceLadderSlide(document.getElementById("slideSpiceLadderCanvas"));
   drawStageValidationSlide(document.getElementById("slideStageValidationCanvas"));
+  populateEpoxyChoiceTable();
+}
+
+function populateEpoxyChoiceTable() {
+  const body = document.getElementById("epoxyChoiceTableBody");
+  if (!body) return;
+  const comparisonOrder = ["mg_9510", "mg_832fx", "mg_832fxt", "mg_832fxc", "epoxies_etc_20_3241"];
+  body.replaceChildren();
+  for (const key of comparisonOrder) {
+    const material = epoxyMaterialPresets[key];
+    const row = document.createElement("tr");
+    row.classList.toggle("selected", params.epoxy_material === key);
+    const values = [
+      material.label,
+      material.workingTime,
+      material.viscosity,
+      material.hardness,
+      material.tg,
+      material.resistivity,
+      `${material.breakdownKvPerMm.toFixed(2)} kV/mm`,
+      material.decisionNote
+    ];
+    for (const value of values) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
+    }
+    body.appendChild(row);
+  }
+  const selected = epoxyMaterialPresets[params.epoxy_material];
+  const note = document.getElementById("epoxyChoiceNote");
+  if (note && selected?.epsrEstimated) {
+    note.textContent = `${selected.label} uses a provisional relative permittivity of 3.1 from the related 832FX. Shore A and Shore D values are not directly comparable; bulk dielectric strength is not a DC partial-discharge rating.`;
+  } else if (note) {
+    note.textContent = "Shore A and Shore D values are not directly comparable. Dielectric strength is a bulk coupon result, not a DC partial-discharge rating.";
+  }
 }
 
 function sortedUniqueCoords(values, lower, upper) {
@@ -6142,6 +6525,7 @@ function clearField() {
   document.getElementById("rawMaxField").textContent = "raw point not solved";
   document.getElementById("maxLocation").textContent = "--";
   document.getElementById("iterations").textContent = "--";
+  updateFeaResourceReadouts("fieldFea", null);
   setModelStatus("JS screening");
   updateEdgeEstimate();
   updateCircuitEstimates();
@@ -6188,6 +6572,8 @@ function backendResultFromPayload(payload) {
     admittance: raw.admittance,
     solver: raw.solver,
     solverStatus: raw.solverStatus,
+    resource_usage: raw.resource_usage,
+    resource_log: raw.resource_log,
     source: payload.source || raw.source || "fea-backend"
   };
 
@@ -6256,6 +6642,7 @@ function drawSolvedResult(result) {
   document.getElementById("rawMaxField").textContent = rawMaxFieldSummary(result);
   document.getElementById("maxLocation").textContent = `r ${result.maxLocation.r.toFixed(2)} mm, z ${result.maxLocation.z.toFixed(2)} mm`;
   document.getElementById("iterations").textContent = Number.isFinite(result.iterations) ? `${result.iterations}` : "--";
+  updateFeaResourceReadouts("fieldFea", result);
   updateDielectricMarginReadouts(dielectricMargins);
   updateCircuitEstimates();
   const jsModelLabel = result.adaptive?.enabled ? "JS adaptive" : "JS fallback";
@@ -6318,6 +6705,8 @@ function redrawActiveViewerPanel(panelId) {
   } else if (panelId === "fieldPanel") {
     if (lastResult) drawField(lastResult);
     else clearField();
+  } else if (panelId === "thermalFeaPanel") {
+    drawThermalFeaViewer();
   }
 }
 
@@ -6364,3 +6753,4 @@ drawCadModel();
 drawGeometry();
 drawSlideGraphics();
 clearField();
+drawThermalFeaViewer();

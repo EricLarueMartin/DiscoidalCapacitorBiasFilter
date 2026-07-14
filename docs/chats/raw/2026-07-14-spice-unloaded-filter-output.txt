@@ -1,0 +1,9 @@
+The MELF + Alumina slide no longer contains a design-dependent response graph.
+It remains a text-only candidate limitation slide.
+
+The following slide is titled "SPICE Simulation on RC Ladder" and compares the
+loaded full ladder with an unloaded full ladder. Unloaded retains all ladder
+R, Cg, and Cpar elements but removes load current, output-series current, coax,
+transmission line, and detector capacitance. Voltage is measured at the last
+filter node with infinite input impedance. The default calculation gives about
+18.16 dB loaded and 0.45 dB unloaded at 50 Hz.

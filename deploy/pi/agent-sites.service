@@ -1,5 +1,5 @@
 [Unit]
-Description=Agent project landing pages and SHV field backend
+Description=Agent project landing pages and discoidal capacitor filter backend
 After=network-online.target
 Wants=network-online.target
 

@@ -1,0 +1,10 @@
+The project was renamed from SHV Bias Filter / SHVBiasFilter to Discoidal
+Capacitor Bias Filter / DiscoidalCapacitorBiasFilter. The GitHub repository is
+https://github.com/EricLarueMartin/DiscoidalCapacitorBiasFilter.
+
+The new name describes the geometry being analyzed. A later implementation is
+expected to serve SHV connector inputs, but that connector packaging is not
+part of the present analysis. Human-facing web titles, the first presentation
+slide, README, active setup guides, Git remote, deployment defaults, generated
+model identifiers, and active handoff notes were updated. Historical raw
+collaboration records remain unchanged.
