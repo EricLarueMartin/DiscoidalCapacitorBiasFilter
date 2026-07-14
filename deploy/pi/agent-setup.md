@@ -17,7 +17,7 @@ Confirm the trust model only when it has not already been established. If the Pi
 
 ## Phase 1: Establish The Pi
 
-First determine what the user already has. Do not repeat completed steps. The normal hardware target is a Raspberry Pi 5 with 4 GB RAM, a 64 GB high-endurance microSD card, the correct power supply, and Ethernet or Wi-Fi on the same reachable network as the agent's computer. A 2 GB Pi is the practical minimum for the current single-worker service; measured default electric and thermal FEniCSx subprocesses peaked at about 157 MiB and 252 MiB RSS, with peak total system use below 0.8 GiB. A Pi 4 with 2 GB or more is a slower fallback. Prefer 8 GB only when the user expects unusually fine meshes, other substantial services, or broader development work on the same Pi.
+First determine what the user already has. Do not repeat completed steps. The normal hardware target is a Raspberry Pi 5 with 4 GB RAM, a 64 GB high-endurance microSD card, the correct power supply, and Ethernet or Wi-Fi on the same reachable network as the agent's computer. A 2 GB Pi is the practical minimum for the current single-worker service; measured default electric and thermal FEniCSx subprocesses peaked at about 157 MiB and 252 MiB RSS, with peak total system use below 0.8 GiB. A 2 GB Pi 5 should run these meshes at essentially the same speed as higher-memory Pi 5 models while the working set fits. A Pi 4 with 2 GB or more is a slower fallback because of its older CPU and lower memory bandwidth, not because it has 2 GB of RAM. Prefer 8 GB only when the user expects unusually fine meshes, other substantial services, or broader development work on the same Pi.
 
 If the OS is not installed, walk the user through the current Raspberry Pi Imager interface:
 
