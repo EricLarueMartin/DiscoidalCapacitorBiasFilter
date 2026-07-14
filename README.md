@@ -6,7 +6,7 @@ This repository contains the design, simulation, prototyping, and presentation t
 
 The recommended setup is:
 
-- A Raspberry Pi 5 with 4 GB RAM is the recommended target. The measured default FEniCSx solves also fit comfortably on a 2 GB Pi when the backend runs its normal single worker. A 2 GB Pi 5 should solve the current meshes at essentially the same speed as 4 GB or 8 GB Pi 5 models; installed RAM capacity does not slow a solve while its working set fits without memory pressure. A Pi 4 with 2 GB or more should be usable, but its older processor and lower memory bandwidth will make finite-element solves slower. An 8 GB model is useful for unusually fine meshes or additional development services, but is not required for the present application.
+- A Raspberry Pi 5 with 4 GB RAM is the recommended target. The measured default FEniCSx solves also fit comfortably on a 2 GB Pi when the backend runs its normal single worker. A Pi 4 with 2 GB or more should be usable, but finite-element solves will be slower. An 8 GB model is useful for unusually fine meshes or additional development services, but is not required for the present application.
 - A 64 GB high-endurance microSD card. A 32 GB card is a practical minimum.
 - The correct Raspberry Pi power supply.
 - Ethernet or Wi-Fi access to the same network as your computer, with Internet access during installation.
@@ -22,14 +22,6 @@ If you already have a suitable Pi running on your network, use it; the agent run
 Resource monitoring around the actual FEniCSx subprocesses was added before setting the hardware recommendation. With the default two-pair geometry and default meshes on a Raspberry Pi 5, the electric-field solve peaked at 156.5 MiB of solver-process RSS and the thermal-stress solve peaked at 251.8 MiB. Peak total system memory in use was approximately 655 MiB and 771 MiB respectively, and neither solve used swap.
 
 These measurements support 2 GB as a practical minimum and 4 GB as the recommended capacity for ordinary development. They are not hard upper bounds: the FEniCSx direct linear solver can grow substantially faster than the mesh dimensions, so aggressive mesh refinement, larger full-stack models, parallel solves, or unrelated services may need more RAM. The backend intentionally runs one FEA worker at a time. Each solve records its geometry, reduction strategy, peak process memory, lowest available system memory, and swap use in the ignored runtime log `simulations/axisymmetric/logs/fea-resource-usage.jsonl` so this guidance can be updated as larger cases are exercised.
-
-RAM capacity is primarily a fit/fail constraint here, not a performance tier.
-If a solve fits comfortably in physical memory, more installed RAM should not
-make it faster. Performance differences between Pi generations are instead
-driven mainly by CPU and memory bandwidth. If memory pressure does occur, page
-reclamation can slow the solve; because service swap is disabled, severe
-pressure should terminate the solve rather than hide the problem in slow swap
-traffic.
 
 Setting up a Pi is worthwhile beyond this one project. Once provisioned, it becomes a reusable development and test environment for other web services, simulations, instruments, and automation projects. It can communicate over Wi-Fi, run without a monitor or keyboard, and be placed wherever it is convenient for the work at hand while your AI agent continues to control it remotely over SSH.
 
