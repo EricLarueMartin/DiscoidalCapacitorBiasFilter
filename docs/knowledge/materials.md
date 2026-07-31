@@ -4,12 +4,17 @@
 
 Status: two candidate prototype cores sharing one mechanical stack; neither has yet been validated by high-voltage or low-frequency-noise testing.
 
+The concrete first-article geometry, available purpose-sized ferrite options,
+simulated MELF/ferrite comparison, and test sequence are recorded in
+`docs/knowledge/prototype-plan.md`.
+
 - Washer dielectric: both prototype paths use stock alumina washers. Alumina is readily sourced, mechanically robust, and a conservative high-voltage ceramic choice, but its moderate relative permittivity limits the available shunt capacitance compared with high-k ceramics. That limitation is especially important for the lower-resistance MELF option at 50/60 Hz.
 - Potting and fill: MG Chemicals 9510 One-Part Epoxy Potting Compound, Heat Cure. MG's SDS/TDS database lists 9510 as a one-part epoxy potting compound in liquid format. Pull the dielectric constant, dielectric strength, volume resistivity, cure schedule, shrinkage, and thermal limits from the current TDS before freezing model defaults.
 - Resistive core / conductor path A: Fair-Rite type 61 NiZn ferrite is the first concrete bulk-resistive sample set. Its nominal resistivity is near the compact high-resistance target and it can be machined into discs, but excess 1/f noise from the polycrystalline conduction path is a primary measurement risk.
 - Resistive core / conductor path B: high-value MELF resistors provide a specified, repeatable, low-noise component path. Readily available per-stage resistance is lower than preferred; combined with alumina's modest capacitance, the present simulated ladder gives poor attenuation at power-line frequency.
 - Shared conductors: both prototypes use machined copper bias/ground plates and a copper ground tube because those parts are readily sourced and fabricated.
 - Ferrite-to-plate contact: conductive epoxy between ferrite discs and bias plates. Exact product is TBD; verify contact resistance, cure compatibility, squeeze-out control, HV behavior, outgassing, and long-term stability.
+- Ferrite resistance-tuning option: conductive interleave discs may replace part of each ferrite section if a stock rod is too resistive. The first-order model reduces calculated resistance by `1 - fill` and increases ferrite Cpar by `1 / (1 - fill)`. Treat this as a sensitivity parameter until disc-edge fields and contact behavior are modeled.
 - Mechanical positioning: temporary or permanent spacers to hold the plate, ferrite-disc, and washer stack aligned during conductive-epoxy cure and final potting.
 
 ## Assembly Process Candidate
@@ -36,6 +41,7 @@ The web model separates the core controls:
 - `Core volume resistivity`: log-scale input in ohm-cm. The app derives total core resistance from this value and the current core length and cross-sectional area.
 - `Conductor epsr`: internal parameter name for effective relative permittivity, displayed in the UI as `Conductor &epsilon;<sub>r</sub>`.
 - `Core R total`: derived readout kept for sizing and legacy parameter compatibility.
+- `Ferrite conductor fill`: fraction of the calculated ferrite path replaced by ideal conductive discs. It affects whichever of stage resistance and Cpar remain in calculated mode; a direct-entry checkbox overrides that side independently.
 
 The `Conductor epsr` value is a rough circuit/parasitic modeling parameter, not a field-stress dielectric limit. For electrostatic field screening, the conductive core is an equipotential HV body; the solved dielectric immediately outside that core is epoxy/fill.
 
@@ -165,20 +171,21 @@ not published values.
 
 ## Thermal mismatch warning
 
-The heat-cured default 9510/alumina/copper assembly has a potentially limiting
-cold-temperature bond risk even though the cured epoxy itself is specified to
--65 °C. The conservative fully restrained screen predicts a nominal strength
-crossing near +4 °C; the assumed 2 to 4 GPa modulus range moves the crossing
-from approximately -29 to +21 °C, while a 50% restraint sensitivity moves it
-to approximately -62 °C. This wide range is caused by
-unpublished 9510 modulus/interface-fracture data and uncertain free-edge relief.
+The heat-cured default 9510/alumina/copper assembly has potentially limiting
+thermal-mismatch stress even though the cured epoxy itself is specified to
+-65 °C. The radial-and-hoop plane-stress baseline crosses the published bulk
+tensile strength near +4 °C; the assumed 2 to 4 GPa modulus range moves that
+proxy crossing from approximately -29 to +21 °C, while a 50% restraint
+sensitivity moves it to approximately -62 °C. None of these values predicts
+interface separation. The wide range is caused by unpublished 9510 modulus
+and interface-fracture data and uncertain free-edge relief.
 
 Treat `docs/knowledge/thermal-stress.md` and
 `simulations/thermal/outputs/default-thermal-stress.json` as the calculation of
-record. Do not assign a subzero assembly rating until representative bonded-ring
-coupons survive staged thermal cycling. Until then, transport the assembly at
-controlled room temperature, preferably at or above 25 °C, and avoid unheated
-or freezing shipment.
+record. The current FEA enforces perfect bonds and therefore cannot determine
+the temperature at which an interface opens. That requires a cohesive-interface
+model plus adhesion strength or fracture-energy data for the actual bonded
+surfaces.
 
 The 3.9% shrinkage number currently carried by the thermal calculation comes
 from the MG Chemicals 9510 TDS, version 5.2 (23 January 2026), page 2. In the
@@ -212,6 +219,10 @@ Working interpretation:
 - High-permittivity electroceramics can have large voltage and temperature coefficients, dielectric loss, and piezoelectric/microphonic response; treat piezoelectric candidates as likely no-go for the main washer dielectric.
 
 ## Source Links
+
+The system-level partial-discharge comparison, alumina-rich construction, and
+CTE-matched ceramic/conductor options are recorded in
+`docs/knowledge/partial-discharge-materials.md`.
 
 - MG Chemicals SDS/TDS database: https://mgchemicals.com/sds-tds/
 - MG Chemicals potting-compounds overview: https://mgchemicals.com/category/potting-compounds/

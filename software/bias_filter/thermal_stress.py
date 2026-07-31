@@ -1,10 +1,9 @@
-"""Conservative thermal-mismatch screening for the default potted stack.
+"""Radial-and-hoop plane-stress thermal-mismatch baseline for the potted stack.
 
-This is a closed-form design screen, not a bonded-joint qualification model.
-It treats cured epoxy as an equibiaxially restrained layer below its glass
-transition temperature and compares the resulting thermal stress with the
-manufacturer's cured tensile strength.  The intentionally exposed restraint
-factor makes the dominant geometry uncertainty reviewable.
+This closed form assumes equal radial and circumferential stress with zero
+axial and r-z shear stress. It is a bulk-stress comparison, not an interface
+separation model. The intentionally exposed restraint factor makes the
+dominant geometry uncertainty reviewable.
 """
 
 from __future__ import annotations
@@ -69,11 +68,23 @@ def restrained_stress_mpa(
     poisson_ratio: float,
     restraint_factor: float = 1.0,
 ) -> float:
-    """Equibiaxial plane-stress upper screen, scaled by effective restraint."""
+    """Equal radial-and-hoop plane-stress baseline, scaled by restraint."""
     return restraint_factor * modulus_gpa * 1000.0 * mismatch / (1.0 - poisson_ratio)
 
 
-def failure_onset_c(
+def uniform_triaxial_stress_mpa(
+    mismatch: float,
+    modulus_gpa: float,
+    poisson_ratio: float,
+) -> float:
+    """Uniform three-direction restraint reference for the same mismatch."""
+    denominator = 1.0 - 2.0 * poisson_ratio
+    if denominator <= 0.0:
+        raise ValueError("Uniform triaxial reference requires Poisson ratio below 0.5")
+    return modulus_gpa * 1000.0 * mismatch / denominator
+
+
+def biaxial_strength_crossing_c(
     alpha_epoxy_ppm: float,
     alpha_substrate_ppm: float,
     reference_c: float,
@@ -108,7 +119,7 @@ def interface_result(
         temperature_c,
     )
     stress = restrained_stress_mpa(mismatch, modulus_gpa, poisson, restraint_factor)
-    onset = failure_onset_c(
+    crossing = biaxial_strength_crossing_c(
         epoxy["cte_ppm_per_c_below_tg"],
         substrate_cte_ppm,
         epoxy["tg_c"],
@@ -127,7 +138,7 @@ def interface_result(
         "free_radial_mismatch_um": mismatch * radius_mm * 1000.0,
         "estimated_stress_mpa": stress,
         "strength_margin": epoxy["tensile_strength_mpa"] / stress if stress > 0.0 else None,
-        "estimated_failure_onset_c": onset,
+        "biaxial_strength_crossing_c": crossing,
     }
 
 
@@ -136,6 +147,7 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
     if evaluation_temperature_c is None:
         evaluation_temperature_c = float(parameters.get("thermal_min_temperature_c", 20.0))
     nominal_modulus = float(parameters.get("thermal_epoxy_modulus_gpa", ASSUMED_EPOXY["elastic_modulus_nominal_gpa"]))
+    poisson = ASSUMED_EPOXY["poisson_ratio"]
     default_restraint = float(parameters.get("thermal_restraint_factor", 1.0))
     tube_radius_mm = float(parameters["tube_id_mm"]) / 2.0
     washer_radius_mm = float(parameters["washer_od_mm"]) / 2.0
@@ -144,12 +156,18 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
         interface_result("epoxy-to-copper tube", MATERIALS["c110_copper"]["cte_ppm_per_c"], tube_radius_mm, evaluation_temperature_c, default_restraint, nominal_modulus),
     ]
     controlling = max(interfaces, key=lambda item: item["estimated_stress_mpa"])
+    controlling_mismatch = controlling["free_mismatch_strain_percent"] / 100.0
+    triaxial_reference_stress = uniform_triaxial_stress_mpa(
+        controlling_mismatch,
+        nominal_modulus,
+        poisson,
+    )
 
     modulus_sensitivity = []
     for modulus in ASSUMED_EPOXY["elastic_modulus_range_gpa"]:
         modulus_sensitivity.append({
             "elastic_modulus_gpa": modulus,
-            "full_restraint_failure_onset_c": failure_onset_c(
+            "biaxial_k1_strength_crossing_c": biaxial_strength_crossing_c(
                 epoxy["cte_ppm_per_c_below_tg"],
                 MATERIALS["ad_96_alumina"]["cte_ppm_per_c"],
                 epoxy["tg_c"],
@@ -160,7 +178,7 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
             ),
         })
 
-    half_restraint_onset = failure_onset_c(
+    half_restraint_crossing = biaxial_strength_crossing_c(
         epoxy["cte_ppm_per_c_below_tg"],
         MATERIALS["ad_96_alumina"]["cte_ppm_per_c"],
         epoxy["tg_c"],
@@ -180,8 +198,8 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
     )
 
     return {
-        "model": "equibiaxial restrained-epoxy thermal-mismatch screen",
-        "model_status": "screening only; not a bonded-joint qualification",
+        "model": "radial-and-hoop restrained-epoxy thermal-mismatch baseline",
+        "model_status": "plane-stress bulk-strength proxy; not a conservative bound or interface-separation prediction",
         "parameters_file": str(DEFAULT_PARAMETERS.relative_to(ROOT)).replace("\\", "/"),
         "default_design": {
             "epoxy_material": parameters.get("epoxy_material"),
@@ -206,21 +224,24 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
             "equations": {
                 "mismatch_strain": "abs(alpha_epoxy - alpha_substrate) * (Tg - T)",
                 "stress": "restraint * E_epoxy * mismatch_strain / (1 - nu_epoxy)",
-                "failure_onset": "stress = published cured tensile strength",
+                "strength_crossing": "plane-stress baseline = published cured tensile strength",
             },
             "interfaces_at_evaluation_temperature": interfaces,
             "controlling_interface": controlling["interface"],
             "controlling_evaluation_stress_mpa": controlling["estimated_stress_mpa"],
             "controlling_strength_margin": controlling["strength_margin"],
-            "conservative_full_restraint_failure_onset_c": controlling["estimated_failure_onset_c"],
-            "half_restraint_sensitivity_failure_onset_c": half_restraint_onset,
-            "full_restraint_modulus_sensitivity": modulus_sensitivity,
-            "room_temperature_full_restraint": room,
+            "uniform_triaxial_reference_stress_mpa": triaxial_reference_stress,
+            "uniform_triaxial_reference_equation": "E_epoxy * mismatch_strain / (1 - 2 * nu_epoxy)",
+            "uniform_triaxial_interpretation": "reference for local three-direction confinement; not a failure criterion or corner-stress bound",
+            "biaxial_k1_strength_crossing_c": controlling["biaxial_strength_crossing_c"],
+            "biaxial_k05_strength_crossing_c": half_restraint_crossing,
+            "biaxial_k1_modulus_sensitivity": modulus_sensitivity,
+            "room_temperature_biaxial_k1": room,
             "bulk_material_service_floor_c": epoxy["service_min_c"],
         },
         "interpretation": {
-            "cold_limit_estimate": "Use the full-restraint onset as a conservative risk screen, not an operating rating.",
-            "interim_transport_guidance": "Until bonded coupons establish a cold rating, use controlled room-temperature transport, preferably at or above 25 C, and avoid unheated or freezing shipment.",
+            "bulk_strength_crossing": "The k=1 crossing compares calculated bulk epoxy stress with published bulk tensile strength; it is not a predicted interface-separation temperature.",
+            "separation_model_required": "Predicting separation requires cohesive interface laws and epoxy-to-alumina and epoxy-to-copper adhesion strength or fracture-energy data.",
             "why_not_a_rating": "9510 modulus, copper/alumina pull-off strength, interface fracture toughness, and actual strain-relief factor are not published.",
             "cure_shrinkage_handling": "The published 3.9% liquid-to-cured shrinkage is not added as elastic strain because most develops before/around gel and its locked-in fraction is unknown. Residual cure stress can only make the cold screen less favorable.",
             "qualification": "Build representative copper/9510/alumina ring coupons, instrument for debonding, and thermal-cycle in 10 C steps before assigning a subzero operating limit.",

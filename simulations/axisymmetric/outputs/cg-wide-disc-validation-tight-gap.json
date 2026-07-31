@@ -1,0 +1,137 @@
+{
+  "method": "fenicsx-cg-wide-disc-analytic-limit",
+  "expectation": "FEA/analytic approaches 1 as ground ID approaches core OD and the shared bias/ground washer-overlap radius grows, making inner and outer fringing small relative to the axial field area.",
+  "validation_history": [
+    {
+      "attempt": "initial-oversized-sweep",
+      "bias_diameters_mm": [
+        12.0,
+        24.0,
+        40.0,
+        80.0,
+        120.0
+      ],
+      "status": "aborted-before-results",
+      "reason": "The 120 mm full-stack basis solve reached about 5.68 GiB RSS after 6 minutes 49 seconds. It was stopped before swap or OOM because that resource growth made it a poor routine validation geometry.",
+      "fix": "Reduce the maximum diameter and preserve this failed attempt in the campaign record."
+    },
+    {
+      "attempt": "64-mm-capped-sweep",
+      "bias_diameters_mm": [
+        12.0,
+        24.0,
+        40.0,
+        64.0
+      ],
+      "status": "aborted-before-results",
+      "reason": "The 64 mm case still reached about 5.65 GiB RSS after 4 minutes 43 seconds because the current solver refactors the large full-stack matrix for every basis field.",
+      "fix": "Cap the routine validation at 40 mm. The retained 12, 24, and 40 mm cases still increase overlap area by more than an order of magnitude and are checked for monotonic approach to the analytical result."
+    },
+    {
+      "attempt": "40-mm-capped-single-process-sweep",
+      "bias_diameters_mm": [
+        12.0,
+        24.0,
+        40.0
+      ],
+      "status": "aborted-before-results",
+      "reason": "Even the 40 mm batch reached about 5.68 GiB RSS after 5 minutes 9 seconds. Similar plateaus for different final diameters indicated retained PETSc/DOLFINx allocations between cases, not only geometric scaling.",
+      "fix": "Separate the questions. Matrix consistency is checked for one through five plates on ordinary geometry. The Cg analytical limit uses one bias plate, exact center-plane mirror symmetry, and one energy solve per diameter. Each diameter runs in a fresh subprocess so its mesh and PETSc state are released before the next case."
+    },
+    {
+      "attempt": "isolated-subprocess-runner-first-launch",
+      "status": "failed-before-fea",
+      "reason": "A redundant local import of sys inside main() shadowed the module-level sys used to read child-case JSON, causing UnboundLocalError before the first FEA solve.",
+      "fix": "Remove the local import and retain the module-level sys import. Geometry, meshing, equations, and capacitance extraction were unchanged."
+    }
+  ],
+  "dielectric_epsr": 3.4,
+  "plate_count": 1,
+  "symmetry_strategy": "exact-center-plane-mirror",
+  "cases": [
+    {
+      "plate_count": 1,
+      "symmetry_strategy": "exact-center-plane-mirror",
+      "bias_od_mm": 12.0,
+      "tube_and_ground_od_mm": 16.0,
+      "core_od_mm": 2.0,
+      "ground_id_mm": 2.02,
+      "core_to_ground_radial_gap_mm": 0.010000000000000009,
+      "washer_overlap_radial_width_mm": 4.99,
+      "analytic_two_washer_cg_pf": 4.410977269783576,
+      "fea_cg_pf": 6.362501505572336,
+      "fea_over_analytic": 1.4424244598033287,
+      "energy_solve_count": 1,
+      "solved_z_extent_mm": 3.75,
+      "mesh": {
+        "target_fine_mm": 0.006,
+        "target_coarse_mm": 0.024,
+        "edge_radius_ratio": 0.2
+      },
+      "elapsed_s": 48.82877337816171
+    },
+    {
+      "plate_count": 1,
+      "symmetry_strategy": "exact-center-plane-mirror",
+      "bias_od_mm": 24.0,
+      "tube_and_ground_od_mm": 28.0,
+      "core_od_mm": 2.0,
+      "ground_id_mm": 2.02,
+      "core_to_ground_radial_gap_mm": 0.010000000000000009,
+      "washer_overlap_radial_width_mm": 10.99,
+      "analytic_two_washer_cg_pf": 18.029813948465506,
+      "fea_cg_pf": 21.7028283997786,
+      "fea_over_analytic": 1.2037189325309539,
+      "energy_solve_count": 1,
+      "solved_z_extent_mm": 3.75,
+      "mesh": {
+        "target_fine_mm": 0.006,
+        "target_coarse_mm": 0.024,
+        "edge_radius_ratio": 0.2
+      },
+      "elapsed_s": 103.63266536407173
+    },
+    {
+      "plate_count": 1,
+      "symmetry_strategy": "exact-center-plane-mirror",
+      "bias_od_mm": 40.0,
+      "tube_and_ground_od_mm": 44.0,
+      "core_od_mm": 2.0,
+      "ground_id_mm": 2.02,
+      "core_to_ground_radial_gap_mm": 0.010000000000000009,
+      "washer_overlap_radial_width_mm": 18.99,
+      "analytic_two_washer_cg_pf": 50.31150089052638,
+      "fea_cg_pf": 56.275643940174646,
+      "fea_over_analytic": 1.1185443277199332,
+      "energy_solve_count": 1,
+      "solved_z_extent_mm": 3.75,
+      "mesh": {
+        "target_fine_mm": 0.006,
+        "target_coarse_mm": 0.024,
+        "edge_radius_ratio": 0.2
+      },
+      "elapsed_s": 179.502215791028
+    },
+    {
+      "plate_count": 1,
+      "symmetry_strategy": "exact-center-plane-mirror",
+      "bias_od_mm": 64.0,
+      "tube_and_ground_od_mm": 68.0,
+      "core_od_mm": 2.0,
+      "ground_id_mm": 2.02,
+      "core_to_ground_radial_gap_mm": 0.010000000000000009,
+      "washer_overlap_radial_width_mm": 30.99,
+      "analytic_two_washer_cg_pf": 128.99811281179979,
+      "fea_cg_pf": 138.39712908827136,
+      "fea_over_analytic": 1.0728616572103202,
+      "energy_solve_count": 1,
+      "solved_z_extent_mm": 3.75,
+      "mesh": {
+        "target_fine_mm": 0.006,
+        "target_coarse_mm": 0.024,
+        "edge_radius_ratio": 0.2
+      },
+      "elapsed_s": 320.2456586919725
+    }
+  ]
+}

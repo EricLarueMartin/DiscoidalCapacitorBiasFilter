@@ -32,10 +32,20 @@ The optional FEniCSx backend now runs a conforming axisymmetric electrostatic so
 
 The current FEniCSx deployment has passed the simplest field-scale regression: default 6 kV bias across each 1 mm flat washer gap samples at about 6.0 kV/mm in the radial middle of the plate overlap. This check caught and fixed an early boundary-tagging bug, so keep it as the first sanity check after solver changes.
 
-The FEniCSx backend now reports two capacitance sanity checks. Total HV-to-ground capacitance comes from the ordinary all-HV energy integral. Adjacent-bias parasitic capacitance is estimated with a separate local three-bias-plate solve and energy subtraction: middle bias plate driven, neighboring bias plates grounded, representative ground capacitance subtracted, then divided by two. MELF presets model the resistor body as a ceramic core with an effective metal-film fill factor rather than a fixed package Cpar.
+The FEniCSx backend now reports a complete node-resolved capacitance network. One full-stack unit basis field is solved for each bias plate, and Maxwell cross-energy integrals directly provide every bias-to-bias mutual term and bias-to-ground row sum. An independent all-bias energy solve checks the total ground capacitance. MELF presets model the resistor body as a ceramic core with an effective metal-film fill factor rather than requiring a fixed package Cpar.
 
 The remaining unresolved simulation issue is peak-field convergence at rounded conductor edges. The web UI reports a neighborhood-supported Emax and keeps the raw point maximum as a diagnostic, but neither the finite-difference peak nor the initial FEniCSx peak should be used for dielectric-breakdown acceptance until a mesh-convergence loop is in place.
 
 The field-map color scale is absolute electric field in V/mm. Dielectric breakdown values are displayed as reference/margin information only, so color intensity should now correspond directly to the colorbar scale.
+
+The web header includes a persistent language selector to the right of the
+light/dark control. English, French, and German cover the application chrome,
+major controls, viewer tabs, and presentation titles. The
+`𒅴𒂠`/Sumerian choice is explicitly experimental: it uses cuneiform for a
+small set of defensible navigation terms and leaves modern engineering
+vocabulary in English instead of inventing unattested ancient terminology.
+The South Carolina circa-1840 choice is a non-derogatory historical English
+register, not a racial caricature. The selection is stored under
+`discoidal-capacitor-bias-filter-language`.
 
 Current Pi hostnames, IP addresses, checkout paths, and access URLs are deployment-local information. Keep them in ignored `.secrets/` notes and have the setup agent report the verified clickable URL after installation.

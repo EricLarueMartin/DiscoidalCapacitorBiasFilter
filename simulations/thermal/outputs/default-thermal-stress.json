@@ -1,6 +1,6 @@
 {
-  "model": "equibiaxial restrained-epoxy thermal-mismatch screen",
-  "model_status": "screening only; not a bonded-joint qualification",
+  "model": "radial-and-hoop restrained-epoxy thermal-mismatch baseline",
+  "model_status": "plane-stress bulk-strength proxy; not a conservative bound or interface-separation prediction",
   "parameters_file": "hardware/geometry/default-parameters.json",
   "default_design": {
     "epoxy_material": "mg_9510",
@@ -56,7 +56,7 @@
     "equations": {
       "mismatch_strain": "abs(alpha_epoxy - alpha_substrate) * (Tg - T)",
       "stress": "restraint * E_epoxy * mismatch_strain / (1 - nu_epoxy)",
-      "failure_onset": "stress = published cured tensile strength"
+      "strength_crossing": "plane-stress baseline = published cured tensile strength"
     },
     "interfaces_at_evaluation_temperature": [
       {
@@ -69,7 +69,7 @@
         "free_radial_mismatch_um": 32.9,
         "estimated_stress_mpa": 15.184615384615382,
         "strength_margin": 1.3171225937183386,
-        "estimated_failure_onset_c": 4.143870314083074
+        "biaxial_strength_crossing_c": 4.143870314083074
       },
       {
         "interface": "epoxy-to-copper tube",
@@ -81,25 +81,28 @@
         "free_radial_mismatch_um": 37.114999999999995,
         "estimated_stress_mpa": 13.176923076923076,
         "strength_margin": 1.5178050204319908,
-        "estimated_failure_onset_c": -5.890251021599525
+        "biaxial_strength_crossing_c": -5.890251021599525
       }
     ],
     "controlling_interface": "epoxy-to-alumina washer",
     "controlling_evaluation_stress_mpa": 15.184615384615382,
     "controlling_strength_margin": 1.3171225937183386,
-    "conservative_full_restraint_failure_onset_c": 4.143870314083074,
-    "half_restraint_sensitivity_failure_onset_c": -61.71225937183385,
-    "full_restraint_modulus_sensitivity": [
+    "uniform_triaxial_reference_stress_mpa": 32.89999999999999,
+    "uniform_triaxial_reference_equation": "E_epoxy * mismatch_strain / (1 - 2 * nu_epoxy)",
+    "uniform_triaxial_interpretation": "reference for local three-direction confinement; not a failure criterion or corner-stress bound",
+    "biaxial_k1_strength_crossing_c": 4.143870314083074,
+    "biaxial_k05_strength_crossing_c": -61.71225937183385,
+    "biaxial_k1_modulus_sensitivity": [
       {
         "elastic_modulus_gpa": 2.0,
-        "full_restraint_failure_onset_c": -28.78419452887539
+        "biaxial_k1_strength_crossing_c": -28.78419452887539
       },
       {
         "elastic_modulus_gpa": 4.0,
-        "full_restraint_failure_onset_c": 20.607902735562305
+        "biaxial_k1_strength_crossing_c": 20.607902735562305
       }
     ],
-    "room_temperature_full_restraint": {
+    "room_temperature_biaxial_k1": {
       "interface": "epoxy-to-alumina washer",
       "substrate_cte_ppm_per_c": 8.2,
       "delta_cte_ppm_per_c": 65.8,
@@ -109,13 +112,13 @@
       "free_radial_mismatch_um": 32.9,
       "estimated_stress_mpa": 15.184615384615382,
       "strength_margin": 1.3171225937183386,
-      "estimated_failure_onset_c": 4.143870314083074
+      "biaxial_strength_crossing_c": 4.143870314083074
     },
     "bulk_material_service_floor_c": -65.0
   },
   "interpretation": {
-    "cold_limit_estimate": "Use the full-restraint onset as a conservative risk screen, not an operating rating.",
-    "interim_transport_guidance": "Until bonded coupons establish a cold rating, use controlled room-temperature transport, preferably at or above 25 C, and avoid unheated or freezing shipment.",
+    "bulk_strength_crossing": "The k=1 crossing compares calculated bulk epoxy stress with published bulk tensile strength; it is not a predicted interface-separation temperature.",
+    "separation_model_required": "Predicting separation requires cohesive interface laws and epoxy-to-alumina and epoxy-to-copper adhesion strength or fracture-energy data.",
     "why_not_a_rating": "9510 modulus, copper/alumina pull-off strength, interface fracture toughness, and actual strain-relief factor are not published.",
     "cure_shrinkage_handling": "The published 3.9% liquid-to-cured shrinkage is not added as elastic strain because most develops before/around gel and its locked-in fraction is unknown. Residual cure stress can only make the cold screen less favorable.",
     "qualification": "Build representative copper/9510/alumina ring coupons, instrument for debonding, and thermal-cycle in 10 C steps before assigning a subzero operating limit."

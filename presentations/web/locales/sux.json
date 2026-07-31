@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "language": "sux",
+    "label": "𒅴𒂠",
+    "experimental": true
+  },
+  "text": {
+    "Language": "𒅴 eme",
+    "Axisymmetric high-voltage filter": "𒅴𒂠 · Axisymmetric high-voltage filter",
+    "Discoidal Capacitor Bias Filter": "𒁾 · Discoidal Capacitor Bias Filter",
+    "Designer": "𒄑𒉺 Plan",
+    "Slides": "𒁾 dub",
+    "Artifacts": "𒁾 Files",
+    "Dark mode": "𒈪 ge₆",
+    "Light mode": "𒌓 ud",
+    "Switch to dark mode": "𒈪 Switch to night display",
+    "Switch to light mode": "𒌓 Switch to day display",
+    "Electrical": "Electrical",
+    "Geometry": "𒄑𒉺 Geometry",
+    "Solver": "Calculation",
+    "Thermal": "Thermal",
+    "Files": "𒁾 dub",
+    "Generated Files": "𒁾 Generated tablets",
+    "Latest server exports": "𒁾 Latest records",
+    "CAD mesh": "𒄑𒉺 CAD mesh",
+    "Reset": "Restore",
+    "Export JSON": "𒁾 Export JSON",
+    "Import JSON": "𒁾 Import JSON"
+  },
+  "slides": {},
+  "content": {},
+  "tooltips": {},
+  "canvas": {},
+  "canvasReplacements": []
+}

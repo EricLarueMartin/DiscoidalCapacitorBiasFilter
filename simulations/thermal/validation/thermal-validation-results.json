@@ -1,0 +1,854 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-07-30T20:53:53.771300+00:00",
+  "solver": "axisymmetric-linear-thermoelastic-fenicsx",
+  "purpose": "code and numerical verification; not adhesive-fracture validation",
+  "analytical_references": {
+    "fully_restrained_homogeneous_stress": "E alpha |delta T| / (1 - 2 nu)",
+    "temperature_linearity": "linear thermoelastic stress is proportional to |delta T|",
+    "common_modulus_scaling": "scaling every Young's modulus leaves displacement unchanged and scales stress",
+    "common_cte_offset": "only CTE differences create stress in a traction-free bonded assembly"
+  },
+  "checks": [
+    {
+      "name": "zero_temperature_change",
+      "criterion": "raw maximum tensile stress <= 1e-8 MPa",
+      "measured": 0.0,
+      "limit": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "homogeneous_free_expansion",
+      "criterion": "raw maximum tensile stress <= 1e-6 MPa",
+      "measured": 1.2137346376578928e-11,
+      "limit": 1e-06,
+      "passed": true
+    },
+    {
+      "name": "homogeneous_fully_restrained",
+      "criterion": "P99 agrees with E alpha |delta T| / (1 - 2 nu) within 0.1%",
+      "expected_mpa": 36.999999999999986,
+      "measured_mpa": 37.00000000000005,
+      "relative_error": 1.7283471950921363e-15,
+      "limit": 0.001,
+      "passed": true
+    },
+    {
+      "name": "temperature_linearity",
+      "criterion": "P99 at a 50 C drop is twice P99 at a 25 C drop within 0.1%",
+      "expected_ratio": 2.0,
+      "measured_ratio": 2.0,
+      "relative_error": 0.0,
+      "limit": 0.001,
+      "passed": true
+    },
+    {
+      "name": "common_modulus_scaling",
+      "criterion": "P99 scales with a common 0.5x and 2x Young's-modulus multiplier within 0.1%",
+      "half_ratio": 0.5,
+      "double_ratio": 2.0,
+      "limit": 0.001,
+      "passed": true
+    },
+    {
+      "name": "common_cte_offset_invariance",
+      "criterion": "Adding the same CTE offset to every material changes P99 by <= 0.1%",
+      "reference_mpa": 31.91529277722103,
+      "offset_mpa": 31.915292777229283,
+      "relative_difference": 2.5858932059504597e-13,
+      "limit": 0.001,
+      "passed": true
+    },
+    {
+      "name": "exact_mirror_symmetry",
+      "criterion": "Half-stack and full-stack P95/P99 agree within 2%",
+      "mirror_p95_mpa": 29.504021714848122,
+      "full_p95_mpa": 29.654985716104218,
+      "mirror_p99_mpa": 31.81262793312639,
+      "full_p99_mpa": 31.814128936979355,
+      "p95_relative_difference": 0.005090678602961335,
+      "p99_relative_difference": 4.71804164727752e-05,
+      "mirror_cells": 5679,
+      "full_cells": 12549,
+      "limit": 0.02,
+      "passed": true
+    },
+    {
+      "name": "mesh_convergence",
+      "criterion": "The two finest meshes agree within 1% for P95 and P99; raw maximum is diagnostic only.",
+      "coarse_of_pair": {
+        "case": "mesh_0p15_mm",
+        "mesh_size_mm": 0.15,
+        "cells": 36052,
+        "p95_mpa": 29.508107084248003,
+        "p99_mpa": 31.648747190084762,
+        "raw_max_mpa": 67.69882098129447
+      },
+      "fine": {
+        "case": "mesh_0p1_mm",
+        "mesh_size_mm": 0.1,
+        "cells": 79254,
+        "p95_mpa": 29.529115114163858,
+        "p99_mpa": 31.928083040354203,
+        "raw_max_mpa": 78.8839746745745
+      },
+      "p95_relative_difference": 0.0007119409542562393,
+      "p99_relative_difference": 0.00882612662648945,
+      "raw_max_relative_difference": 0.16521932776895099,
+      "limit": 0.01,
+      "passed": true
+    }
+  ],
+  "all_acceptance_checks_passed": true,
+  "mesh_convergence": [
+    {
+      "case": "mesh_0p6_mm",
+      "mesh_size_mm": 0.6,
+      "cells": 2940,
+      "p95_mpa": 29.635578167729182,
+      "p99_mpa": 31.889078611691605,
+      "raw_max_mpa": 40.61214406644222
+    },
+    {
+      "case": "mesh_0p45_mm",
+      "mesh_size_mm": 0.45,
+      "cells": 4757,
+      "p95_mpa": 29.535576810086315,
+      "p99_mpa": 31.91529277722103,
+      "raw_max_mpa": 44.704759064984295
+    },
+    {
+      "case": "mesh_0p3_mm",
+      "mesh_size_mm": 0.3,
+      "cells": 9276,
+      "p95_mpa": 29.52099032536288,
+      "p99_mpa": 31.7410434306722,
+      "raw_max_mpa": 51.48598260625296
+    },
+    {
+      "case": "mesh_0p2_mm",
+      "mesh_size_mm": 0.2,
+      "cells": 21538,
+      "p95_mpa": 29.502853132097957,
+      "p99_mpa": 31.800420236141058,
+      "raw_max_mpa": 59.88654995924743
+    },
+    {
+      "case": "mesh_0p15_mm",
+      "mesh_size_mm": 0.15,
+      "cells": 36052,
+      "p95_mpa": 29.508107084248003,
+      "p99_mpa": 31.648747190084762,
+      "raw_max_mpa": 67.69882098129447
+    },
+    {
+      "case": "mesh_0p1_mm",
+      "mesh_size_mm": 0.1,
+      "cells": 79254,
+      "p95_mpa": 29.529115114163858,
+      "p99_mpa": 31.928083040354203,
+      "raw_max_mpa": 78.8839746745745
+    }
+  ],
+  "case_files": {
+    "zero_temperature_change": "cases/zero_temperature_change.json",
+    "homogeneous_free_expansion": "cases/homogeneous_free_expansion.json",
+    "homogeneous_fully_restrained": "cases/homogeneous_fully_restrained.json",
+    "temperature_45c": "cases/temperature_45c.json",
+    "temperature_20c": "cases/temperature_20c.json",
+    "all_moduli_half": "cases/all_moduli_half.json",
+    "all_moduli_double": "cases/all_moduli_double.json",
+    "common_cte_offset": "cases/common_cte_offset.json",
+    "symmetry_mirror_half": "cases/symmetry_mirror_half.json",
+    "symmetry_full_stack": "cases/symmetry_full_stack.json",
+    "mesh_0p6_mm": "cases/mesh_0p6_mm.json",
+    "mesh_0p45_mm": "cases/mesh_0p45_mm.json",
+    "mesh_0p3_mm": "cases/mesh_0p3_mm.json",
+    "mesh_0p2_mm": "cases/mesh_0p2_mm.json",
+    "mesh_0p15_mm": "cases/mesh_0p15_mm.json",
+    "mesh_0p1_mm": "cases/mesh_0p1_mm.json"
+  },
+  "case_summaries": {
+    "zero_temperature_change": {
+      "description": "The production geometry at the 70 C stress-free reference must have zero thermal stress.",
+      "parameters": {
+        "evaluation_temperature_c": 70.0,
+        "thermal_mesh_size_mm": 0.6,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.6,
+        "cells": 2940,
+        "vertices": 1524,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 0.0,
+        "p99": 0.0,
+        "raw_max": 0.0,
+        "raw_max_location_mm": {
+          "r": 1.1638810677905773,
+          "z": 0.165841338941484
+        }
+      }
+    },
+    "homogeneous_free_expansion": {
+      "description": "Identical material properties and traction-free surfaces must permit free contraction with zero stress.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.6,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": {
+          "epoxy": {
+            "youngs_modulus_mpa": 3000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          },
+          "alumina": {
+            "youngs_modulus_mpa": 3000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          },
+          "copper": {
+            "youngs_modulus_mpa": 3000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          },
+          "core": {
+            "youngs_modulus_mpa": 3000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          }
+        }
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.6,
+        "cells": 2940,
+        "vertices": 1524,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 2.8904781224541838e-12,
+        "p99": 4.190169078387792e-12,
+        "raw_max": 1.2137346376578928e-11,
+        "raw_max_location_mm": {
+          "r": 3.159560752829301,
+          "z": 0.00480367989919243
+        }
+      }
+    },
+    "homogeneous_fully_restrained": {
+      "description": "A homogeneous body restrained in all normal directions must reproduce the triaxial closed form.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.6,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "fully_restrained",
+        "material_overrides": {
+          "epoxy": {
+            "youngs_modulus_mpa": 3000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          },
+          "alumina": {
+            "youngs_modulus_mpa": 3000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          },
+          "copper": {
+            "youngs_modulus_mpa": 3000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          },
+          "core": {
+            "youngs_modulus_mpa": 3000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          }
+        }
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.6,
+        "cells": 2940,
+        "vertices": 1524,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 37.000000000000036,
+        "p99": 37.00000000000005,
+        "raw_max": 37.00000000000006,
+        "raw_max_location_mm": {
+          "r": 1.1638810677905773,
+          "z": 0.165841338941484
+        }
+      }
+    },
+    "temperature_45c": {
+      "description": "Default bonded stack at half the default temperature drop.",
+      "parameters": {
+        "evaluation_temperature_c": 45.0,
+        "thermal_mesh_size_mm": 0.45,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.45,
+        "cells": 4757,
+        "vertices": 2450,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 14.767788405043158,
+        "p99": 15.957646388610515,
+        "raw_max": 22.352379532492147,
+        "raw_max_location_mm": {
+          "r": 1.150824497388948,
+          "z": 0.12227378205898025
+        }
+      }
+    },
+    "temperature_20c": {
+      "description": "Default bonded stack at the 50 C temperature drop used by the design screen.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.45,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.45,
+        "cells": 4757,
+        "vertices": 2450,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.535576810086315,
+        "p99": 31.91529277722103,
+        "raw_max": 44.704759064984295,
+        "raw_max_location_mm": {
+          "r": 1.150824497388948,
+          "z": 0.12227378205898025
+        }
+      }
+    },
+    "all_moduli_half": {
+      "description": "Every Young's modulus is multiplied by 0.5 while Poisson ratios and CTEs are unchanged.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.45,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": {
+          "epoxy": {
+            "youngs_modulus_mpa": 1500.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          },
+          "alumina": {
+            "youngs_modulus_mpa": 151500.0,
+            "poisson_ratio": 0.21,
+            "cte_per_c": 8.2e-06
+          },
+          "copper": {
+            "youngs_modulus_mpa": 58500.0,
+            "poisson_ratio": 0.34,
+            "cte_per_c": 1.69e-05
+          },
+          "core": {
+            "youngs_modulus_mpa": 151500.0,
+            "poisson_ratio": 0.21,
+            "cte_per_c": 8.2e-06
+          }
+        }
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.45,
+        "cells": 4757,
+        "vertices": 2450,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 14.767788405043158,
+        "p99": 15.957646388610515,
+        "raw_max": 22.352379532492147,
+        "raw_max_location_mm": {
+          "r": 1.150824497388948,
+          "z": 0.12227378205898025
+        }
+      }
+    },
+    "all_moduli_double": {
+      "description": "Every Young's modulus is multiplied by 2 while Poisson ratios and CTEs are unchanged.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.45,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": {
+          "epoxy": {
+            "youngs_modulus_mpa": 6000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 7.4e-05
+          },
+          "alumina": {
+            "youngs_modulus_mpa": 606000.0,
+            "poisson_ratio": 0.21,
+            "cte_per_c": 8.2e-06
+          },
+          "copper": {
+            "youngs_modulus_mpa": 234000.0,
+            "poisson_ratio": 0.34,
+            "cte_per_c": 1.69e-05
+          },
+          "core": {
+            "youngs_modulus_mpa": 606000.0,
+            "poisson_ratio": 0.21,
+            "cte_per_c": 8.2e-06
+          }
+        }
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.45,
+        "cells": 4757,
+        "vertices": 2450,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 59.07115362017263,
+        "p99": 63.83058555444206,
+        "raw_max": 89.40951812996859,
+        "raw_max_location_mm": {
+          "r": 1.150824497388948,
+          "z": 0.12227378205898025
+        }
+      }
+    },
+    "common_cte_offset": {
+      "description": "The same +20 ppm/C offset is added to every CTE; mismatch stress must be invariant.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.45,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": {
+          "epoxy": {
+            "youngs_modulus_mpa": 3000.0,
+            "poisson_ratio": 0.35,
+            "cte_per_c": 9.4e-05
+          },
+          "alumina": {
+            "youngs_modulus_mpa": 303000.0,
+            "poisson_ratio": 0.21,
+            "cte_per_c": 2.82e-05
+          },
+          "copper": {
+            "youngs_modulus_mpa": 117000.0,
+            "poisson_ratio": 0.34,
+            "cte_per_c": 3.69e-05
+          },
+          "core": {
+            "youngs_modulus_mpa": 303000.0,
+            "poisson_ratio": 0.21,
+            "cte_per_c": 2.82e-05
+          }
+        }
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.45,
+        "cells": 4757,
+        "vertices": 2450,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.53557681008967,
+        "p99": 31.915292777229283,
+        "raw_max": 44.70475906499187,
+        "raw_max_location_mm": {
+          "r": 1.150824497388948,
+          "z": 0.12227378205898025
+        }
+      }
+    },
+    "symmetry_mirror_half": {
+      "description": "Production exact-half strategy on the default stack.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.4,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.4,
+        "cells": 5679,
+        "vertices": 2919,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.504021714848122,
+        "p99": 31.81262793312639,
+        "raw_max": 45.6492216316737,
+        "raw_max_location_mm": {
+          "r": 1.1488033871712602,
+          "z": 0.1154700538379258
+        }
+      }
+    },
+    "symmetry_full_stack": {
+      "description": "Full-stack reference with only one axial rigid-body anchor.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.4,
+        "solve_strategy": "full_stack",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.4,
+        "cells": 12549,
+        "vertices": 6415,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 13.5,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "full_stack",
+        "symmetry": "full stack with one axial rigid-body anchor",
+        "material_surface_counts": {
+          "epoxy": 5,
+          "alumina": 4,
+          "copper": 6,
+          "core": 3
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.654985716104218,
+        "p99": 31.814128936979355,
+        "raw_max": 45.66607568100443,
+        "raw_max_location_mm": {
+          "r": 1.1488033871712602,
+          "z": 13.384529946162075
+        }
+      }
+    },
+    "mesh_0p6_mm": {
+      "description": "Default stack mesh-convergence case with 0.60 mm target size.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.6,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.6,
+        "cells": 2940,
+        "vertices": 1524,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.635578167729182,
+        "p99": 31.889078611691605,
+        "raw_max": 40.61214406644222,
+        "raw_max_location_mm": {
+          "r": 1.1638810677905773,
+          "z": 0.165841338941484
+        }
+      }
+    },
+    "mesh_0p45_mm": {
+      "description": "Default stack mesh-convergence case with 0.45 mm target size.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.45,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.45,
+        "cells": 4757,
+        "vertices": 2450,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.535576810086315,
+        "p99": 31.91529277722103,
+        "raw_max": 44.704759064984295,
+        "raw_max_location_mm": {
+          "r": 1.150824497388948,
+          "z": 0.12227378205898025
+        }
+      }
+    },
+    "mesh_0p3_mm": {
+      "description": "Default stack mesh-convergence case with 0.30 mm target size.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.3,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.3,
+        "cells": 9276,
+        "vertices": 4743,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.52099032536288,
+        "p99": 31.7410434306722,
+        "raw_max": 51.48598260625296,
+        "raw_max_location_mm": {
+          "r": 1.1348871672980774,
+          "z": 0.08486986783131115
+        }
+      }
+    },
+    "mesh_0p2_mm": {
+      "description": "Default stack mesh-convergence case with 0.20 mm target size.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.2,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.2,
+        "cells": 21538,
+        "vertices": 10922,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.502853132097957,
+        "p99": 31.800420236141058,
+        "raw_max": 59.88654995924743,
+        "raw_max_location_mm": {
+          "r": 1.1241588049440636,
+          "z": 0.05749213827739323
+        }
+      }
+    },
+    "mesh_0p15_mm": {
+      "description": "Default stack mesh-convergence case with 0.15 mm target size.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.15,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.15,
+        "cells": 36052,
+        "vertices": 18231,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.508107084248003,
+        "p99": 31.648747190084762,
+        "raw_max": 67.69882098129447,
+        "raw_max_location_mm": {
+          "r": 1.117577122710812,
+          "z": 0.042477645519489085
+        }
+      }
+    },
+    "mesh_0p1_mm": {
+      "description": "Default stack mesh-convergence case with 0.10 mm target size.",
+      "parameters": {
+        "evaluation_temperature_c": 20.0,
+        "thermal_mesh_size_mm": 0.1,
+        "solve_strategy": "mirror_half",
+        "boundary_mode": "physical",
+        "material_overrides": null
+      },
+      "mesh": {
+        "type": "gmsh-dolfinx-axisymmetric-solid",
+        "target_size_mm": 0.1,
+        "cells": 79254,
+        "vertices": 39931,
+        "solved_z_min_mm": 0.0,
+        "solved_z_max_mm": 6.75,
+        "full_stack_length_mm": 13.5,
+        "solve_strategy": "mirror_half",
+        "symmetry": "exact axial mirror plane",
+        "material_surface_counts": {
+          "epoxy": 3,
+          "alumina": 2,
+          "copper": 4,
+          "core": 2
+        }
+      },
+      "epoxy_principal_tensile_stress_mpa": {
+        "p95": 29.529115114163858,
+        "p99": 31.928083040354203,
+        "raw_max": 78.8839746745745,
+        "raw_max_location_mm": {
+          "r": 1.112200846792815,
+          "z": 0.02886751345947453
+        }
+      }
+    }
+  }
+}

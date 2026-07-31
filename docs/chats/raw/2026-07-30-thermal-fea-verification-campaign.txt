@@ -1,0 +1,47 @@
+User request:
+
+"I like the thermal verification steps you mentioned. Work through those and
+document everything well. lots of simulation result images and detailed
+markdown files."
+
+Work completed:
+
+- Added a reproducible FEniCSx thermal verification runner with complete
+  per-case JSON outputs.
+- Added private benchmark-only material, boundary, mirror-half, and full-stack
+  solver modes without exposing those controls in the Designer.
+- Checked the exact zero-temperature-change limit, homogeneous free
+  contraction, a homogeneous fully restrained triaxial closed form,
+  temperature linearity, common-modulus scaling, common-CTE-offset invariance,
+  exact mirror reduction, and six mesh sizes.
+- The first zero-temperature run found that a Python scalar delta_T = 0
+  removed the UFL integration domain from the load form. Temperature change is
+  now a domain-associated FEniCS constant. Nonzero-temperature solves were not
+  numerically affected.
+- Re-ran the complete suite on the configured Raspberry Pi. All eight acceptance
+  checks passed.
+- Generated twelve PNGs directly from the saved FEniCSx fields, including six
+  individual mesh fields, a mesh montage, known-limit fields, full/half
+  symmetry comparison, scaling plots, and a numerical summary.
+- Added detailed physics-facing and artifact-facing Markdown documentation.
+
+Key results:
+
+- Zero delta_T raw maximum: 0 MPa.
+- Homogeneous free-contraction raw maximum: 1.2137e-11 MPa.
+- Fully restrained result: 37.00000000000005 MPa versus 37 MPa closed form.
+- Temperature ratio: exactly 2.0 for 50 C versus 25 C drops.
+- Common modulus ratios: exactly 0.5 and 2.0.
+- Common CTE offset relative change: 2.59e-13.
+- Mirror/full P99 difference: 0.00472%; P95 difference: 0.509%.
+- 0.15 to 0.10 mm mesh change: P95 0.071%, P99 0.883%, raw maximum 16.5%.
+- Raw corner peak rises from 40.612 MPa at 0.60 mm to 78.884 MPa at
+  0.10 mm and is not converged.
+
+Interpretation:
+
+The current linear-thermoelastic implementation and exact symmetry reduction
+are verified for comparative analysis. The campaign does not validate the
+assumed MG 9510 modulus, perfect adhesion, the 70 C stress-free reference,
+cure shrinkage, viscoelasticity, cohesive fracture, or a separation
+temperature.

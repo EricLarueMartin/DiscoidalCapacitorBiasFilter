@@ -53,6 +53,21 @@ The `/api/spice-ladder` endpoint is separate from the electrostatic field solve.
 
 The `/api/thermal-solve` endpoint is also separate from the electrostatic field solve. It meshes the full bonded copper/alumina/epoxy/core r-z solid and uses exact cylindrical and center-plane symmetry. The closed-form differential-contraction estimate remains in the web app as an independent baseline. The FEA assumes perfect bonds, traction-free exposed surfaces, linear elasticity, and a 70 C stress-free reference; it does not model cure shrinkage, relaxation, voids, or debonding.
 
+The thermal solver has a separate verification campaign:
+
+```bash
+/usr/bin/python3 software/bias_filter/thermal_validation.py
+```
+
+It checks the exact zero-load limit, homogeneous free contraction, a
+closed-form fully restrained body, temperature and stiffness scaling, common
+CTE-offset invariance, full-stack symmetry, and six mesh sizes from 0.60 to
+0.10 mm. Complete results and PNGs are under
+`simulations/thermal/validation/`; interpretation is in
+`docs/knowledge/thermal-fea-verification.md`. The benchmark-only material,
+boundary, and full-stack controls use private validation parameters and are
+not exposed by the Designer.
+
 The backend SPICE sweep and matching web attenuation plots are fixed at 1 Hz to 100 MHz. This makes the low-frequency rolloff around power-line noise easier to read while avoiding excessive very-slow-drift plot space, and 100 MHz is a practical upper view limit for the current detector readout context because the DAQ sample rate is only about 200 MS/s.
 
 The web Designer exposes the same distinction as a dropdown: `Backend adaptive FD` means Python-backed finite difference, not FEniCSx. `FEniCSx required` is the explicit conforming FEA path.
@@ -63,17 +78,33 @@ Both the FD and FEniCSx workers report a neighborhood-supported peak field plus 
 
 The current FEniCSx worker builds a conforming Gmsh/OpenCASCADE r-z dielectric domain with conductor regions removed as holes, solves the cylindrical weak form in DOLFINx, and samples `|grad(V)|` back onto the browser grid for comparison. It reports total two-terminal capacitance from the axisymmetric dielectric energy integral, `C = 2U/V^2`, and a quasi-static shunt admittance sweep using `Y(f) = Iload/Vbias + j 2 pi f C`. The load-current slider defaults to 1 nA.
 
-The FEniCSx worker also reports an adjacent-bias `Cpar` estimate from a separate local three-bias-plate model. Three energy solves drive the middle plate, both neighbors, and all bias plates respectively; polarization then cancels ground-capacitance terms algebraically. This is an energy-based design sanity check, not yet a full capacitance-matrix charge extraction.
+The FEniCSx worker also reports a complete node-resolved capacitance network. It solves one full-stack unit basis field per bias plate and directly assembles the Maxwell matrix from cross-energy integrals. Physical `Cpar,i,j` values are the negatives of the off-diagonal coefficients, while each `Cg,i` is the corresponding row sum. An independent all-bias solve checks total ground capacitance. This avoids subtracting nearly equal single-node and pair-node energies.
 
-For MELF 0204/0207 presets, the Cpar solves include the inter-plate core as dielectric with an effective permittivity `eps_eff = eps_substrate / (1 - film_fill_factor)`. The default 0207 values are `eps_substrate = 9.8` and `film_fill_factor = 0.50`. In the capacitance-only geometry, each bias plate extends across the core cross-section as a stage-node electrode, but the core between plates remains dielectric. Adjacent-stage mutual capacitance uses three energy solves (middle only, neighbors only, and all bias plates) so polarization cancels capacitance to ground without assuming equal edge and middle ground capacitances. This remains an initial FEA backend, not yet a production acceptance calculation, because the peak-field convergence loop, mesh-refinement records, capacitance-matrix charge extraction, and lossy complex-permittivity FEM admittance solve still need to be added.
+For MELF 0204/0207 presets, the capacitance basis solves include the inter-plate core as dielectric with an effective permittivity `eps_eff = eps_substrate / (1 - film_fill_factor)`. The default 0207 values are `eps_substrate = 9.8` and `film_fill_factor = 0.50`. In the capacitance-only geometry, each bias plate extends across the core cross-section as a stage-node electrode, but the core between plates remains dielectric. This remains an initial FEA backend, not yet a production acceptance calculation, because the peak-field convergence loop, mesh-refinement records, interface-charge validation, and lossy complex-permittivity FEM admittance solve still need to be added.
 
 The analytic core-plus-epoxy Cpar estimate is intentionally a parallel-plate upper-level sanity check. It does not model field intercepted by the intervening ground-plate inner edge. When the ground-hole radius is comparable to or smaller than the adjacent-bias separation, FEA can therefore report materially less epoxy-mediated adjacent-stage coupling even after the core dielectric treatment is correct.
 
-The Pi solver includes a repeatable Type 61 limiting-geometry comparison. It expands the core-ground radial gap while preserving radial plate overlap and reports FEA/analytic Cpar; that ratio should approach unity as the hole radius becomes large compared with stage spacing:
+The Pi solver includes repeatable capacitance validation campaigns. Matrix
+treatments are compared for one through five bias plates. Separate limiting
+geometries avoid combining a large plate-count memory test with a wide-disc
+analytical-limit test:
 
 ```bash
-python3 software/bias_filter/fenicsx_solver.py --validate-cpar-gap-sweep
+python3 software/bias_filter/fenicsx_solver.py --validate-capacitance-strategies
+python3 software/bias_filter/fenicsx_solver.py --validate-cpar-wide-disc-limit
+python3 software/bias_filter/fenicsx_solver.py --validate-cg-strategies
+python3 software/bias_filter/fenicsx_solver.py --validate-cg-wide-disc-limit
 ```
+
+The `Cg` limiting case uses one bias disc between two ground plates, exact
+center-plane mirror symmetry, and one energy solve per diameter. It makes the
+ground/washer ID nearly equal to the core OD while increasing the shared
+washer/bias OD. FEA divided by the two-washer parallel-plate result decreases
+monotonically from 1.4486 at 12 mm OD to 1.0384 at 120 mm OD. Runs are isolated
+in subprocesses so Gmsh/PETSc memory is released between cases. Detailed
+geometry, failed-attempt history, and tables are in
+`docs/knowledge/fenicsx-fea.md`; machine-readable results are under
+`simulations/axisymmetric/outputs/`.
 
 FEniCSx conductor boundary tagging uses a small geometric tolerance. This is required because Gmsh/DOLFINx boundary coordinates can land infinitesimally outside ideal plate intervals; exact classification previously missed one side of some conductor faces and produced washer-gap fields far below `V / gap`.
 

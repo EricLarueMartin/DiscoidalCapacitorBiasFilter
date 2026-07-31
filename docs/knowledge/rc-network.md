@@ -19,7 +19,7 @@ Single adjacent HV-ground gap capacitance:
 ```text
 r_overlap_inner = max(washer_id, ground_plate_id) / 2
 r_overlap_outer = min(washer_od, bias_plate_od) / 2
-C_gap ~= epsilon0 epsr_washer pi (r_overlap_outer^2 - r_overlap_inner^2) / plate_gap
+C_washer ~= epsilon0 epsr_washer pi (r_overlap_outer^2 - r_overlap_inner^2) / plate_gap
 ```
 
 The washer is treated as a flat annular slab in the axial gaps between plate
@@ -33,7 +33,7 @@ contributes to the rough bias-to-ground capacitance estimate.
 Single-stage bias-node capacitance to ground:
 
 ```text
-C_g_stage ~= 2 C_gap
+C_g_stage ~= 2 C_washer
 ```
 
 This is the capacitance from one bias plate to its two adjacent ground plates. It assumes the bias plate is between two ground plates, which is true for the interior bias nodes in the current stack.
@@ -41,7 +41,7 @@ This is the capacitance from one bias plate to its two adjacent ground plates. I
 Total two-terminal capacitance estimate:
 
 ```text
-C_g_total ~= 2 N_pairs C_gap
+C_g_total ~= 2 N_pairs C_washer
 ```
 
 This is the browser estimate for the capacitance from all HV plates/core to the grounded plates/tube when the whole HV conductor set is treated as one terminal. After a FEniCSx solve, the designer readout prefers the energy-extracted value:
@@ -50,6 +50,25 @@ This is the browser estimate for the capacitance from all HV plates/core to the 
 C_fea = 2 U / V^2
 U = 1/2 integral 2 pi r epsilon0 epsilonr |grad V|^2 dr dz
 ```
+
+An optional entered capacitor can be added from every bias plate to ground.
+This is a circuit-only quantity intended for discrete high-voltage capacitors
+or another shunt-capacitance structure not represented by the axisymmetric
+geometry:
+
+```text
+Cg,circuit,i = Cg,geometry,i + Cg,additional
+Cg,circuit,total = sum_i Cg,circuit,i
+```
+
+Changing `Cg,additional` does not invalidate or rerun the electrostatic FEA.
+The Designer continues to show geometric FEA `Cg` separately, and the complete
+ladder and SPICE models use the summed circuit value. The FEA mutual matrix and
+all adjacent `Cpar,i,j` values remain unchanged. The entered capacitor is ideal:
+its package-to-package coupling, lead inductance, dielectric loss, leakage,
+voltage coefficient, and voltage rating are not modeled. Those parasitics may
+matter greatly for a real high-voltage implementation and should eventually be
+added as separate elements when a part and layout are selected.
 
 Adjacent bias-to-bias parasitic capacitance:
 
@@ -73,15 +92,93 @@ epsr_core = epsr_substrate / (1 - FF)
 
 The default 0207 model uses `epsr_substrate = 9.8` and `FF = 0.50`, giving `epsr_core = 19.6`. This is a first-draft effective-medium approximation for a high-value spiral-trimmed metal-film resistor. It avoids pretending the proprietary film path is known while still letting the capacitance scale with geometry. The old direct `Resistor Cpar` input remains available for non-MELF direct-stage models such as a deliberately lumped potted resistor chain.
 
-After a matching FEniCSx solve, the Designer tab also reports `FEA Cpar`. This is a separate local three-bias-plate energy-difference estimate, not a value extracted from the all-HV total-capacitance solve:
+For a ferrite core with conductive interleave discs, the app uses the analogous
+one-dimensional effective-length model:
 
 ```text
-Cpar_adjacent ~= (C_middle_to_all_zero - C_all_bias_to_ground / 3) / 2
+R_stage = R_bulk * (1 - FF_conductor)
+epsr_core,eff = epsr_ferrite / (1 - FF_conductor)
+Cpar_core = Cpar_core,unfilled / (1 - FF_conductor)
 ```
 
-The division by two accounts for the middle bias plate coupling to two adjacent bias plates in the local model. Treat it as a sanity check until a full capacitance-matrix charge extraction is implemented.
+The conductive fill defaults to zero. Direct stage resistance and direct Cpar
+remain independent overrides, so the fill factor affects only the quantities
+that are still calculated from ferrite geometry. This approximation is useful
+for a parameter sweep but does not include disc-edge fringing, contact
+resistance, or local field enhancement.
 
-The presentation separates these two capacitance checks. The total-capacitance slide compares washer-overlap `Cg,total` with the all-bias FEA energy integral. A dedicated Cpar slide shows the three excitation geometries used in the polarization difference: middle bias only, both neighbors only, and all three bias plates driven. It also states the expected direction of the analytic error: the axial `epsilon A/d` estimate generally runs high because it assigns core/epoxy flux directly to the neighboring bias plate without fully representing interception by the intervening grounded annulus.
+After a matching FEniCSx solve, the Designer tab reports the node-resolved
+capacitance network used by SPICE. For each bias node `i`, a one-volt
+single-node solve gives a unit basis field `phi_i`. Cross-energy integrals form
+the Maxwell matrix directly:
+
+```text
+Cij = integral 2*pi*r*epsilon_0*epsilon_r
+               grad(phi_i).grad(phi_j) dr dz
+```
+
+The physical mutual and node-to-ground capacitors are:
+
+```text
+Cpar,i,j = -Cij
+Cg,i = Cii - sum(j != i) Cpar,i,j
+```
+
+This subtraction is essential. The energy from a basis solve with node `i` at
+1 V and the other bias nodes at 0 V gives `Cii`, not `Cg,i`, because the
+grounded bias nodes act as additional receiving electrodes. As an independent
+check, the backend also solves a one-bias geometry and an exact-mirror
+three-bias polarization model:
+
+```text
+Cg,one = 2 Uone / V^2
+Cg,middle = (Cmiddle - Cneighbors + Call) / 2
+```
+
+The default Pi result is 39.915605 pF from the one-bias model and 39.774133 pF
+from the corrected three-bias model. The uncorrected middle-only diagonal is
+40.030002 pF and overcounts by 0.255868 pF, equal to two adjacent mutual
+capacitances of 0.127934 pF each.
+
+Exact reflected node fields are reused rather than solved again. The two-bias
+matrix uses one node basis plus the all-bias check; the three-bias matrix uses
+one end basis, the center basis, and the all-bias check. The reflected
+potential participates directly in Maxwell cross-energy integrals, avoiding
+the poorly conditioned subtraction of two roughly 40 pF energy results to
+recover a roughly 0.128 pF mutual capacitance.
+
+The core is dielectric with its selected effective permittivity, and the solid
+bias-plate cross sections are the electrodes. These excitations cannot
+generally use the peak-field solver's half-domain mesh
+because their bias-plate voltages are not themselves mirror-symmetric. When
+`Repeat interior FEA
+cell` is unchecked, exactly reflected Maxwell entries are averaged. When it is
+checked, the capacitance extraction additionally assumes that the two end bias
+plates share one `Cg` class, every interior bias plate shares another, and
+fully interior `Cpar,i,j` values depend only on axial plate separation.
+End-involving pairs remain separate. For two bias plates, the repeating
+constraint adds nothing and mirror symmetry gives exactly equal `Cg` values.
+
+The final all-bias solve checks that the sum of the extracted `Cg,i` values
+matches the two-terminal capacitance. The single-stage explanatory plot uses
+the mean `Cg,i` and mean adjacent `Cpar,i,i+1`; the complete SPICE simulation
+uses every expanded matrix element.
+
+The complete FEA network is passed to ngspice. Every node receives its own
+`Cg,i`, and every nonzero mutual `Cpar,i,j` is emitted as a capacitor between
+the corresponding bias nodes. The displayed analytical `Cg` sanity check is
+`2 C_washer`, directly comparable to one FEA bias node's `Cg,i`; the axial
+parallel-plate `Cpar` remains a separate sanity comparison.
+
+A 2026-07-30 Pi campaign checked `Cg` with one, two, three, four, and five bias
+plates. Raw full-matrix values, exact reflection averaging, and
+repeated-interior constraints agreed in mean to the displayed precision. The
+largest full-to-mirror node correction was 0.0658%; the largest
+repeat-to-mirror node change was 0.0460%. A separate one-bias exact-mirror
+wide-disc sweep made the analytical two-washer approximation progressively
+better: FEA/analytic decreased monotonically from 1.4486 at 12 mm OD to 1.0384
+at 120 mm OD. The positive excess is finite-disc fringing. Full geometry and
+results are recorded in `docs/knowledge/fenicsx-fea.md`.
 
 Resistance between adjacent bias plates:
 
@@ -192,17 +289,17 @@ This is only valid for the simple parallel-plate washer-overlap estimate, but it
 
 With the current browser defaults (`epsr_washer = 10` alumina-like, MELF 0207 direct-stage resistance, `epsr_core = 19.6` effective MELF core, 2.2 mm core OD, two plate pairs, 6.6 mm washer ID, 20 mm washer OD, 1.5 mm washer thickness, and 26 mm tube ID), the estimate is roughly:
 
-- `C_gap`: about 16.5 pF.
+- `C_washer`: about 16.5 pF for one washer between one bias plate and one ground plate.
 - `C_g_stage`: about 33.1 pF per bias plate.
 - `C_parasitic`: about 0.26 pF between adjacent bias plates in the analytic/SPICE estimate.
-- `FEA Cpar`: about 0.14 pF in the current three-bias FEniCSx smoke test.
+- `FEA Cpar`: about 0.128 pF from the validated node-resolved Maxwell matrix.
 - `R_stage`: 12 Mohm for the default 0207 direct stage.
 
 The default capacitance estimates correspond to:
 
 ```text
-C_gap ~= epsilon0 * 10 * pi * (10^2 - 3.3^2) / 1.5
-C_g_stage ~= 2 C_gap
+C_washer ~= epsilon0 * 10 * pi * (10^2 - 3.3^2) / 1.5
+C_g_stage ~= 2 C_washer
 C_parasitic ~= epsilon0 * (19.6 * pi * 1.1^2 + 3.4 * pi * (2.55^2 - 1.1^2)) / 4.5
 ```
 

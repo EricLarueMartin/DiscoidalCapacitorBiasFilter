@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import io
 import json
+import math
 import sys
 import threading
 import time
@@ -11,6 +13,7 @@ import unittest
 import urllib.error
 import urllib.request
 import uuid
+import zipfile
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
@@ -24,6 +27,32 @@ import spice_ladder
 
 
 class FieldBackendTests(unittest.TestCase):
+    def test_two_washer_cg_uses_shared_overlap_and_both_sides(self) -> None:
+        params = {
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "washer_id_mm": 6.0,
+            "washer_od_mm": 20.0,
+            "ground_plate_inner_diameter_mm": 8.0,
+            "hv_plate_od_mm": 18.0,
+            "plate_gap_mm": 1.5,
+            "washer_epsr": 9.0,
+            "washer_id_mode": "custom",
+            "washer_od_mode": "custom",
+        }
+        overlap_area_mm2 = math.pi * ((18.0 / 2.0) ** 2 - (8.0 / 2.0) ** 2)
+        expected_pf = (
+            2.0
+            * fenicsx_solver.EPSILON_0_PF_PER_MM
+            * 9.0
+            * overlap_area_mm2
+            / 1.5
+        )
+        self.assertAlmostEqual(
+            fenicsx_solver._analytic_two_washer_cg_pf(params),
+            expected_pf,
+            places=12,
+        )
+
     def test_linux_meminfo_parser_returns_bytes(self) -> None:
         parsed = field_backend.parse_linux_meminfo(
             "MemTotal:       8192000 kB\nMemAvailable:   2048000 kB\nSwapTotal:      1024 kB\n"
@@ -69,6 +98,138 @@ class FieldBackendTests(unittest.TestCase):
         )
         self.assertAlmostEqual(result, 0.4)
 
+    def test_middle_ground_capacitance_energy_polarization_removes_mutual_terms(self) -> None:
+        # Middle Cg = 33 pF, neighbor Cg total = 68 pF, and each of two
+        # adjacent mutual capacitances is 0.4 pF. The middle-only diagonal is
+        # therefore 33.8 pF and must not be reported directly as Cg.
+        result = fenicsx_solver._middle_ground_capacitance_from_energies(
+            middle_only_pf=33.8,
+            neighbors_only_pf=68.8,
+            all_bias_pf=101.0,
+        )
+        self.assertAlmostEqual(result, 33.0)
+
+    def test_two_three_cg_matrix_comparison_separates_end_and_center_nodes(self) -> None:
+        two_network = {
+            "node_ground_pf": [10.0, 10.0],
+            "energy_solve_count": 2,
+            "energy_solves_saved": 1,
+            "single_excitation_representatives": [0, 0],
+        }
+        three_network = {
+            "node_ground_pf": [10.2, 9.8, 10.2],
+            "energy_solve_count": 3,
+            "energy_solves_saved": 1,
+            "single_excitation_representatives": [0, 1, 0],
+        }
+        result = fenicsx_solver._cg_matrix_plate_count_comparison(
+            two_network,
+            three_network,
+        )
+        self.assertAlmostEqual(result["two_bias_mean_ground_pf"], 10.0)
+        self.assertAlmostEqual(result["three_bias_end_mean_ground_pf"], 10.2)
+        self.assertAlmostEqual(result["three_bias_center_ground_pf"], 9.8)
+        self.assertAlmostEqual(result["three_end_minus_two_fraction"], 0.02)
+        self.assertAlmostEqual(result["three_center_minus_two_fraction"], -0.02)
+        self.assertFalse(result["repeating_adds_small_matrix_reduction"])
+
+    def test_capacitance_network_energy_polarization_recovers_ground_and_mutual_values(self) -> None:
+        result = fenicsx_solver._capacitance_network_from_energy_equivalents(
+            node_names=["hv_plate_0", "hv_plate_1", "hv_plate_2"],
+            single_node_pf=[11.2, 23.0, 32.2],
+            pair_node_pf={
+                (0, 1): 32.2,
+                (0, 2): 43.0,
+                (1, 2): 51.2,
+            },
+            all_bias_pf=60.0,
+        )
+
+        for actual, expected in zip(result["node_ground_pf"], [10.0, 20.0, 30.0]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertAlmostEqual(result["mutual_pf_matrix"][0][1], 1.0)
+        self.assertAlmostEqual(result["mutual_pf_matrix"][0][2], 0.2)
+        self.assertAlmostEqual(result["mutual_pf_matrix"][1][2], 2.0)
+        self.assertAlmostEqual(result["total_ground_pf"], 60.0)
+        self.assertEqual(result["energy_solve_count"], 7)
+
+    def test_capacitance_excitation_plan_reuses_exact_mirror_symmetry(self) -> None:
+        singles, pairs = fenicsx_solver._capacitance_excitation_representatives(
+            6,
+            use_repeating_interior=False,
+        )
+        self.assertEqual(singles, [0, 1, 2, 2, 1, 0])
+        self.assertEqual(pairs[(0, 1)], pairs[(4, 5)])
+        self.assertEqual(pairs[(1, 3)], pairs[(2, 4)])
+        self.assertNotEqual(pairs[(0, 1)], pairs[(1, 2)])
+
+    def test_capacitance_excitation_plan_reuses_repeating_interior_classes(self) -> None:
+        singles, pairs = fenicsx_solver._capacitance_excitation_representatives(
+            6,
+            use_repeating_interior=True,
+        )
+        self.assertEqual(singles, [0, 1, 2, 2, 1, 0])
+        self.assertEqual(len(set(singles)), 3)
+        self.assertEqual(pairs[(0, 1)], pairs[(4, 5)])
+        self.assertNotEqual(pairs[(0, 1)], pairs[(1, 2)])
+        self.assertEqual(pairs[(1, 2)], pairs[(2, 3)])
+        self.assertEqual(pairs[(2, 3)], pairs[(3, 4)])
+        self.assertEqual(
+            len(set(pairs.values())),
+            8,
+        )
+
+    def test_five_bias_nodes_use_same_cpar_classes_in_both_modes(self) -> None:
+        exact_singles, exact_pairs = fenicsx_solver._capacitance_excitation_representatives(
+            5,
+            use_repeating_interior=False,
+        )
+        repeat_singles, repeat_pairs = fenicsx_solver._capacitance_excitation_representatives(
+            5,
+            use_repeating_interior=True,
+        )
+        self.assertEqual(repeat_singles, exact_singles)
+        self.assertEqual(repeat_pairs, exact_pairs)
+
+    def test_repeating_ground_capacitance_has_end_and_interior_classes(self) -> None:
+        self.assertEqual(
+            fenicsx_solver._repeating_ground_capacitance_representatives(6),
+            [0, 2, 2, 2, 2, 0],
+        )
+
+    def test_two_bias_nodes_share_one_symmetric_ground_excitation(self) -> None:
+        for use_repeating_interior in (False, True):
+            with self.subTest(use_repeating_interior=use_repeating_interior):
+                singles, pairs = fenicsx_solver._capacitance_excitation_representatives(
+                    2,
+                    use_repeating_interior=use_repeating_interior,
+                )
+                self.assertEqual(singles, [0, 0])
+                self.assertEqual(pairs, {(0, 1): (0, 1)})
+
+    def test_repeating_ground_classes_make_end_and_interior_values_equal(self) -> None:
+        network = fenicsx_solver._capacitance_network_from_energy_equivalents(
+            node_names=[f"hv_plate_{index}" for index in range(6)],
+            single_node_pf=[11.0, 21.0, 22.0, 22.0, 21.0, 11.0],
+            pair_node_pf={
+                (i, j): [11.0, 21.0, 22.0, 22.0, 21.0, 11.0][i]
+                + [11.0, 21.0, 22.0, 22.0, 21.0, 11.0][j]
+                - 0.2
+                for i in range(6)
+                for j in range(i + 1, 6)
+            },
+            all_bias_pf=90.0,
+        )
+        fenicsx_solver._apply_ground_capacitance_classes(
+            network,
+            [0, 2, 2, 2, 2, 0],
+        )
+        ground = network["node_ground_pf"]
+        self.assertAlmostEqual(ground[0], ground[-1])
+        for value in ground[1:-1]:
+            self.assertAlmostEqual(value, ground[1])
+        self.assertAlmostEqual(sum(ground), 90.0)
+
     def test_parallel_plate_cpar_reference_matches_type61_limiting_case(self) -> None:
         params = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
         params.update({
@@ -99,6 +260,108 @@ class FieldBackendTests(unittest.TestCase):
         self.assertEqual(calculated["stageResistanceOhm"], 12e6)
         self.assertAlmostEqual(calculated["parasiticPf"], 0.26764333479608754)
         self.assertAlmostEqual(entered["parasiticPf"], 0.42104550860163364)
+
+    def test_spice_uses_node_resolved_fea_capacitance_network(self) -> None:
+        params = axisymmetric_model.normalize_parameters({
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "plate_pairs": 3,
+        })
+        circuit = spice_ladder.circuit_with_capacitance_network(
+            spice_ladder.circuit_estimates(params),
+            params,
+            {
+                "method": "test-fea-matrix",
+                "node_ground_pf": [10.0, 20.0, 30.0],
+                "mutual_pf_matrix": [
+                    [0.0, 1.0, 0.2],
+                    [1.0, 0.0, 2.0],
+                    [0.2, 2.0, 0.0],
+                ],
+            },
+        )
+
+        self.assertEqual(circuit["shuntCapPfByNode"], [10.0, 20.0, 30.0])
+        self.assertEqual(circuit["parasiticPfByAdjacentPair"], [1.0, 2.0])
+        self.assertEqual(circuit["capacitanceSource"], "test-fea-matrix")
+        netlist = spice_ladder.netlist_text(circuit, params)
+        self.assertIn("Cg0 n0 0 1e-11", netlist)
+        self.assertIn("Cg1 n1 0 2e-11", netlist)
+        self.assertIn("Cg2 n2 0 3e-11", netlist)
+        self.assertIn("Cpar1 n0 n1 1e-12", netlist)
+        self.assertIn("Cpar2 n0 n2 2e-13", netlist)
+        self.assertIn("Cpar3 n1 n2 2e-12", netlist)
+        self.assertTrue(math.isfinite(abs(spice_ladder.ladder_transfer(circuit, params, 50.0))))
+
+    def test_additional_ground_capacitance_augments_cg_without_changing_cpar(self) -> None:
+        params = axisymmetric_model.normalize_parameters({
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "plate_pairs": 3,
+            "additional_ground_capacitance_pf": 1000.0,
+        })
+        analytic = spice_ladder.circuit_estimates(params)
+        self.assertAlmostEqual(
+            analytic["shuntCapPf"],
+            analytic["geometricShuntCapPf"] + 1000.0,
+        )
+        base = spice_ladder.circuit_estimates({
+            **params,
+            "additional_ground_capacitance_pf": 0.0,
+        })
+
+        circuit = spice_ladder.circuit_with_capacitance_network(
+            analytic,
+            params,
+            {
+                "method": "test-fea-matrix",
+                "node_ground_pf": [10.0, 20.0, 30.0],
+                "mutual_pf_matrix": [
+                    [0.0, 1.0, 0.2],
+                    [1.0, 0.0, 2.0],
+                    [0.2, 2.0, 0.0],
+                ],
+            },
+        )
+
+        self.assertEqual(circuit["geometricShuntCapPfByNode"], [10.0, 20.0, 30.0])
+        self.assertEqual(circuit["shuntCapPfByNode"], [1010.0, 1020.0, 1030.0])
+        self.assertEqual(circuit["parasiticPfByAdjacentPair"], [1.0, 2.0])
+        self.assertEqual(analytic["parasiticPf"], base["parasiticPf"])
+        netlist = spice_ladder.netlist_text(circuit, params)
+        self.assertIn("Cg0 n0 0 1.01e-09", netlist)
+        self.assertIn("Cpar1 n0 n1 1e-12", netlist)
+
+    def test_backend_sanitizes_additional_ground_capacitance(self) -> None:
+        self.assertEqual(
+            field_backend.sanitized_parameters({"additional_ground_capacitance_pf": 2500.0})[
+                "additional_ground_capacitance_pf"
+            ],
+            2500.0,
+        )
+        self.assertEqual(
+            field_backend.sanitized_parameters({"additional_ground_capacitance_pf": -1.0})[
+                "additional_ground_capacitance_pf"
+            ],
+            0.0,
+        )
+
+    def test_ferrite_conductor_fill_scales_resistance_and_core_capacitance(self) -> None:
+        base = axisymmetric_model.normalize_parameters({
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "core_material": "type61",
+            "use_direct_stage_circuit": False,
+            "use_direct_stage_capacitance": False,
+            "ferrite_epsr": 12.0,
+            "ferrite_conductor_fill_factor": 0.0,
+        })
+        filled = axisymmetric_model.normalize_parameters({
+            **base,
+            "ferrite_conductor_fill_factor": 0.5,
+        })
+
+        base_r = spice_ladder.core_resistance_for_length_ohm(base, 4.5)
+        filled_r = spice_ladder.core_resistance_for_length_ohm(filled, 4.5)
+        self.assertAlmostEqual(filled_r / base_r, 0.5)
+        self.assertAlmostEqual(axisymmetric_model.core_capacitance_epsr(filled), 24.0)
 
     def test_output_series_resistance_is_entered_in_ohms(self) -> None:
         params = field_backend.sanitized_parameters({"output_series_resistance_ohm": 50.0})
@@ -332,6 +595,21 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertGreater(result["iterations"], 0)
                 self.assertIn("lastDelta", result)
                 self.assertEqual(len(result["field"]), result["grid"]["nr"])
+                self.assertEqual(len(result["potential"]), result["grid"]["nr"])
+                self.assertEqual(len(result["potential"][0]), result["grid"]["nz"])
+                self.assertEqual(result["model"]["parameters"], result["parameters"])
+                self.assertEqual(
+                    result["model"]["boundaryConditions"]["biasPotentialV"],
+                    result["parameters"]["bias_voltage_v"],
+                )
+                self.assertEqual(result["model"]["boundaryConditions"]["groundPotentialV"], 0.0)
+                model_hv = [
+                    component
+                    for component in result["model"]["geometry"]["components"]
+                    if component["material"] == "hv"
+                ]
+                self.assertTrue(model_hv)
+                self.assertTrue(all(min(point["r"] for point in item["profile_mm"]) == 0.0 for item in model_hv))
                 self.assertTrue((Path(temp_dir) / first["job_id"] / "result.json").is_file())
 
                 health = self._get_json(base_url + "/api/health")
@@ -382,6 +660,24 @@ class FieldBackendTests(unittest.TestCase):
                 components = geometry["components"]
                 washer_components = [component for component in components if component["material"] == "washer"]
                 self.assertTrue(washer_components)
+                hv_components = [component for component in components if component["material"] == "hv"]
+                core_components = [component for component in components if component["material"] == "core"]
+                self.assertEqual(len(hv_components), int(raw_parameters["plate_pairs"]))
+                self.assertEqual(len(core_components), int(raw_parameters["plate_pairs"]) + 1)
+                for component in hv_components:
+                    self.assertEqual(min(point["r"] for point in component["profile_mm"]), 0.0)
+
+                hv_intervals = [
+                    (
+                        min(point["z"] for point in component["profile_mm"]),
+                        max(point["z"] for point in component["profile_mm"]),
+                    )
+                    for component in hv_components
+                ]
+                for component in core_components:
+                    core_z0 = min(point["z"] for point in component["profile_mm"])
+                    core_z1 = max(point["z"] for point in component["profile_mm"])
+                    self.assertTrue(all(core_z1 <= hv_z0 or core_z0 >= hv_z1 for hv_z0, hv_z1 in hv_intervals))
 
                 params = field_backend.sanitized_parameters(raw_parameters)
                 washer_inner, washer_outer = field_backend.axisymmetric_model.washer_radial_bounds(params)
@@ -391,6 +687,43 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn(round(washer_outer, 6), radii)
                 self.assertIn(round(params["ground_plate_inner_diameter_mm"] / 2.0, 6), radii)
                 self.assertIn(round(params["hv_plate_od_mm"] / 2.0, 6), radii)
+            finally:
+                server.shutdown()
+                server.server_close()
+                state.stop()
+                thread.join(timeout=2.0)
+
+    def test_artifact_downloads_are_allowlisted_and_zip_generated_outputs(self) -> None:
+        with self._temporary_job_dir() as temp_dir:
+            state = field_backend.BackendState(field_backend.DEFAULT_STATIC_DIR, Path(temp_dir))
+            server = ThreadingHTTPServer(("127.0.0.1", 0), field_backend.make_handler(state))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base_url = f"http://127.0.0.1:{server.server_port}"
+
+            try:
+                manifest = self._get_json(base_url + "/api/artifacts")
+                self.assertEqual(manifest["status"], "ok")
+                self.assertEqual(manifest["totalCount"], 8)
+                available = [item for item in manifest["files"] if item["available"]]
+                self.assertTrue(available)
+                self.assertNotIn("axisymmetric_model.py", {item["name"] for item in manifest["files"]})
+
+                first = available[0]
+                with urllib.request.urlopen(base_url + first["downloadUrl"], timeout=5) as response:
+                    self.assertIn("attachment;", response.headers["Content-Disposition"])
+                    self.assertGreater(len(response.read()), 0)
+
+                with urllib.request.urlopen(base_url + "/api/artifacts.zip", timeout=10) as response:
+                    self.assertEqual(response.headers["Content-Type"], "application/zip")
+                    archive = zipfile.ZipFile(io.BytesIO(response.read()))
+                    archived_names = set(archive.namelist())
+                for item in available:
+                    self.assertTrue(any(name.endswith("/" + item["name"]) for name in archived_names))
+
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    urllib.request.urlopen(base_url + "/api/artifacts/axisymmetric_model.py", timeout=5)
+                self.assertEqual(raised.exception.code, 404)
             finally:
                 server.shutdown()
                 server.server_close()

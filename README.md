@@ -83,7 +83,7 @@ python software/bias_filter/axisymmetric_model.py solve
 python software/bias_filter/axisymmetric_model.py cad
 ```
 
-The browser page at `presentations/web/index.html` mirrors the same first-order r-z model for interactive design changes and peak-field screening. CAD and mesh exports are generated under `hardware/geometry/generated/`.
+The browser page at `presentations/web/index.html` provides interactive design changes and peak-field screening. For backend solves, its CAD, material-region, potential, and field review views are generated from the normalized model returned by the solver, so they check the geometry and boundary conditions actually used rather than independently redrawing the original control values. CAD and mesh exports are generated under `hardware/geometry/generated/`.
 
 The JavaScript and Python finite-difference solvers are structured-grid screening tools. The optional FEniCSx/DOLFINx backend uses a conforming Gmsh r-z dielectric domain and reports field and capacitance checks, including an adjacent-bias parasitic-capacitance estimate from a separate three-bias-plate solve. Peak-field results still require mesh-convergence work before they should be treated as validated breakdown limits.
 

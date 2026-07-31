@@ -1,0 +1,72 @@
+{
+  "method": "fenicsx-cpar-wide-disc-analytic-limit",
+  "expectation": "FEA/analytic approaches 1 as the narrow grounded annulus and tube move radially far from most of the axial-field area.",
+  "dielectric_epsr": 3.4,
+  "plate_count": 3,
+  "cases": [
+    {
+      "tube_and_ground_od_mm": 24.0,
+      "ground_id_mm": 20.0,
+      "bias_od_mm": 22.0,
+      "ground_annulus_radial_width_mm": 2.0,
+      "ground_hole_radius_to_stage_spacing": 2.2222222222222223,
+      "analytic_cpar_pf": 2.1016723269570883,
+      "fea_cpar_pf": 1.5140708258404791,
+      "fea_over_analytic": 0.720412409879627,
+      "adjacent_cpar_pf": [
+        1.5140708258404791,
+        1.5140708258404791
+      ],
+      "energy_solve_count": 4,
+      "elapsed_s": 6.684039779007435
+    },
+    {
+      "tube_and_ground_od_mm": 40.0,
+      "ground_id_mm": 36.0,
+      "bias_od_mm": 38.0,
+      "ground_annulus_radial_width_mm": 2.0,
+      "ground_hole_radius_to_stage_spacing": 4.0,
+      "analytic_cpar_pf": 6.809418339340968,
+      "fea_cpar_pf": 5.7162819843577815,
+      "fea_over_analytic": 0.83946699989518,
+      "adjacent_cpar_pf": [
+        5.7162819843577815,
+        5.7162819843577815
+      ],
+      "energy_solve_count": 4,
+      "elapsed_s": 9.747814857168123
+    },
+    {
+      "tube_and_ground_od_mm": 80.0,
+      "ground_id_mm": 76.0,
+      "bias_od_mm": 78.0,
+      "ground_annulus_radial_width_mm": 2.0,
+      "ground_hole_radius_to_stage_spacing": 8.444444444444445,
+      "analytic_cpar_pf": 30.34814840126036,
+      "fea_cpar_pf": 27.99355401194707,
+      "fea_over_analytic": 0.9224139028786512,
+      "adjacent_cpar_pf": [
+        27.99355401194707,
+        27.99355401194707
+      ],
+      "energy_solve_count": 4,
+      "elapsed_s": 17.78647602093406
+    },
+    {
+      "tube_and_ground_od_mm": 120.0,
+      "ground_id_mm": 116.0,
+      "bias_od_mm": 118.0,
+      "ground_annulus_radial_width_mm": 2.0,
+      "ground_hole_radius_to_stage_spacing": 12.88888888888889,
+      "analytic_cpar_pf": 70.70025707883646,
+      "fea_cpar_pf": 67.08469453085114,
+      "fea_over_analytic": 0.9488606873953276,
+      "adjacent_cpar_pf": [
+        67.08469453085114,
+        67.08469453085114
+      ],
+      "energy_solve_count": 4,
+      "elapsed_s": 25.951205683872104
+    }
+  ]
+}

@@ -15,6 +15,9 @@ import importlib.metadata
 import importlib.util
 import json
 import math
+import subprocess
+import sys
+import time
 from typing import Any
 
 import axisymmetric_model
@@ -36,6 +39,9 @@ BOUNDARY_MARKER_TOLERANCE_MM = 1e-5
 EPSILON_0_PF_PER_MM = 8.8541878128e-3
 SOLVE_STRATEGY_MIRROR_HALF = "mirror_half"
 SOLVE_STRATEGY_END_REPEAT_APPROX = "end_repeat_approx"
+CAPACITANCE_STRATEGY_FULL = "full_excitations"
+CAPACITANCE_STRATEGY_MIRROR = "mirror_excitations"
+CAPACITANCE_STRATEGY_REPEAT = "repeat_interior"
 
 
 def module_version(module_name: str) -> str | None:
@@ -190,10 +196,10 @@ def _component_profile_for_solve(
     ):
         return profile
 
-    # The capacitance model keeps the core dielectric between bias nodes, but
-    # each bias node must contact the full core cross-section. Extending only
-    # the plate conductor to the axis supplies that electrode without turning
-    # the continuous inter-plate core volume into an equipotential conductor.
+    # The capacitance model keeps each inter-plate core segment dielectric, but
+    # each bias node must contact the full core cross-section. Current geometry
+    # profiles already use solid bias discs; snapping any legacy inner points
+    # to the axis keeps imported/older profiles consistent with that topology.
     core_r = float(p["core_od_mm"]) / 2.0
     return [
         (0.0 if r <= core_r + GEOMETRY_TOLERANCE_MM else r, z)
@@ -583,6 +589,97 @@ def _capacitance_from_energy(
     }
 
 
+def _maxwell_cross_capacitance_pf(
+    mesh: Any,
+    potential_i: Any,
+    potential_j: Any,
+    p: dict[str, Any],
+    modules: dict[str, Any],
+) -> float:
+    """Assemble one Maxwell capacitance coefficient from two basis fields."""
+    ufl = modules["ufl"]
+    x = ufl.SpatialCoordinate(mesh)
+    epsr = _dielectric_epsr_expression(
+        mesh,
+        p,
+        modules,
+        include_core_dielectric=True,
+    )
+    integrand = (
+        2.0
+        * math.pi
+        * x[0]
+        * EPSILON_0_PF_PER_MM
+        * epsr
+        * ufl.inner(ufl.grad(potential_i), ufl.grad(potential_j))
+        * ufl.dx
+    )
+    return _assemble_global_scalar(mesh, integrand, modules)
+
+
+def _reflect_potential_axially(
+    mesh: Any,
+    potential: Any,
+    z_min_mm: float,
+    z_max_mm: float,
+    modules: dict[str, Any],
+) -> Any:
+    """Interpolate an exact axial reflection of a scalar basis field."""
+    fem = modules["fem"]
+    np = modules["np"]
+    function_space = potential.function_space
+    dof_coordinates = function_space.tabulate_dof_coordinates()
+    reflected_points = np.zeros((len(dof_coordinates), 3), dtype=np.float64)
+    reflected_points[:, : dof_coordinates.shape[1]] = dof_coordinates
+    reflected_points[:, 1] = float(z_min_mm) + float(z_max_mm) - dof_coordinates[:, 1]
+    cells = _colliding_cell_lookup(mesh, reflected_points, modules)
+    for index, cell in enumerate(cells):
+        if cell is not None:
+            continue
+        original = reflected_points[index].copy()
+        located = False
+        for distance in (1e-8, 1e-7, 1e-6):
+            offsets = [
+                (0.0, distance),
+                (0.0, -distance),
+                (distance, 0.0),
+                (-distance, 0.0),
+                (distance, distance),
+                (distance, -distance),
+                (-distance, distance),
+                (-distance, -distance),
+            ]
+            candidates = np.repeat(original.reshape(1, 3), len(offsets), axis=0)
+            for candidate, (dr, dz) in zip(candidates, offsets):
+                candidate[0] = max(0.0, candidate[0] + dr)
+                candidate[1] += dz
+            candidate_cells = _colliding_cell_lookup(mesh, candidates, modules)
+            match = next(
+                (
+                    (candidate, candidate_cell)
+                    for candidate, candidate_cell in zip(candidates, candidate_cells)
+                    if candidate_cell is not None
+                ),
+                None,
+            )
+            if match is not None:
+                reflected_points[index] = match[0]
+                cells[index] = match[1]
+                located = True
+                break
+        if not located:
+            raise RuntimeError(
+                "Could not locate reflected capacitance DOF at "
+                f"r={original[0]:.9g}, z={original[1]:.9g} mm"
+            )
+    cell_indices = np.asarray(cells, dtype=np.int32)
+    values = potential.eval(reflected_points, cell_indices)
+    reflected = fem.Function(function_space)
+    reflected.x.array[:] = np.asarray(values).reshape(-1)
+    reflected.x.scatter_forward()
+    return reflected
+
+
 def _adjacent_pair_capacitance_from_energies(
     middle_only_pf: float,
     neighbors_only_pf: float,
@@ -593,6 +690,541 @@ def _adjacent_pair_capacitance_from_energies(
     if neighbor_count <= 0:
         raise ValueError("neighbor_count must be positive")
     return (middle_only_pf + neighbors_only_pf - all_bias_pf) / (2.0 * neighbor_count)
+
+
+def _middle_ground_capacitance_from_energies(
+    middle_only_pf: float,
+    neighbors_only_pf: float,
+    all_bias_pf: float,
+) -> float:
+    """Remove middle-to-neighbor mutual capacitance from a three-node solve.
+
+    The middle-only equivalent is its ground capacitance plus every mutual
+    capacitor to the grounded neighboring bias plates. Combining the same
+    three energy states used for Cpar cancels those mutual terms exactly.
+    """
+    return (middle_only_pf - neighbors_only_pf + all_bias_pf) / 2.0
+
+
+def _capacitance_network_from_energy_equivalents(
+    node_names: list[str],
+    single_node_pf: list[float],
+    pair_node_pf: dict[tuple[int, int], float],
+    all_bias_pf: float,
+) -> dict[str, Any]:
+    """Recover a physical capacitor network from electrostatic energy solves.
+
+    A one-volt excitation of node i returns the Maxwell diagonal Cii. Driving
+    nodes i and j together returns Cii + Cjj + 2 Cij, where the Maxwell
+    off-diagonal Cij is negative. The physical mutual capacitor is therefore
+    (Cii + Cjj - Cij,together) / 2. The node-to-ground capacitance is the
+    Maxwell row sum after subtracting every mutual capacitor.
+    """
+    count = len(node_names)
+    if count == 0 or len(single_node_pf) != count:
+        raise ValueError("node_names and single_node_pf must have the same nonzero length")
+
+    mutual_pf = [[0.0 for _ in range(count)] for _ in range(count)]
+    raw_mutual_pf = [[0.0 for _ in range(count)] for _ in range(count)]
+    for i in range(count):
+        for j in range(i + 1, count):
+            together = float(pair_node_pf[(i, j)])
+            raw = (float(single_node_pf[i]) + float(single_node_pf[j]) - together) / 2.0
+            raw_mutual_pf[i][j] = raw_mutual_pf[j][i] = raw
+            mutual_pf[i][j] = mutual_pf[j][i] = max(0.0, raw)
+
+    raw_ground_pf = [
+        float(single_node_pf[i]) - sum(mutual_pf[i][j] for j in range(count) if j != i)
+        for i in range(count)
+    ]
+    nonnegative_ground_pf = [max(0.0, value) for value in raw_ground_pf]
+    ground_sum = sum(nonnegative_ground_pf)
+    ground_scale = float(all_bias_pf) / ground_sum if ground_sum > 0.0 else 1.0
+    ground_pf = [value * ground_scale for value in nonnegative_ground_pf]
+
+    maxwell_pf = [[0.0 for _ in range(count)] for _ in range(count)]
+    for i in range(count):
+        maxwell_pf[i][i] = ground_pf[i] + sum(mutual_pf[i])
+        for j in range(count):
+            if i != j:
+                maxwell_pf[i][j] = -mutual_pf[i][j]
+
+    adjacent_pf = [mutual_pf[i][i + 1] for i in range(count - 1)]
+    return {
+        "method": "fenicsx-full-capacitance-matrix-energy-polarization",
+        "node_count": count,
+        "node_names": node_names,
+        "node_ground_pf": ground_pf,
+        "raw_node_ground_pf": raw_ground_pf,
+        "mutual_pf_matrix": mutual_pf,
+        "raw_mutual_pf_matrix": raw_mutual_pf,
+        "maxwell_pf_matrix": maxwell_pf,
+        "single_node_equivalent_pf": [float(value) for value in single_node_pf],
+        "pair_node_equivalent_pf": {
+            f"{i},{j}": float(value)
+            for (i, j), value in pair_node_pf.items()
+        },
+        "adjacent_mutual_pf": adjacent_pf,
+        "average_adjacent_mutual_pf": (
+            sum(adjacent_pf) / len(adjacent_pf) if adjacent_pf else 0.0
+        ),
+        "all_bias_equivalent_pf": float(all_bias_pf),
+        "total_ground_pf": sum(ground_pf),
+        "ground_normalization_factor": ground_scale,
+        "energy_solve_count": count + count * (count - 1) // 2 + 1,
+        "core_treatment": "dielectric-with-effective-permittivity",
+        "electrode_treatment": "solid-bias-plate-cross-sections",
+        "exact_full_stack": True,
+    }
+
+
+def _capacitance_excitation_representatives(
+    node_count: int,
+    use_repeating_interior: bool,
+) -> tuple[list[int], dict[tuple[int, int], tuple[int, int]]]:
+    """Map capacitance excitations onto mirror/repeating symmetry classes."""
+    if node_count <= 0:
+        raise ValueError("node_count must be positive")
+
+    # Cpar is a small difference of excitation energies. Even in repeating
+    # mode, retain each exact mirror class for Cii so a center-node self term
+    # is never substituted into a near-end pair polarization.
+    single_representatives = [
+        min(index, node_count - 1 - index)
+        for index in range(node_count)
+    ]
+
+    pair_representatives: dict[tuple[int, int], tuple[int, int]] = {}
+    for i in range(node_count):
+        for j in range(i + 1, node_count):
+            if use_repeating_interior:
+                if i == 0 or j == node_count - 1:
+                    # Preserve end-region coupling; only its exact reflected
+                    # counterpart is equivalent.
+                    reflected = (node_count - 1 - j, node_count - 1 - i)
+                    representative = min((i, j), reflected)
+                else:
+                    # Fully interior mutual capacitance is repeated by axial
+                    # separation. Choose the most central available pair.
+                    separation = j - i
+                    candidates = [
+                        (start, start + separation)
+                        for start in range(1, node_count - separation - 1)
+                    ]
+                    representative = min(
+                        candidates,
+                        key=lambda pair: (
+                            abs((pair[0] + pair[1]) - (node_count - 1)),
+                            pair[0],
+                        ),
+                    )
+            else:
+                reflected = (node_count - 1 - j, node_count - 1 - i)
+                representative = min((i, j), reflected)
+            pair_representatives[(i, j)] = representative
+
+    return single_representatives, pair_representatives
+
+
+def _repeating_ground_capacitance_representatives(node_count: int) -> list[int]:
+    """Return the end/interior Cg classes assumed by the repeating model."""
+    if node_count <= 0:
+        raise ValueError("node_count must be positive")
+    interior_representative = max(0, (node_count - 1) // 2)
+    return [
+        0 if index in {0, node_count - 1} else interior_representative
+        for index in range(node_count)
+    ]
+
+
+def _apply_ground_capacitance_classes(
+    network: dict[str, Any],
+    representatives: list[int],
+) -> None:
+    """Copy representative Cg values and retain the all-bias total."""
+    original_raw = [float(value) for value in network["raw_node_ground_pf"]]
+    if len(original_raw) != len(representatives):
+        raise ValueError("ground-capacitance representatives must match node count")
+
+    class_raw = [original_raw[representative] for representative in representatives]
+    nonnegative = [max(0.0, value) for value in class_raw]
+    total = float(network["all_bias_equivalent_pf"])
+    scale = total / sum(nonnegative) if sum(nonnegative) > 0.0 else 1.0
+    ground_pf = [value * scale for value in nonnegative]
+    mutual_pf = network["mutual_pf_matrix"]
+    count = len(ground_pf)
+    maxwell_pf = [[0.0 for _ in range(count)] for _ in range(count)]
+    for i in range(count):
+        maxwell_pf[i][i] = ground_pf[i] + sum(float(value) for value in mutual_pf[i])
+        for j in range(count):
+            if i != j:
+                maxwell_pf[i][j] = -float(mutual_pf[i][j])
+
+    network["unconstrained_raw_node_ground_pf"] = original_raw
+    network["raw_node_ground_pf"] = class_raw
+    network["node_ground_pf"] = ground_pf
+    network["maxwell_pf_matrix"] = maxwell_pf
+    network["total_ground_pf"] = sum(ground_pf)
+    network["ground_normalization_factor"] = scale
+
+
+def _full_capacitance_network(
+    p: dict[str, Any],
+    modules: dict[str, Any],
+    excitation_strategy: str | None = None,
+) -> dict[str, Any]:
+    """Extract node-to-ground and all bias-to-bias capacitances on one mesh."""
+    local_p = axisymmetric_model.normalize_parameters({
+        **p,
+        "bias_voltage_v": 1.0,
+        "solve_strategy": "full_stack",
+    })
+    gmsh = modules["gmsh"]
+    try:
+        mesh_sizes = _build_gmsh_model(
+            local_p,
+            modules,
+            include_core_dielectric=True,
+        )
+        mesh = _model_to_mesh(modules)
+    finally:
+        gmsh.finalize()
+
+    hv_components = [
+        component
+        for component in axisymmetric_model.component_profiles(local_p)
+        if component["material"] == "hv" and component["name"].startswith("hv_plate_")
+    ]
+    hv_components.sort(
+        key=lambda component: sum(float(point[1]) for point in component["profile"])
+        / max(1, len(component["profile"]))
+    )
+    node_names = [component["name"] for component in hv_components]
+    if not node_names:
+        raise RuntimeError("FEniCSx capacitance extraction found no bias-plate electrodes")
+
+    all_names = set(node_names)
+    ground_marker = _component_marker(
+        local_p,
+        modules,
+        materials={"ground"},
+        include_core_dielectric=True,
+    )
+
+    def solve_basis_potential(active_names: set[str]) -> Any:
+        inactive_names = all_names - active_names
+        markers: list[tuple[float, Any]] = [
+            (
+                1.0,
+                _component_marker(
+                    local_p,
+                    modules,
+                    names=active_names,
+                    include_core_dielectric=True,
+                ),
+            ),
+        ]
+        if inactive_names:
+            markers.append(
+                (
+                    0.0,
+                    _component_marker(
+                        local_p,
+                        modules,
+                        names=inactive_names,
+                        include_core_dielectric=True,
+                    ),
+                )
+            )
+        markers.append((0.0, ground_marker))
+        return _solve_potential_with_dirichlet_markers(
+            mesh,
+            local_p,
+            modules,
+            markers,
+            include_core_dielectric=True,
+        )
+
+    if excitation_strategy is None:
+        excitation_strategy = (
+            CAPACITANCE_STRATEGY_REPEAT
+            if (
+                p.get("solve_strategy") == SOLVE_STRATEGY_END_REPEAT_APPROX
+                or bool(p.get("use_repeating_cell_approximation", False))
+            )
+            else CAPACITANCE_STRATEGY_MIRROR
+        )
+    if excitation_strategy not in {
+        CAPACITANCE_STRATEGY_FULL,
+        CAPACITANCE_STRATEGY_MIRROR,
+        CAPACITANCE_STRATEGY_REPEAT,
+    }:
+        raise ValueError(f"Unsupported capacitance excitation strategy: {excitation_strategy}")
+
+    use_repeating_interior = excitation_strategy == CAPACITANCE_STRATEGY_REPEAT
+    count = len(node_names)
+    reuse_small_mirror = (
+        excitation_strategy != CAPACITANCE_STRATEGY_FULL
+        and count in {2, 3}
+    )
+    if reuse_small_mirror:
+        basis_indices = [0] if count == 2 else [0, 1]
+        single_representatives = [0, 0] if count == 2 else [0, 1, 0]
+    else:
+        basis_indices = list(range(count))
+        single_representatives = list(range(count))
+    basis_potentials = {
+        index: solve_basis_potential({node_names[index]})
+        for index in basis_indices
+    }
+    if reuse_small_mirror:
+        stack_length = axisymmetric_model.stack_length_mm(local_p)
+        for index in range(count):
+            if index in basis_potentials:
+                continue
+            representative = single_representatives[index]
+            basis_potentials[index] = _reflect_potential_axially(
+                mesh,
+                basis_potentials[representative],
+                0.0,
+                stack_length,
+                modules,
+            )
+
+    raw_maxwell_pf = [[0.0 for _ in range(count)] for _ in range(count)]
+    for i in range(count):
+        for j in range(i, count):
+            coefficient = _maxwell_cross_capacitance_pf(
+                mesh,
+                basis_potentials[i],
+                basis_potentials[j],
+                local_p,
+                modules,
+            )
+            raw_maxwell_pf[i][j] = coefficient
+            raw_maxwell_pf[j][i] = coefficient
+
+    all_bias_solve_reused = count == 1
+    if all_bias_solve_reused:
+        all_bias_pf = float(raw_maxwell_pf[0][0])
+    else:
+        all_bias_potential = solve_basis_potential(all_names)
+        all_bias_pf = _capacitance_from_energy(
+            mesh,
+            all_bias_potential,
+            local_p,
+            modules,
+            voltage_v=1.0,
+            include_core_dielectric=True,
+        )["total_pf"]
+
+    maxwell_pf = [row[:] for row in raw_maxwell_pf]
+    if excitation_strategy != CAPACITANCE_STRATEGY_FULL:
+        maxwell_pf = [
+            [
+                (
+                    raw_maxwell_pf[i][j]
+                    + raw_maxwell_pf[count - 1 - i][count - 1 - j]
+                ) / 2.0
+                for j in range(count)
+            ]
+            for i in range(count)
+        ]
+
+    pair_representatives = {
+        (i, j): (i, j)
+        for i in range(count)
+        for j in range(i + 1, count)
+    }
+    mutual_pf = [[0.0 for _ in range(count)] for _ in range(count)]
+    for i in range(count):
+        for j in range(i + 1, count):
+            value = max(0.0, -float(maxwell_pf[i][j]))
+            mutual_pf[i][j] = mutual_pf[j][i] = value
+
+    if use_repeating_interior:
+        _, pair_representatives = _capacitance_excitation_representatives(
+            count,
+            use_repeating_interior=True,
+        )
+        values_by_representative: dict[tuple[int, int], list[float]] = {}
+        for pair, representative in pair_representatives.items():
+            values_by_representative.setdefault(representative, []).append(
+                mutual_pf[pair[0]][pair[1]]
+            )
+        representative_values = {
+            representative: sum(values) / len(values)
+            for representative, values in values_by_representative.items()
+        }
+        for (i, j), representative in pair_representatives.items():
+            value = representative_values[representative]
+            mutual_pf[i][j] = mutual_pf[j][i] = value
+
+    raw_ground_pf = [
+        float(maxwell_pf[i][i]) - sum(mutual_pf[i])
+        for i in range(count)
+    ]
+    adjacent_pf = [mutual_pf[i][i + 1] for i in range(count - 1)]
+    pair_node_pf = {
+        (i, j): float(maxwell_pf[i][i]) + float(maxwell_pf[j][j]) - 2.0 * mutual_pf[i][j]
+        for i in range(count)
+        for j in range(i + 1, count)
+    }
+    network = {
+        "method": "fenicsx-maxwell-matrix-basis-cross-energy",
+        "node_count": count,
+        "node_names": node_names,
+        "node_ground_pf": [max(0.0, value) for value in raw_ground_pf],
+        "raw_node_ground_pf": raw_ground_pf,
+        "mutual_pf_matrix": mutual_pf,
+        "raw_mutual_pf_matrix": [
+            [
+                0.0 if i == j else -float(maxwell_pf[i][j])
+                for j in range(count)
+            ]
+            for i in range(count)
+        ],
+        "maxwell_pf_matrix": maxwell_pf,
+        "raw_maxwell_pf_matrix": raw_maxwell_pf,
+        "single_node_equivalent_pf": [
+            float(maxwell_pf[i][i]) for i in range(count)
+        ],
+        "pair_node_equivalent_pf": {
+            f"{i},{j}": value for (i, j), value in pair_node_pf.items()
+        },
+        "adjacent_mutual_pf": adjacent_pf,
+        "average_adjacent_mutual_pf": (
+            sum(adjacent_pf) / len(adjacent_pf) if adjacent_pf else 0.0
+        ),
+        "all_bias_equivalent_pf": float(all_bias_pf),
+        "total_ground_pf": sum(max(0.0, value) for value in raw_ground_pf),
+        "ground_normalization_factor": 1.0,
+        "core_treatment": "dielectric-with-effective-permittivity",
+        "electrode_treatment": "solid-bias-plate-cross-sections",
+    }
+    if use_repeating_interior:
+        ground_representatives = _repeating_ground_capacitance_representatives(count)
+    elif excitation_strategy == CAPACITANCE_STRATEGY_MIRROR:
+        ground_representatives = [
+            min(index, count - 1 - index)
+            for index in range(count)
+        ]
+    else:
+        ground_representatives = list(range(count))
+    _apply_ground_capacitance_classes(network, ground_representatives)
+    single_node_pf = [float(value) for value in network["single_node_equivalent_pf"]]
+    full_solve_count = count + 1
+    actual_solve_count = len(basis_indices) + (0 if all_bias_solve_reused else 1)
+    network.update({
+        "energy_solve_count_without_symmetry": full_solve_count,
+        "energy_solve_count": actual_solve_count,
+        "energy_solves_saved": full_solve_count - actual_solve_count,
+        "all_bias_solve_reused": all_bias_solve_reused,
+        "symmetry_strategy": (
+            "full-domain-maxwell-matrix-mirror-and-repeating-constraints"
+            if use_repeating_interior
+            else "full-domain-maxwell-matrix-exact-mirror-averaging"
+            if excitation_strategy == CAPACITANCE_STRATEGY_MIRROR
+            else "full-domain-maxwell-matrix-no-symmetry"
+        ),
+        "geometry_domain": "full-stack",
+        "geometric_mirror_half_used": False,
+        "mirror_equivalent_excitations_reused": reuse_small_mirror,
+        "matrix_extraction": (
+            "basis-field cross-energy with exact reflected-field interpolation"
+            if reuse_small_mirror
+            else "basis-field cross-energy"
+        ),
+        "excitation_strategy": excitation_strategy,
+        "repeating_interior_approximation": use_repeating_interior,
+        "single_excitation_representatives": single_representatives,
+        "ground_capacitance_representatives": ground_representatives,
+        "pair_excitation_representatives": {
+            f"{i},{j}": f"{representative[0]},{representative[1]}"
+            for (i, j), representative in pair_representatives.items()
+        },
+        "exact_full_stack": not use_repeating_interior,
+    })
+    if len(node_names) >= 2:
+        pair_i = max(0, (len(node_names) - 1) // 2)
+        pair_j = pair_i + 1
+        representative_states = [
+            {
+                "key": "node_i_only",
+                "title": (
+                    f"A  Node {pair_i} only"
+                    if pair_i in basis_indices
+                    else f"A  Node {pair_i}: mirror reuse"
+                ),
+                "capacitance_pf": single_node_pf[pair_i],
+                "solution_source": (
+                    "solved-basis-field"
+                    if pair_i in basis_indices
+                    else f"exact-reflection-of-node-{single_representatives[pair_i]}"
+                ),
+                "bias_plate_potentials_v": {
+                    name: 1.0 if index == pair_i else 0.0
+                    for index, name in enumerate(node_names)
+                },
+            },
+            {
+                "key": "node_j_only",
+                "title": (
+                    f"B  Node {pair_j} only"
+                    if pair_j in basis_indices
+                    else f"B  Node {pair_j}: mirror reuse"
+                ),
+                "capacitance_pf": single_node_pf[pair_j],
+                "solution_source": (
+                    "solved-basis-field"
+                    if pair_j in basis_indices
+                    else f"exact-reflection-of-node-{single_representatives[pair_j]}"
+                ),
+                "bias_plate_potentials_v": {
+                    name: 1.0 if index == pair_j else 0.0
+                    for index, name in enumerate(node_names)
+                },
+            },
+            {
+                "key": "pair_together",
+                "title": (
+                    "C  All bias plates (solved)"
+                    if count == 2
+                    else f"C  Reconstructed nodes {pair_i} + {pair_j}"
+                ),
+                "capacitance_pf": pair_node_pf[(pair_i, pair_j)],
+                "solution_source": (
+                    "solved-all-bias-field"
+                    if count == 2
+                    else "linear-reconstruction"
+                ),
+                "bias_plate_potentials_v": {
+                    name: 1.0 if index in {pair_i, pair_j} else 0.0
+                    for index, name in enumerate(node_names)
+                },
+            },
+        ]
+        network["representative_pair"] = [pair_i, pair_j]
+        network["visualization_model"] = {
+            "source": "fenicsx-full-capacitance-matrix-model",
+            "geometry": axisymmetric_model.geometry_summary(local_p),
+            "solved_bounds_mm": {
+                "z_min": 0.0,
+                "z_max": axisymmetric_model.stack_length_mm(local_p),
+                "r_min": 0.0,
+                "r_max": float(local_p["tube_id_mm"]) / 2.0,
+            },
+            "ground_potential_v": 0.0,
+            "core_relative_permittivity": axisymmetric_model.core_capacitance_epsr(local_p),
+            "excitation_states": representative_states,
+        }
+    network["mesh"] = {
+        "target_fine_mm": mesh_sizes.get("fine"),
+        "target_coarse_mm": mesh_sizes.get("coarse"),
+        "edge_radius_ratio": mesh_sizes.get("edge_radius_ratio"),
+    }
+    network["geometry"] = axisymmetric_model.geometry_summary(local_p)
+    return network
 
 
 def _analytic_parallel_plate_cpar_pf(p: dict[str, Any]) -> float:
@@ -609,6 +1241,31 @@ def _analytic_parallel_plate_cpar_pf(p: dict[str, Any]) -> float:
         + float(normalized["epoxy_epsr"]) * max(0.0, ground_r**2 - core_r**2)
     )
     return EPSILON_0_PF_PER_MM * weighted_area / separation if separation > 0.0 else 0.0
+
+
+def _analytic_two_washer_cg_pf(p: dict[str, Any]) -> float:
+    """Two flat washer capacitors from one bias plate to its ground neighbors."""
+    normalized = axisymmetric_model.normalize_parameters(dict(p))
+    washer_inner, washer_outer = axisymmetric_model.washer_radial_bounds(normalized)
+    overlap_inner = max(
+        float(washer_inner),
+        float(normalized["ground_plate_inner_diameter_mm"]) / 2.0,
+    )
+    overlap_outer = min(
+        float(washer_outer),
+        float(normalized["hv_plate_od_mm"]) / 2.0,
+    )
+    overlap_area = math.pi * max(0.0, overlap_outer**2 - overlap_inner**2)
+    gap = float(normalized["plate_gap_mm"])
+    if gap <= 0.0:
+        return 0.0
+    one_washer_pf = (
+        EPSILON_0_PF_PER_MM
+        * float(normalized["washer_epsr"])
+        * overlap_area
+        / gap
+    )
+    return 2.0 * one_washer_pf
 
 
 def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modules: dict[str, Any]) -> dict[str, Any] | None:
@@ -748,11 +1405,52 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         neighbor_count,
     )
     adjacent_pair_pf = max(0.0, raw_adjacent_pair_pf)
+    raw_middle_ground_pf = _middle_ground_capacitance_from_energies(
+        middle_total["total_pf"],
+        neighbors_total["total_pf"],
+        all_bias_to_ground["total_pf"],
+    )
+    middle_ground_pf = max(0.0, raw_middle_ground_pf)
+    excitation_states = [
+        {
+            "key": "middle_only",
+            "title": "A  Middle only",
+            "capacitance_pf": middle_total["total_pf"],
+            "bias_plate_potentials_v": {
+                name: 1.0 if name == middle_hv else 0.0
+                for name in hv_components
+            },
+        },
+        {
+            "key": "neighbors_only",
+            "title": "B  Neighbors only",
+            "capacitance_pf": neighbors_total["total_pf"],
+            "bias_plate_potentials_v": {
+                name: 0.0 if name == middle_hv else 1.0
+                for name in hv_components
+            },
+        },
+        {
+            "key": "all_bias",
+            "title": "C  All bias plates",
+            "capacitance_pf": all_bias_to_ground["total_pf"],
+            "bias_plate_potentials_v": {
+                name: 1.0
+                for name in hv_components
+            },
+        },
+    ]
     return {
         "parasitic_pf": adjacent_pair_pf,
         "adjacent_bias_pf": adjacent_pair_pf,
         "bias_to_bias_pf": adjacent_pair_pf,
         "raw_adjacent_bias_pf": raw_adjacent_pair_pf,
+        "middle_bias_to_ground_pf": middle_ground_pf,
+        "raw_middle_bias_to_ground_pf": raw_middle_ground_pf,
+        "middle_mutual_overcount_pf": max(
+            0.0,
+            middle_total["total_pf"] - middle_ground_pf,
+        ),
         "middle_to_all_zero_pf": middle_total["total_pf"],
         "neighbors_to_middle_zero_pf": neighbors_total["total_pf"],
         "local_bias_to_ground_total_pf": all_bias_to_ground["total_pf"],
@@ -771,10 +1469,33 @@ def _representative_adjacent_bias_parasitic_capacitance(p: dict[str, Any], modul
         "grounded_neighbor_cut_approximation": truncate_grounded_end,
         "grounded_neighbor_cut_z_mm": cut_z_mm if truncate_grounded_end else None,
         "grounded_cut_radial_start_mm": float(local_p["hv_plate_od_mm"]) / 2.0 if truncate_grounded_end else None,
+        "visualization_model": {
+            "source": "fenicsx-cpar-normalized-model",
+            "parameters": local_p,
+            "geometry": axisymmetric_model.geometry_summary(local_p),
+            "solved_bounds_mm": {
+                "z_min": cut_z_mm,
+                "z_max": solve_z_max_mm if solve_z_max_mm is not None else axisymmetric_model.stack_length_mm(local_p),
+                "r_min": 0.0,
+                "r_max": float(local_p["tube_id_mm"]) / 2.0,
+            },
+            "ground_potential_v": 0.0,
+            "core_treatment": "dielectric-with-effective-permittivity",
+            "core_relative_permittivity": axisymmetric_model.core_capacitance_epsr(local_p),
+            "excitation_states": excitation_states,
+            "mirror_reconstruction": {
+                "strategy": SOLVE_STRATEGY_MIRROR_HALF if use_mirror_half else "full_stack",
+                "neighbor_count": neighbor_count,
+                "grounded_neighbor_cut_approximation": truncate_grounded_end,
+            },
+        },
         "description": (
             "Representative Cpar = (C_middle_only + C_neighbors_only - C_all_bias) "
             "/ (2 Nneighbors) from a local three-bias-plate energy-polarization solve "
-            "with the core included as dielectric."
+            "with the core included as dielectric. The same states give "
+            "Cg,middle = (C_middle_only - C_neighbors_only + C_all_bias) / 2, "
+            "which removes the mutual capacitance counted when neighboring bias "
+            "plates are held at ground."
             + (
                 " The end ground/washer region is removed at the neighboring-bias center; "
                 "the remaining outer cut annulus is held at ground."
@@ -870,6 +1591,652 @@ def cpar_gap_sweep(
     }
 
 
+def _bias_to_ground_method_comparison(
+    p: dict[str, Any],
+    modules: dict[str, Any],
+    single_network: dict[str, Any] | None = None,
+    three_network: dict[str, Any] | None = None,
+    excitation_strategy: str = CAPACITANCE_STRATEGY_MIRROR,
+) -> dict[str, Any]:
+    """Compare direct one-bias Cg with a three-bias matrix row sum."""
+    single_p = axisymmetric_model.normalize_parameters({
+        **p,
+        "plate_pairs": 1,
+        "bias_voltage_v": 1.0,
+        "solve_strategy": SOLVE_STRATEGY_MIRROR_HALF,
+        "use_repeating_cell_approximation": False,
+    })
+    if single_network is None:
+        single_network = _full_capacitance_network(
+            single_p,
+            modules,
+            excitation_strategy=excitation_strategy,
+        )
+    single_ground_pf = float(single_network["node_ground_pf"][0])
+
+    three_p = axisymmetric_model.normalize_parameters({
+        **p,
+        "plate_pairs": 3,
+        "bias_voltage_v": 1.0,
+        "solve_strategy": SOLVE_STRATEGY_MIRROR_HALF,
+        "use_repeating_cell_approximation": False,
+    })
+    if three_network is None:
+        three_network = _full_capacitance_network(
+            three_p,
+            modules,
+            excitation_strategy=excitation_strategy,
+        )
+    maxwell_pf = three_network["maxwell_pf_matrix"]
+    mutual_pf = three_network["mutual_pf_matrix"]
+    middle_index = 1
+    neighbor_indices = (0, 2)
+    middle_only_pf = float(maxwell_pf[middle_index][middle_index])
+    neighbors_only_pf = (
+        float(maxwell_pf[0][0])
+        + float(maxwell_pf[2][2])
+        + 2.0 * float(maxwell_pf[0][2])
+    )
+    all_bias_pf = float(three_network["all_bias_equivalent_pf"])
+    three_ground_pf = _middle_ground_capacitance_from_energies(
+        middle_only_pf,
+        neighbors_only_pf,
+        all_bias_pf,
+    )
+    adjacent_cpar_pf = sum(
+        float(mutual_pf[middle_index][neighbor])
+        for neighbor in neighbor_indices
+    ) / len(neighbor_indices)
+    mutual_overcount_pf = middle_only_pf - three_ground_pf
+    difference_pf = three_ground_pf - single_ground_pf
+    difference_fraction = difference_pf / single_ground_pf if single_ground_pf > 0.0 else None
+    single_model = {
+        "source": "fenicsx-single-bias-cg-comparison",
+        "parameters": single_p,
+        "geometry": axisymmetric_model.geometry_summary(single_p),
+        "solved_bounds_mm": {
+            "z_min": 0.0,
+            "z_max": axisymmetric_model.stack_length_mm(single_p),
+            "r_min": 0.0,
+            "r_max": float(single_p["tube_id_mm"]) / 2.0,
+        },
+        "ground_potential_v": 0.0,
+        "core_treatment": "dielectric-with-effective-permittivity",
+        "core_relative_permittivity": axisymmetric_model.core_capacitance_epsr(single_p),
+        "excitation_states": [
+            {
+                "key": "single_bias_only",
+                "title": "Single bias plate",
+                "capacitance_pf": single_ground_pf,
+                "bias_plate_potentials_v": {
+                    single_network["node_names"][0]: 1.0,
+                },
+            }
+        ],
+    }
+    three_names = list(three_network["node_names"])
+    three_model = {
+        "source": "fenicsx-three-bias-cg-matrix-comparison",
+        "parameters": three_p,
+        "geometry": axisymmetric_model.geometry_summary(three_p),
+        "solved_bounds_mm": {
+            "z_min": 0.0,
+            "z_max": axisymmetric_model.stack_length_mm(three_p),
+            "r_min": 0.0,
+            "r_max": float(three_p["tube_id_mm"]) / 2.0,
+        },
+        "ground_potential_v": 0.0,
+        "core_treatment": "dielectric-with-effective-permittivity",
+        "core_relative_permittivity": axisymmetric_model.core_capacitance_epsr(three_p),
+        "excitation_states": [
+            {
+                "key": "middle_only",
+                "title": "A  Middle only",
+                "capacitance_pf": middle_only_pf,
+                "bias_plate_potentials_v": {
+                    name: 1.0 if index == middle_index else 0.0
+                    for index, name in enumerate(three_names)
+                },
+            },
+            {
+                "key": "neighbors_only",
+                "title": "B  Mirrored neighbors together",
+                "capacitance_pf": neighbors_only_pf,
+                "bias_plate_potentials_v": {
+                    name: 0.0 if index == middle_index else 1.0
+                    for index, name in enumerate(three_names)
+                },
+                "solution_source": "linear reconstruction from exact mirror basis fields",
+            },
+            {
+                "key": "all_bias",
+                "title": "C  All bias plates",
+                "capacitance_pf": all_bias_pf,
+                "bias_plate_potentials_v": {name: 1.0 for name in three_names},
+            },
+        ],
+        "mirror_reconstruction": {
+            "strategy": "full-stack exact reflection reuse",
+            "basis_solve_representatives": three_network["single_excitation_representatives"],
+        },
+    }
+    return {
+        "method": "fenicsx-one-bias-versus-three-bias-ground-capacitance",
+        "single_bias_geometry_pf": single_ground_pf,
+        "single_bias_equivalent_pf": float(single_network["single_node_equivalent_pf"][0]),
+        "three_bias_middle_ground_pf": three_ground_pf,
+        "three_bias_matrix_row_sum_pf": float(three_network["node_ground_pf"][middle_index]),
+        "three_bias_middle_only_equivalent_pf": middle_only_pf,
+        "three_bias_neighbors_only_equivalent_pf": neighbors_only_pf,
+        "three_bias_all_bias_equivalent_pf": all_bias_pf,
+        "three_bias_adjacent_cpar_pf": adjacent_cpar_pf,
+        "three_bias_neighbor_count": len(neighbor_indices),
+        "three_bias_mutual_overcount_pf": mutual_overcount_pf,
+        "three_minus_single_pf": difference_pf,
+        "three_minus_single_fraction": difference_fraction,
+        "single_bias_visualization_model": single_model,
+        "three_bias_visualization_model": three_model,
+        "formula": "Cg,middle = (Cmiddle + Call - Cneighbors) / 2 = Cmiddle - Nneighbors*Cpar",
+        "interpretation": (
+            "The middle-only diagonal includes mutual capacitance to every bias "
+            "plate held at zero volts. The three-state polarization subtraction "
+            "removes those terms. The one-bias geometry provides an independent "
+            "case with no bias-to-bias mutual capacitance to subtract."
+        ),
+    }
+
+
+def _cg_matrix_plate_count_comparison(
+    two_network: dict[str, Any],
+    three_network: dict[str, Any],
+) -> dict[str, Any]:
+    """Compare end and interior Cg using exact two- and three-node matrices."""
+    two_ground = [float(value) for value in two_network["node_ground_pf"]]
+    three_ground = [float(value) for value in three_network["node_ground_pf"]]
+    two_mean = sum(two_ground) / len(two_ground)
+    three_end_mean = (three_ground[0] + three_ground[-1]) / 2.0
+    three_center = three_ground[1]
+    return {
+        "method": "fenicsx-two-versus-three-bias-cg-matrix",
+        "two_bias_node_ground_pf": two_ground,
+        "two_bias_mean_ground_pf": two_mean,
+        "three_bias_node_ground_pf": three_ground,
+        "three_bias_end_mean_ground_pf": three_end_mean,
+        "three_bias_center_ground_pf": three_center,
+        "three_end_minus_two_pf": three_end_mean - two_mean,
+        "three_end_minus_two_fraction": (
+            (three_end_mean - two_mean) / two_mean if two_mean > 0.0 else None
+        ),
+        "three_center_minus_two_pf": three_center - two_mean,
+        "three_center_minus_two_fraction": (
+            (three_center - two_mean) / two_mean if two_mean > 0.0 else None
+        ),
+        "two_bias_energy_solve_count": int(two_network["energy_solve_count"]),
+        "three_bias_energy_solve_count": int(three_network["energy_solve_count"]),
+        "two_bias_solves_saved": int(two_network["energy_solves_saved"]),
+        "three_bias_solves_saved": int(three_network["energy_solves_saved"]),
+        "two_bias_representatives": list(two_network["single_excitation_representatives"]),
+        "three_bias_representatives": list(three_network["single_excitation_representatives"]),
+        "repeating_adds_small_matrix_reduction": False,
+        "repeating_note": (
+            "Two bias plates have no interior node and three bias plates have only "
+            "one interior node, so the repeating-interior assumption adds no "
+            "equivalence beyond exact reflection for this comparison."
+        ),
+    }
+
+
+def capacitance_strategy_sweep(
+    parameters: dict[str, Any],
+    plate_counts: tuple[int, ...] = (2, 3, 4, 5),
+) -> dict[str, Any]:
+    """Compare full, exact-mirror, and repeating capacitance extractions."""
+    base = axisymmetric_model.normalize_parameters(dict(parameters))
+    modules = _import_fenicsx_modules()
+    cases: list[dict[str, Any]] = []
+    strategies = (
+        CAPACITANCE_STRATEGY_FULL,
+        CAPACITANCE_STRATEGY_MIRROR,
+        CAPACITANCE_STRATEGY_REPEAT,
+    )
+    for plate_count in plate_counts:
+        case_parameters = axisymmetric_model.normalize_parameters({
+            **base,
+            "plate_pairs": int(plate_count),
+        })
+        analytic_pf = _analytic_parallel_plate_cpar_pf(case_parameters)
+        for strategy in strategies:
+            started = time.perf_counter()
+            network = _full_capacitance_network(
+                case_parameters,
+                modules,
+                excitation_strategy=strategy,
+            )
+            elapsed_s = time.perf_counter() - started
+            adjacent_pf = [float(value) for value in network["adjacent_mutual_pf"]]
+            average_pf = float(network["average_adjacent_mutual_pf"])
+            cases.append({
+                "plate_count": int(plate_count),
+                "strategy": strategy,
+                "adjacent_cpar_pf": adjacent_pf,
+                "average_adjacent_cpar_pf": average_pf,
+                "analytic_cpar_pf": analytic_pf,
+                "fea_over_analytic": average_pf / analytic_pf if analytic_pf > 0.0 else None,
+                "node_ground_pf": [float(value) for value in network["node_ground_pf"]],
+                "energy_solve_count": int(network["energy_solve_count"]),
+                "energy_solve_count_without_symmetry": int(
+                    network["energy_solve_count_without_symmetry"]
+                ),
+                "elapsed_s": elapsed_s,
+            })
+    return {
+        "method": "fenicsx-capacitance-strategy-consistency",
+        "expectation": (
+            "Full and exact-mirror results agree to numerical precision. "
+            "For two through five nodes, repeating mode preserves adjacent Cpar; "
+            "it may collapse interior Cg values by design."
+        ),
+        "geometry": axisymmetric_model.geometry_summary(base),
+        "cases": cases,
+    }
+
+
+def cg_strategy_sweep(
+    parameters: dict[str, Any],
+    plate_counts: tuple[int, ...] = (1, 2, 3, 4, 5),
+) -> dict[str, Any]:
+    """Compare node-resolved Cg under full, mirror, and repeating treatments."""
+    base = axisymmetric_model.normalize_parameters(dict(parameters))
+    modules = _import_fenicsx_modules()
+    cases: list[dict[str, Any]] = []
+    strategies = (
+        CAPACITANCE_STRATEGY_FULL,
+        CAPACITANCE_STRATEGY_MIRROR,
+        CAPACITANCE_STRATEGY_REPEAT,
+    )
+    for plate_count in plate_counts:
+        case_parameters = axisymmetric_model.normalize_parameters({
+            **base,
+            "plate_pairs": int(plate_count),
+        })
+        analytic_pf = _analytic_two_washer_cg_pf(case_parameters)
+        networks: dict[str, dict[str, Any]] = {}
+        elapsed_by_strategy: dict[str, float] = {}
+        for strategy in strategies:
+            started = time.perf_counter()
+            networks[strategy] = _full_capacitance_network(
+                case_parameters,
+                modules,
+                excitation_strategy=strategy,
+            )
+            elapsed_by_strategy[strategy] = time.perf_counter() - started
+
+        node_values = {
+            strategy: [
+                float(value) for value in networks[strategy]["node_ground_pf"]
+            ]
+            for strategy in strategies
+        }
+        full_pf = node_values[CAPACITANCE_STRATEGY_FULL]
+        mirror_pf = node_values[CAPACITANCE_STRATEGY_MIRROR]
+        repeat_pf = node_values[CAPACITANCE_STRATEGY_REPEAT]
+        average_pf = sum(mirror_pf) / len(mirror_pf)
+        max_full_reflection_difference_pf = max(
+            abs(full_pf[index] - full_pf[-1 - index])
+            for index in range(plate_count)
+        )
+        max_full_vs_mirror_pf = max(
+            abs(full_pf[index] - mirror_pf[index])
+            for index in range(plate_count)
+        )
+        max_repeat_vs_mirror_pf = max(
+            abs(repeat_pf[index] - mirror_pf[index])
+            for index in range(plate_count)
+        )
+        cases.append({
+            "plate_count": int(plate_count),
+            "analytic_two_washer_cg_pf": analytic_pf,
+            "full_node_cg_pf": full_pf,
+            "mirror_node_cg_pf": mirror_pf,
+            "repeat_node_cg_pf": repeat_pf,
+            "average_mirror_cg_pf": average_pf,
+            "fea_over_analytic": average_pf / analytic_pf if analytic_pf > 0.0 else None,
+            "max_full_reflection_difference_pf": max_full_reflection_difference_pf,
+            "max_full_vs_mirror_pf": max_full_vs_mirror_pf,
+            "max_repeat_vs_mirror_pf": max_repeat_vs_mirror_pf,
+            "max_full_vs_mirror_fraction": (
+                max_full_vs_mirror_pf / average_pf if average_pf > 0.0 else None
+            ),
+            "max_repeat_vs_mirror_fraction": (
+                max_repeat_vs_mirror_pf / average_pf if average_pf > 0.0 else None
+            ),
+            "all_bias_equivalent_pf": float(
+                networks[CAPACITANCE_STRATEGY_MIRROR]["all_bias_equivalent_pf"]
+            ),
+            "elapsed_s_by_strategy": elapsed_by_strategy,
+        })
+    return {
+        "method": "fenicsx-cg-strategy-consistency",
+        "expectation": (
+            "Full-stack Cg approaches exact reflection symmetry within mesh "
+            "discretization error. Mirror averaging removes that asymmetry. "
+            "Repeating mode may average small end-effect differences among "
+            "interior nodes but must preserve total and average Cg."
+        ),
+        "geometry": axisymmetric_model.geometry_summary(base),
+        "cases": cases,
+    }
+
+
+def cpar_limiting_geometry_sweep(
+    parameters: dict[str, Any],
+    outer_diameters_mm: tuple[float, ...] = (24.0, 40.0, 80.0, 120.0),
+) -> dict[str, Any]:
+    """Move grounded edges outward until the axial parallel-plate limit holds."""
+    base = dict(parameters)
+    modules = _import_fenicsx_modules()
+    cases: list[dict[str, Any]] = []
+    for outer_diameter_mm in outer_diameters_mm:
+        outer = float(outer_diameter_mm)
+        ground_id = outer - 4.0
+        bias_od = outer - 2.0
+        case = axisymmetric_model.normalize_parameters({
+            **base,
+            "plate_pairs": 3,
+            "solve_strategy": SOLVE_STRATEGY_MIRROR_HALF,
+            "use_repeating_cell_approximation": False,
+            "core_material": "type61",
+            "use_direct_stage_circuit": False,
+            "ferrite_epsr": 3.4,
+            "epoxy_epsr": 3.4,
+            "washer_epsr": 3.4,
+            "tube_id_mm": outer,
+            "ground_plate_inner_diameter_mm": ground_id,
+            "hv_plate_od_mm": bias_od,
+            "washer_id_mode": "custom",
+            "washer_od_mode": "custom",
+            "washer_id_mm": float(base.get("core_od_mm", 2.2)),
+            "washer_od_mm": bias_od,
+        })
+        started = time.perf_counter()
+        network = _full_capacitance_network(
+            case,
+            modules,
+            excitation_strategy=CAPACITANCE_STRATEGY_MIRROR,
+        )
+        elapsed_s = time.perf_counter() - started
+        analytic_pf = _analytic_parallel_plate_cpar_pf(case)
+        fea_pf = float(network["average_adjacent_mutual_pf"])
+        stage_spacing = (
+            axisymmetric_model.ground_plate_thickness_mm(case)
+            + 2.0 * float(case["plate_gap_mm"])
+        )
+        cases.append({
+            "tube_and_ground_od_mm": float(case["tube_id_mm"]),
+            "ground_id_mm": float(case["ground_plate_inner_diameter_mm"]),
+            "bias_od_mm": float(case["hv_plate_od_mm"]),
+            "ground_annulus_radial_width_mm": (
+                float(case["ground_plate_od_mm"])
+                - float(case["ground_plate_inner_diameter_mm"])
+            ) / 2.0,
+            "ground_hole_radius_to_stage_spacing": (
+                float(case["ground_plate_inner_diameter_mm"]) / 2.0
+            ) / stage_spacing,
+            "analytic_cpar_pf": analytic_pf,
+            "fea_cpar_pf": fea_pf,
+            "fea_over_analytic": fea_pf / analytic_pf if analytic_pf > 0.0 else None,
+            "adjacent_cpar_pf": [
+                float(value) for value in network["adjacent_mutual_pf"]
+            ],
+            "energy_solve_count": int(network["energy_solve_count"]),
+            "elapsed_s": elapsed_s,
+        })
+    return {
+        "method": "fenicsx-cpar-wide-disc-analytic-limit",
+        "expectation": (
+            "FEA/analytic approaches 1 as the narrow grounded annulus and tube "
+            "move radially far from most of the axial-field area."
+        ),
+        "dielectric_epsr": 3.4,
+        "plate_count": 3,
+        "cases": cases,
+    }
+
+
+def _cg_limiting_geometry_case(
+    parameters: dict[str, Any],
+    bias_diameter_mm: float,
+    modules: dict[str, Any],
+) -> dict[str, Any]:
+    """Solve one wide-disc, one-bias Cg case with exact mirror symmetry."""
+    base = dict(parameters)
+    core_od = 2.0
+    ground_id = core_od + 0.20
+    bias_od = float(bias_diameter_mm)
+    tube_id = bias_od + 4.0
+    case = axisymmetric_model.normalize_parameters({
+        **base,
+        "plate_pairs": 1,
+        "solve_strategy": SOLVE_STRATEGY_MIRROR_HALF,
+        "use_repeating_cell_approximation": False,
+        "core_material": "type61",
+        "core_od_mm": core_od,
+        "use_direct_stage_circuit": False,
+        "ferrite_epsr": 3.4,
+        "epoxy_epsr": 3.4,
+        "washer_epsr": 3.4,
+        "tube_id_mm": tube_id,
+        "ground_plate_inner_diameter_mm": ground_id,
+        "hv_plate_od_mm": bias_od,
+        "washer_id_mode": "ground_id",
+        "washer_od_mode": "bias_od",
+        "washer_id_mm": ground_id,
+        "washer_od_mm": bias_od,
+    })
+    mirror_z_mm = axisymmetric_model.stack_length_mm(case) / 2.0
+    gmsh = modules["gmsh"]
+    started = time.perf_counter()
+    try:
+        mesh_sizes = _build_gmsh_model(
+            case,
+            modules,
+            include_core_dielectric=True,
+            z_max_mm=mirror_z_mm,
+        )
+        mesh = _model_to_mesh(modules)
+    finally:
+        gmsh.finalize()
+    hv_marker = _component_marker(
+        case,
+        modules,
+        materials={"hv"},
+        include_core_dielectric=True,
+    )
+    ground_marker = _component_marker(
+        case,
+        modules,
+        materials={"ground"},
+        include_core_dielectric=True,
+    )
+    potential = _solve_potential_with_dirichlet_markers(
+        mesh,
+        case,
+        modules,
+        [(1.0, hv_marker), (0.0, ground_marker)],
+        include_core_dielectric=True,
+    )
+    capacitance = _capacitance_from_energy(
+        mesh,
+        potential,
+        case,
+        modules,
+        voltage_v=1.0,
+        energy_scale=2.0,
+        include_core_dielectric=True,
+    )
+    elapsed_s = time.perf_counter() - started
+    analytic_pf = _analytic_two_washer_cg_pf(case)
+    fea_pf = float(capacitance["total_pf"])
+    overlap_inner, overlap_outer = axisymmetric_model.washer_radial_bounds(case)
+    overlap_width = float(overlap_outer) - float(overlap_inner)
+    return {
+        "plate_count": 1,
+        "symmetry_strategy": "exact-center-plane-mirror",
+        "bias_od_mm": float(case["hv_plate_od_mm"]),
+        "tube_and_ground_od_mm": float(case["tube_id_mm"]),
+        "core_od_mm": float(case["core_od_mm"]),
+        "ground_id_mm": float(case["ground_plate_inner_diameter_mm"]),
+        "core_to_ground_radial_gap_mm": (
+            float(case["ground_plate_inner_diameter_mm"])
+            - float(case["core_od_mm"])
+        ) / 2.0,
+        "washer_overlap_radial_width_mm": overlap_width,
+        "analytic_two_washer_cg_pf": analytic_pf,
+        "fea_cg_pf": fea_pf,
+        "fea_over_analytic": fea_pf / analytic_pf if analytic_pf > 0.0 else None,
+        "energy_solve_count": 1,
+        "solved_z_extent_mm": mirror_z_mm,
+        "mesh": {
+            "target_fine_mm": mesh_sizes.get("fine"),
+            "target_coarse_mm": mesh_sizes.get("coarse"),
+            "edge_radius_ratio": mesh_sizes.get("edge_radius_ratio"),
+        },
+        "elapsed_s": elapsed_s,
+    }
+
+
+def cg_limiting_geometry_sweep(
+    parameters: dict[str, Any],
+    bias_diameters_mm: tuple[float, ...] = (12.0, 24.0, 40.0, 80.0, 120.0),
+) -> dict[str, Any]:
+    """Widen plate overlap, isolating each large PETSc solve in a subprocess."""
+    cases: list[dict[str, Any]] = []
+    for bias_diameter_mm in bias_diameters_mm:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                __file__,
+                "--validate-cg-wide-disc-case",
+                str(float(bias_diameter_mm)),
+            ],
+            input=json.dumps(parameters),
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=900,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(
+                f"Cg limiting case {bias_diameter_mm:g} mm failed: "
+                f"{completed.stderr.strip() or completed.stdout.strip()}"
+            )
+        cases.append(json.loads(completed.stdout))
+    return {
+        "method": "fenicsx-cg-wide-disc-analytic-limit",
+        "expectation": (
+            "FEA/analytic approaches 1 as ground ID approaches core OD and "
+            "the shared bias/ground washer-overlap radius grows, making inner "
+            "and outer fringing small relative to the axial field area."
+        ),
+        "validation_history": [
+            {
+                "attempt": "initial-oversized-sweep",
+                "bias_diameters_mm": [12.0, 24.0, 40.0, 80.0, 120.0],
+                "status": "aborted-before-results",
+                "reason": (
+                    "The 120 mm full-stack basis solve reached about 5.68 GiB "
+                    "RSS after 6 minutes 49 seconds. The initial geometry used "
+                    "a 0.01 mm core-to-ground radial gap, which forced a "
+                    "0.024 mm global coarse mesh target across the wide disc."
+                ),
+                "fix": (
+                    "Reduce model size while separating matrix-consistency and "
+                    "analytical-limit questions; preserve the failed attempt."
+                ),
+            },
+            {
+                "attempt": "64-mm-capped-sweep",
+                "bias_diameters_mm": [12.0, 24.0, 40.0, 64.0],
+                "status": "aborted-before-results",
+                "reason": (
+                    "The 64 mm case still reached about 5.65 GiB RSS after "
+                    "4 minutes 43 seconds in the same 0.01 mm-gap, full-stack "
+                    "multi-basis formulation."
+                ),
+                "fix": (
+                    "Cap the routine validation at 40 mm. The retained 12, 24, "
+                    "and 40 mm cases still increase overlap area by more than "
+                    "an order of magnitude and are checked for monotonic "
+                    "approach to the analytical result."
+                ),
+            },
+            {
+                "attempt": "40-mm-capped-single-process-sweep",
+                "bias_diameters_mm": [12.0, 24.0, 40.0],
+                "status": "aborted-before-results",
+                "reason": (
+                    "Even the 40 mm batch reached about 5.68 GiB RSS after "
+                    "5 minutes 9 seconds. At the time, similar plateaus "
+                    "suggested retained PETSc allocations. The later completed "
+                    "single-plate sweep showed that the dominant cause was the "
+                    "0.01 mm gap imposing 0.006/0.024 mm fine/coarse targets "
+                    "over the entire widening radial domain."
+                ),
+                "fix": (
+                    "Separate the questions. Matrix consistency is checked for "
+                    "one through five plates on ordinary geometry. The Cg "
+                    "analytical limit uses one bias plate, exact center-plane "
+                    "mirror symmetry, and one energy solve per diameter. Each "
+                    "diameter runs in a fresh subprocess so its mesh and PETSc "
+                    "state are released before the next case."
+                ),
+            },
+            {
+                "attempt": "isolated-subprocess-runner-first-launch",
+                "status": "failed-before-fea",
+                "reason": (
+                    "A redundant local import of sys inside main() shadowed "
+                    "the module-level sys used to read child-case JSON, causing "
+                    "UnboundLocalError before the first FEA solve."
+                ),
+                "fix": (
+                    "Remove the local import and retain the module-level sys "
+                    "import. Geometry, meshing, equations, and capacitance "
+                    "extraction were unchanged."
+                ),
+            },
+            {
+                "attempt": "completed-0.01-mm-gap-exact-mirror-sweep",
+                "bias_diameters_mm": [12.0, 24.0, 40.0, 64.0],
+                "status": "completed-but-resource-heavy",
+                "result_file": "cg-wide-disc-validation-tight-gap.json",
+                "fea_over_analytic": [
+                    1.4424244598,
+                    1.2037189325,
+                    1.1185443277,
+                    1.0728616572,
+                ],
+                "finding": (
+                    "The ratios converged monotonically toward 1, so the FEA "
+                    "scaling was correct. The 0.01 mm radial gap was much "
+                    "smaller than needed to make the inner missing area "
+                    "negligible and caused global overrefinement."
+                ),
+                "fix": (
+                    "Use a 0.10 mm radial core-to-ground gap (2.0 mm core, "
+                    "2.2 mm ground ID). It remains small relative to the disc "
+                    "radii while permitting larger analytical-limit cases "
+                    "without heavy swap or excessive memory."
+                ),
+            },
+        ],
+        "dielectric_epsr": 3.4,
+        "plate_count": 1,
+        "symmetry_strategy": "exact-center-plane-mirror",
+        "cases": cases,
+    }
+
+
 def _colliding_cell_lookup(mesh: Any, points: Any, modules: dict[str, Any]) -> list[int | None]:
     geometry = modules["geometry"]
     tdim = mesh.topology.dim
@@ -916,12 +2283,14 @@ def _eval_function_at_points(fn: Any, mesh: Any, rz_points: list[tuple[float, fl
 def _sample_to_browser_grid(
     mesh: Any,
     field_fn: Any,
+    potential_fn: Any,
     p: dict[str, Any],
     modules: dict[str, Any],
     mesh_sizes: dict[str, float] | None = None,
     mirror_z_mm: float | None = None,
     repeat_mesh: Any | None = None,
     repeat_field_fn: Any | None = None,
+    repeat_potential_fn: Any | None = None,
     repeat_z_bounds_mm: tuple[float, float] | None = None,
     end_z_max_mm: float | None = None,
 ) -> dict[str, Any]:
@@ -937,7 +2306,13 @@ def _sample_to_browser_grid(
     sample_points: list[tuple[int, int, float, float, str, int]] = []
     main_eval_points: list[tuple[float, float]] = []
     repeat_eval_points: list[tuple[float, float]] = []
-    use_end_repeat = repeat_mesh is not None and repeat_field_fn is not None and repeat_z_bounds_mm is not None and end_z_max_mm is not None
+    use_end_repeat = (
+        repeat_mesh is not None
+        and repeat_field_fn is not None
+        and repeat_potential_fn is not None
+        and repeat_z_bounds_mm is not None
+        and end_z_max_mm is not None
+    )
     for i, r in enumerate(r_coords):
         for j, z in enumerate(z_coords):
             if labels[i][j] != "dielectric":
@@ -978,7 +2353,22 @@ def _sample_to_browser_grid(
 
     main_values = _eval_function_at_points(field_fn, mesh, main_eval_points, modules)
     repeat_values = _eval_function_at_points(repeat_field_fn, repeat_mesh, repeat_eval_points, modules) if use_end_repeat else []
+    main_potentials = _eval_function_at_points(potential_fn, mesh, main_eval_points, modules)
+    repeat_potentials = (
+        _eval_function_at_points(repeat_potential_fn, repeat_mesh, repeat_eval_points, modules)
+        if use_end_repeat
+        else []
+    )
     field = [[0.0 for _ in range(nz)] for _ in range(nr)]
+    potential: list[list[float | None]] = [[None for _ in range(nz)] for _ in range(nr)]
+    for i in range(nr):
+        for j, z in enumerate(z_coords):
+            if z < 0.0 or z > length:
+                continue
+            if labels[i][j] == "hv":
+                potential[i][j] = float(p["bias_voltage_v"])
+            elif labels[i][j] == "ground":
+                potential[i][j] = 0.0
     raw_max_field = 0.0
     raw_max_location = (0.0, 0.0)
     raw_dielectric_peaks = {
@@ -988,6 +2378,9 @@ def _sample_to_browser_grid(
 
     for i, j, r, z, source, source_index in sample_points:
         value = main_values[source_index] if source == "end" else repeat_values[source_index]
+        potential_value = main_potentials[source_index] if source == "end" else repeat_potentials[source_index]
+        if potential_value is not None and math.isfinite(potential_value):
+            potential[i][j] = potential_value
         if value is None or not math.isfinite(value):
             continue
         field[i][j] = value
@@ -1034,6 +2427,7 @@ def _sample_to_browser_grid(
     return {
         "grid": grid,
         "field": field,
+        "potential": potential,
         "max_field_v_per_mm": supported["max_field_v_per_mm"],
         "max_field_kv_per_mm": supported["max_field_v_per_mm"] / 1000.0,
         "max_location_mm": supported["max_location_mm"],
@@ -1117,19 +2511,58 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         capacitance = _capacitance_from_energy(mesh, uh, p, modules, energy_scale=2.0 if use_mirror_half else 1.0)
         capacitance["symmetry_strategy"] = SOLVE_STRATEGY_MIRROR_HALF if use_mirror_half else "full_stack"
         capacitance["solved_z_extent_mm"] = mirror_z_mm or axisymmetric_model.stack_length_mm(p)
-    parasitic_capacitance = _representative_adjacent_bias_parasitic_capacitance(p, modules)
-    if parasitic_capacitance:
-        capacitance.update({
-            key: value
-            for key, value in parasitic_capacitance.items()
-            if key in {
-                "parasitic_pf",
-                "adjacent_bias_pf",
-                "bias_to_bias_pf",
-                "raw_adjacent_bias_pf",
-            }
+    capacitance_network = _full_capacitance_network(p, modules)
+    capacitance["field_model_total_pf"] = capacitance["total_pf"]
+    capacitance["field_model_energy_pj"] = capacitance["energy_pj"]
+    capacitance["total_pf"] = capacitance_network["total_ground_pf"]
+    capacitance["bias_to_ground_pf"] = capacitance_network["total_ground_pf"]
+    capacitance["network_all_bias_equivalent_pf"] = capacitance_network["all_bias_equivalent_pf"]
+    capacitance["capacitance_network"] = capacitance_network
+    capacitance["description"] = (
+        "Node-resolved FEniCSx capacitance matrix from single-node basis-field "
+        "cross energies plus an all-bias energy check, with the core treated "
+        "as dielectric."
+    )
+
+    capacitance["parasitic_pf"] = capacitance_network["average_adjacent_mutual_pf"]
+    capacitance["adjacent_bias_pf"] = capacitance_network["average_adjacent_mutual_pf"]
+    capacitance["bias_to_bias_pf"] = capacitance_network["average_adjacent_mutual_pf"]
+    comparison_strategy = (
+        CAPACITANCE_STRATEGY_REPEAT
+        if (
+            p.get("solve_strategy") == SOLVE_STRATEGY_END_REPEAT_APPROX
+            or bool(p.get("use_repeating_cell_approximation", False))
+        )
+        else CAPACITANCE_STRATEGY_MIRROR
+    )
+    comparison_networks: dict[int, dict[str, Any]] = {}
+    current_count = int(capacitance_network["node_count"])
+    if current_count in {1, 2, 3}:
+        comparison_networks[current_count] = capacitance_network
+    for comparison_count in (1, 2, 3):
+        if comparison_count in comparison_networks:
+            continue
+        comparison_parameters = axisymmetric_model.normalize_parameters({
+            **p,
+            "plate_pairs": comparison_count,
+            "bias_voltage_v": 1.0,
         })
-        capacitance["parasitic_estimate"] = parasitic_capacitance
+        comparison_networks[comparison_count] = _full_capacitance_network(
+            comparison_parameters,
+            modules,
+            excitation_strategy=comparison_strategy,
+        )
+    capacitance["bias_to_ground_comparison"] = _bias_to_ground_method_comparison(
+        p,
+        modules,
+        single_network=comparison_networks[1],
+        three_network=comparison_networks[3],
+        excitation_strategy=comparison_strategy,
+    )
+    capacitance["cg_matrix_plate_count_comparison"] = _cg_matrix_plate_count_comparison(
+        comparison_networks[2],
+        comparison_networks[3],
+    )
     admittance = _admittance_from_capacitance(p, capacitance["total_pf"])
     field_fn = _project_field_magnitude(mesh, uh, modules)
     if use_end_repeat:
@@ -1137,12 +2570,14 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
     sampled = _sample_to_browser_grid(
         mesh,
         field_fn,
+        uh,
         p,
         modules,
         mesh_sizes,
         mirror_z_mm=mirror_z_mm,
         repeat_mesh=repeat_mesh,
         repeat_field_fn=repeat_field_fn,
+        repeat_potential_fn=repeat_uh,
         repeat_z_bounds_mm=repeat_z_bounds_mm,
         end_z_max_mm=end_z_max_mm,
     )
@@ -1163,6 +2598,17 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         "capacitance": capacitance,
         "admittance": admittance,
         "field": sampled["field"],
+        "potential": sampled["potential"],
+        "model": {
+            "source": "fenicsx-normalized-model",
+            "parameters": p,
+            "geometry": axisymmetric_model.geometry_summary(p),
+            "boundaryConditions": {
+                "biasPotentialV": p["bias_voltage_v"],
+                "groundPotentialV": 0.0,
+                "fieldModelCoreTreatment": "equipotential bias boundary",
+            },
+        },
         "adaptive": {
             "enabled": True,
             "type": "gmsh-conforming-fea",
@@ -1186,10 +2632,34 @@ def main() -> None:
         action="store_true",
         help="Run the Type 61 large-core-gap FEA/analytic Cpar consistency sweep.",
     )
+    parser.add_argument(
+        "--validate-capacitance-strategies",
+        action="store_true",
+        help="Compare full, mirror-reused, and repeating Cpar extraction for 2-5 bias plates.",
+    )
+    parser.add_argument(
+        "--validate-cg-strategies",
+        action="store_true",
+        help="Compare node-resolved Cg under full, mirror, and repeating treatments.",
+    )
+    parser.add_argument(
+        "--validate-cpar-wide-disc-limit",
+        action="store_true",
+        help="Verify Cpar convergence toward the axial parallel-plate limit.",
+    )
+    parser.add_argument(
+        "--validate-cg-wide-disc-limit",
+        action="store_true",
+        help="Verify Cg convergence toward the two-washer parallel-plate limit.",
+    )
+    parser.add_argument(
+        "--validate-cg-wide-disc-case",
+        type=float,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args()
     if args.solve_stdin:
-        import sys
-
         parameters = json.load(sys.stdin)
         print(json.dumps(solve(parameters)))
         return
@@ -1204,6 +2674,33 @@ def main() -> None:
             "mesh_edge_radius_ratio": 0.2,
         })
         print(json.dumps(cpar_gap_sweep(parameters), indent=2))
+        return
+    if args.validate_capacitance_strategies:
+        parameters = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        print(json.dumps(capacitance_strategy_sweep(parameters), indent=2))
+        return
+    if args.validate_cg_strategies:
+        parameters = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        print(json.dumps(cg_strategy_sweep(parameters), indent=2))
+        return
+    if args.validate_cpar_wide_disc_limit:
+        parameters = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        print(json.dumps(cpar_limiting_geometry_sweep(parameters), indent=2))
+        return
+    if args.validate_cg_wide_disc_case is not None:
+        parameters = json.load(sys.stdin)
+        modules = _import_fenicsx_modules()
+        print(json.dumps(
+            _cg_limiting_geometry_case(
+                parameters,
+                args.validate_cg_wide_disc_case,
+                modules,
+            )
+        ))
+        return
+    if args.validate_cg_wide_disc_limit:
+        parameters = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        print(json.dumps(cg_limiting_geometry_sweep(parameters), indent=2))
         return
     status = dependency_status()
     if args.json:

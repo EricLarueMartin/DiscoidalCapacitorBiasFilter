@@ -95,12 +95,69 @@ This repeat construction is an approximation for the electric-field problem,
 not an exact finite-stack symmetry. One-pair geometry falls back to exact
 `mirror_half`.
 
-The adjacent-bias parasitic-capacitance solve is different. Only the middle
-bias plate is driven while neighboring bias plates are held at zero, so it has
-the middle-plane mirror symmetry but not the repeating electric-field symmetry.
-In approximate mode its domain is truncated at the neighboring bias center and
-the exposed outer annulus on that cut is grounded. The result is still a
-three-bias energy-polarization sanity check, not a full capacitance matrix.
+The node-resolved capacitance solve is different from the equal-voltage field
+solve. FEniCSx solves one full-stack unit basis field for every bias plate, then
+forms the Maxwell matrix from cross-energy integrals. `Cpar,i,j` is the negative
+off-diagonal coefficient and each `Cg,i` is the corresponding row sum. Exact
+mirror mode averages reflected matrix entries; repeating mode additionally
+shares only fully interior terms with the same axial separation.
+
+The basis-field diagonal `Cii` is not itself `Cg,i`: grounding the other bias
+plates makes their mutual capacitances part of `Cii`. The row sum already
+removes this contribution. A separate comparison was added on 2026-07-31 so
+the subtraction is directly visible. The default one-bias geometry gives
+39.915605 pF. In the exact-reflection three-bias matrix, the middle-only
+diagonal is 40.030002 pF and includes 0.255868 pF to the two adjacent bias
+plates; the row-sum/polarization result is 39.774133 pF. The two corrected
+methods differ by -0.354%, consistent with their different finite end/fringing
+environments. The Designer and bias-to-ground slide show both values.
+
+Exact reflected basis fields are now reused for the two- and three-bias
+matrices. Two plates require one basis plus all-bias (2 solves rather than 3).
+Three plates require one end basis, the center basis, and all-bias (3 rather
+than 4); the far end is reconstructed by reflecting the first field and is
+used directly in the cross-energy integral. The all-bias field is a total
+check, not a large-number subtraction used to infer `Cpar`. The two-bias
+reflected matrix matches the reflection-averaged full matrix to numerical
+precision. Three-bias adjacent `Cpar` agrees within 8e-12 pF; the largest
+matrix coefficient shift is 0.004662 pF from reflected-field interpolation.
+The new comparison slide reports 39.827617 pF for either two-bias node,
+39.857434 pF for each three-bias end, and 39.774133 pF for the three-bias
+center. Repeat interior adds no further class for these small matrices.
+
+The 2026-07-30 Pi verification found identical average adjacent `Cpar` for
+full/no-symmetry, exact mirror, and repeated-interior matrix treatments with
+two, three, four, and five bias plates. The default geometry produced about
+`0.128 pF`, or `0.478` of the axial `epsilon A/d` estimate because of ground
+shielding. A wide-disc limiting sweep increased FEA/analytic monotonically from
+`0.720` at 24 mm OD to `0.949` at 120 mm OD. Raw results are stored in
+`simulations/axisymmetric/outputs/cpar-strategy-validation.json` and
+`cpar-wide-disc-validation.json`.
+
+The matching `Cg` verification now includes one, two, three, four, and five
+bias plates. The one-plate case is a direct node-to-ground check with no mutual
+capacitance bookkeeping. Full raw matrices, exact mirror averaging, and
+repeated-interior constraints agree in mean to the shown precision. Across the
+node vectors, the largest full-to-mirror correction is 0.0658% and the largest
+repeat-to-mirror change is 0.0460%.
+
+A separate exact-mirror, one-bias limiting campaign sets core OD to 2.0 mm,
+ground/washer ID to 2.2 mm, all dielectric permittivities to 3.4, and increases
+bias/washer OD through 12, 24, 40, 80, and 120 mm. FEA/two-washer-analytic `Cg`
+converges monotonically as 1.4486, 1.2049, 1.1189, 1.0581, and 1.0384. The
+remaining positive error is finite-disc fringing.
+
+Do not erase the failed-run history when condensing this handoff. The first
+three-bias full-stack attempts used an unnecessarily tiny 0.01 mm radial gap,
+which imposed an almost global fine mesh and climbed to about 5.7 GiB RSS.
+Retained PETSc memory was initially suspected; isolated completed runs showed
+the mesh scale was the main cause. One isolated-runner attempt also failed
+before FEA because a local `sys` import shadowed the module import. The final
+harness uses a physically adequate 0.10 mm gap, exact one-plate symmetry, and a
+fresh subprocess per diameter. It completed without swap. Detailed geometry
+and tables are in `docs/knowledge/fenicsx-fea.md`; raw results are
+`simulations/axisymmetric/outputs/cg-strategy-validation.json`,
+`cg-wide-disc-validation.json`, and `cg-wide-disc-validation-tight-gap.json`.
 
 ## Electrical Model and Presentation
 
@@ -109,11 +166,20 @@ conclusions. Do not multiply a one-section attenuation by section count:
 downstream capacitors load upstream nodes, while cable, detector, and load
 conductance occur only once at the output.
 
-The main electrical-model slide maps `Rstage`, `Cg = 2 Cgap`, `Cpar`, the end
+The main electrical-model slide maps `Rstage`, the FEA mean
+`Cg`, the FEA mean adjacent `Cpar`, the end
 resistances, and the one-time output load. Its curve is explicitly one isolated
 section for explanation only. Multiplied-section curves were removed from the
 main loaded-ladder and SPICE plots. The divergence comparison remains as the
 first backup circuit-model slide.
+
+An `Additional Cg per bias plate` control now represents identical discrete
+capacitors from every bias node to ground. It defaults to zero and is added
+only when assembling the analytical and SPICE ladders:
+`Cg,circuit,i = Cg,FEA,i + Cg,additional`. Changing it retains the existing FEA
+result because the solved geometry and Maxwell matrix do not change. The
+Designer separately reports FEA `Cg`, circuit `Cg`, and FEA adjacent `Cpar` so
+the improved shunt ratio cannot hide the geometric parasitic coupling.
 
 The slide formerly titled `SPICE Checks the Loaded-System Trend` is now
 `SPICE Simulation on RC Ladder`. It compares the full ladder with its coax and
@@ -131,6 +197,15 @@ The peak-field result slide is titled `FEA for Peak Electric Field`; avoid the
 ambiguous phrase `design screen` there. Its remaining qualification caveat is
 specific: the peak must converge under mesh refinement before it is used as a
 breakdown limit.
+
+The top-right language selector follows the theme button and persists its value
+in `discoidal-capacitor-bias-filter-language`. English, French, and German
+translate navigation, major action/view controls, and all presentation titles.
+The `sux` option is labeled experimental and uses a limited cuneiform display;
+modern technical prose deliberately remains English where no responsible
+Sumerian translation is available. `en-sc-1840` provides restrained historical
+English wording without racial slurs or caricature. Language changes also
+refresh the dynamic theme, solve, cutaway, and artifact-download labels.
 
 ## Alumina and Partial-Discharge Concern
 
@@ -168,11 +243,12 @@ FEniCSx solve. `software/bias_filter/thermal_stress.py` and
 `software/bias_filter/thermal_fenicsx_solver.py` implements the bonded-solid
 FEA and is exposed as `POST /api/thermal-solve`.
 
-For the default design at 20 C, the baseline is 15.2 MPa. The 0.30 mm FEA mesh
-reports 32.175 MPa epoxy maximum-principal tensile P99 and a 53.254 MPa raw
-corner peak. A 0.20 mm mesh reports 32.115 MPa P99 and 61.985 MPa raw peak.
-The P99 comparison changes by 0.19%; the raw corner peak remains deliberately
-identified as mesh-sensitive.
+For the default design at 20 C, the baseline is 15.2 MPa. The verified current
+0.30 mm FEA mesh reports 31.741 MPa epoxy maximum-principal tensile P99 and a
+51.486 MPa raw corner peak. A 0.20 mm mesh reports 31.800 MPa P99 and
+59.887 MPa raw peak. The 0.10 mm reference reports 31.928 MPa P99 and
+78.884 MPa raw peak. P95/P99 are stable for comparison; the raw corner peak
+continues to rise under refinement.
 
 The FEA uses exact cylindrical and axial center-plane symmetry, perfect bonds,
 traction-free exposed surfaces, linear elasticity, and a 70 C stress-free
@@ -180,6 +256,16 @@ reference. It excludes cure shrinkage, viscoelastic relaxation, voids,
 cohesive interfaces, and debonding. It is a geometry-aware elastic comparison,
 not an adhesive-fracture prediction. The 2--4 GPa epoxy modulus uncertainty
 remains because MG Chemicals does not publish the 9510 modulus.
+
+The executable 2026-07-30 verification campaign is in
+`software/bias_filter/thermal_validation.py`, with detailed interpretation in
+`docs/knowledge/thermal-fea-verification.md` and complete JSON/PNG artifacts
+under `simulations/thermal/validation/`. It verifies zero load, free
+contraction, the fully restrained triaxial closed form, linear scaling,
+common-CTE invariance, full-stack symmetry, and mesh convergence. All eight
+acceptance checks pass. The zero-load case exposed and fixed a UFL
+form-construction edge case when the Python temperature multiplier was exactly
+zero.
 
 The Designer viewer now has four tabs: `CAD mesh`, `FEA model regions`,
 `Electric field`, and `Thermal FEA`. The renamed FEA-regions view represents
@@ -245,15 +331,13 @@ handoff intentionally does not propose or implement a mitigation.
    stress; then revise the thermal model and slide if warranted.
 2. Implement and record FEniCSx edge-mesh convergence before treating peak
    fields as breakdown acceptance values.
-3. Replace the adjacent-bias energy-difference check with a capacitance-matrix
-   charge extraction if quantitative Cpar accuracy becomes important.
-4. Build representative copper/9510/alumina bonded-ring coupons using the real
+3. Build representative copper/9510/alumina bonded-ring coupons using the real
    cure fixture and process; inspect and thermal-cycle them before assigning a
    cold transport or operating rating.
-5. Develop a DC partial-discharge/current-pulse acceptance test for potted
+4. Develop a DC partial-discharge/current-pulse acceptance test for potted
    coupons and completed assemblies; evaluate voids and interface delamination,
    not only bulk dielectric breakdown.
-6. Measure ferrite excess noise and MELF-stage parasitic capacitance/loaded
+5. Measure ferrite excess noise and MELF-stage parasitic capacitance/loaded
    response before selecting a prototype core.
 
 ## Validation and Continuation Commands

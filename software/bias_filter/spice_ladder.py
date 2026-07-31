@@ -40,7 +40,11 @@ def core_resistance_for_length_ohm(p: dict[str, Any], length_mm: float) -> float
     if area_mm2 <= 0.0:
         return math.nan
     rho_ohm_cm = 10.0 ** float(p.get("core_volume_resistivity_log10_ohm_cm", 8.0))
-    return rho_ohm_cm * (10.0 * length_mm / area_mm2)
+    return (
+        rho_ohm_cm
+        * (10.0 * length_mm / area_mm2)
+        * axisymmetric_model.ferrite_resistive_length_fraction(p)
+    )
 
 
 def uses_direct_stage_circuit(p: dict[str, Any]) -> bool:
@@ -53,6 +57,10 @@ def uses_direct_stage_capacitance(p: dict[str, Any]) -> bool:
 
 def bias_plate_count(p: dict[str, Any]) -> int:
     return max(1, int(p["plate_pairs"]))
+
+
+def additional_ground_capacitance_pf(p: dict[str, Any]) -> float:
+    return max(0.0, float(p.get("additional_ground_capacitance_pf", 0.0)))
 
 
 def resistive_section_count(p: dict[str, Any]) -> int:
@@ -84,7 +92,7 @@ def stage_resistance_ohm(p: dict[str, Any], bias_bias_separation_mm: float) -> f
     return core_resistance_for_length_ohm(p, bias_bias_separation_mm)
 
 
-def circuit_estimates(p: dict[str, Any]) -> dict[str, float]:
+def circuit_estimates(p: dict[str, Any]) -> dict[str, Any]:
     core_radius = float(p["core_od_mm"]) / 2.0
     ground_inner = float(p["ground_plate_inner_diameter_mm"]) / 2.0
     washer_inner, washer_outer = axisymmetric_model.washer_radial_bounds(p)
@@ -94,8 +102,10 @@ def circuit_estimates(p: dict[str, Any]) -> dict[str, float]:
 
     pair_cap_pf = parallel_plate_capacitance_pf(float(p["washer_epsr"]), overlap_area, float(p["plate_gap_mm"]))
     fr4_pair_cap_pf = parallel_plate_capacitance_pf(FR4_WASHER_EPSR, overlap_area, float(p["plate_gap_mm"]))
-    shunt_cap_pf = 2.0 * pair_cap_pf
-    total_ground_cap_pf = 2.0 * bias_plate_count(p) * pair_cap_pf
+    geometric_shunt_cap_pf = 2.0 * pair_cap_pf
+    added_ground_cap_pf = additional_ground_capacitance_pf(p)
+    shunt_cap_pf = geometric_shunt_cap_pf + added_ground_cap_pf
+    total_ground_cap_pf = bias_plate_count(p) * shunt_cap_pf
 
     bias_bias_separation = axisymmetric_model.ground_plate_thickness_mm(p) + 2.0 * float(p["plate_gap_mm"])
     ferrite_area = math.pi * core_radius**2
@@ -115,12 +125,97 @@ def circuit_estimates(p: dict[str, Any]) -> dict[str, float]:
     r_stage = stage_resistance_ohm(p, bias_bias_separation)
     return {
         "pairCapPf": pair_cap_pf,
+        "geometricShuntCapPf": geometric_shunt_cap_pf,
+        "additionalGroundCapacitancePf": added_ground_cap_pf,
         "shuntCapPf": shunt_cap_pf,
         "totalGroundCapPf": total_ground_cap_pf,
         "parasiticPf": parasitic_pf,
         "stageResistanceOhm": r_stage,
         "washerCapGain": pair_cap_pf / fr4_pair_cap_pf if fr4_pair_cap_pf > 0.0 else math.nan,
+        "capacitanceSource": "analytical-or-entered",
     }
+
+
+def circuit_with_capacitance_network(
+    circuit: dict[str, Any],
+    p: dict[str, Any],
+    capacitance_network: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Apply node-resolved FEA capacitances to the ladder circuit."""
+    if not isinstance(capacitance_network, dict):
+        return circuit
+    stages = bias_plate_count(p)
+    ground_raw = capacitance_network.get(
+        "node_ground_pf",
+        capacitance_network.get("nodeGroundPf"),
+    )
+    mutual_raw = capacitance_network.get(
+        "mutual_pf_matrix",
+        capacitance_network.get("mutualPfMatrix"),
+    )
+    if not isinstance(ground_raw, list) or len(ground_raw) != stages:
+        raise ValueError("FEA capacitance network node_ground_pf length does not match plate_pairs")
+    if not isinstance(mutual_raw, list) or len(mutual_raw) != stages:
+        raise ValueError("FEA capacitance network mutual_pf_matrix size does not match plate_pairs")
+
+    geometric_ground_pf = [max(0.0, float(value)) for value in ground_raw]
+    added_ground_pf = additional_ground_capacitance_pf(p)
+    ground_pf = [value + added_ground_pf for value in geometric_ground_pf]
+    mutual_pf: list[list[float]] = []
+    for row in mutual_raw:
+        if not isinstance(row, list) or len(row) != stages:
+            raise ValueError("FEA capacitance network mutual_pf_matrix must be square")
+        mutual_pf.append([max(0.0, float(value)) for value in row])
+    for i in range(stages):
+        mutual_pf[i][i] = 0.0
+        for j in range(i + 1, stages):
+            symmetric = 0.5 * (mutual_pf[i][j] + mutual_pf[j][i])
+            mutual_pf[i][j] = mutual_pf[j][i] = symmetric
+
+    adjacent_pf = [mutual_pf[index][index + 1] for index in range(stages - 1)]
+    average_ground_pf = sum(ground_pf) / stages
+    average_adjacent_pf = sum(adjacent_pf) / len(adjacent_pf) if adjacent_pf else 0.0
+    return {
+        **circuit,
+        "pairCapPf": (sum(geometric_ground_pf) / stages) / 2.0,
+        "geometricShuntCapPf": sum(geometric_ground_pf) / stages,
+        "geometricShuntCapPfByNode": geometric_ground_pf,
+        "additionalGroundCapacitancePf": added_ground_pf,
+        "shuntCapPf": average_ground_pf,
+        "totalGroundCapPf": sum(ground_pf),
+        "parasiticPf": average_adjacent_pf,
+        "shuntCapPfByNode": ground_pf,
+        "mutualCapPfMatrix": mutual_pf,
+        "parasiticPfByAdjacentPair": adjacent_pf,
+        "capacitanceSource": capacitance_network.get(
+            "method",
+            "fenicsx-capacitance-matrix",
+        ),
+    }
+
+
+def node_ground_capacitances_pf(circuit: dict[str, Any], stages: int) -> list[float]:
+    values = circuit.get("shuntCapPfByNode")
+    if isinstance(values, list) and len(values) == stages:
+        return [max(0.0, float(value)) for value in values]
+    return [max(0.0, float(circuit["shuntCapPf"])) for _ in range(stages)]
+
+
+def mutual_capacitance_matrix_pf(circuit: dict[str, Any], stages: int) -> list[list[float]]:
+    values = circuit.get("mutualCapPfMatrix")
+    if isinstance(values, list) and len(values) == stages:
+        matrix = []
+        for row in values:
+            if not isinstance(row, list) or len(row) != stages:
+                break
+            matrix.append([max(0.0, float(value)) for value in row])
+        if len(matrix) == stages:
+            return matrix
+    uniform = max(0.0, float(circuit["parasiticPf"]))
+    matrix = [[0.0 for _ in range(stages)] for _ in range(stages)]
+    for index in range(stages - 1):
+        matrix[index][index + 1] = matrix[index + 1][index] = uniform
+    return matrix
 
 
 def load_conductance_s(p: dict[str, Any]) -> float:
@@ -195,18 +290,15 @@ def solve_complex_linear(matrix: list[list[complex]], rhs: list[complex]) -> lis
 
 
 def ladder_transfer(
-    circuit: dict[str, float],
+    circuit: dict[str, Any],
     p: dict[str, Any],
     frequency_hz: float,
     load_mode: str = "transmission_line",
 ) -> complex:
     stages = max(1, int(p["plate_pairs"]))
     omega = 2.0 * math.pi * frequency_hz
-    y_par = complex(
-        1.0 / circuit["stageResistanceOhm"] if circuit["stageResistanceOhm"] > 0.0 else 0.0,
-        omega * max(0.0, circuit["parasiticPf"]) * 1e-12,
-    )
-    y_ground = complex(0.0, omega * max(0.0, circuit["shuntCapPf"]) * 1e-12)
+    ground_cap_pf = node_ground_capacitances_pf(circuit, stages)
+    mutual_cap_pf = mutual_capacitance_matrix_pf(circuit, stages)
     if load_mode == "transmission_line":
         y_load = transmission_line_input_admittance(p, frequency_hz)
     elif load_mode == "lumped":
@@ -257,10 +349,13 @@ def ladder_transfer(
         return complex(1.0 / ohms, 0.0) if math.isfinite(ohms) and ohms > 0.0 else 0.0 + 0.0j
 
     for node in range(stages):
-        add_shunt(node, y_ground)
+        add_shunt(node, complex(0.0, omega * ground_cap_pf[node] * 1e-12))
     add_branch(0, -1, resistor_y(input_ohm))
     for node in range(1, stages):
-        add_branch(node - 1, node, y_par)
+        add_branch(node - 1, node, resistor_y(float(circuit["stageResistanceOhm"])))
+    for i in range(stages):
+        for j in range(i + 1, stages):
+            add_branch(i, j, complex(0.0, omega * mutual_cap_pf[i][j] * 1e-12))
     if include_output_node:
         add_branch(stages - 1, output_node, resistor_y(output_ohm))
         add_shunt(output_node, y_load)
@@ -304,8 +399,10 @@ def sample_frequencies(p: dict[str, Any], count: int = 161) -> list[float]:
     return [f_min * (f_max / f_min) ** (index / (count - 1)) for index in range(count)]
 
 
-def netlist_text(circuit: dict[str, float], p: dict[str, Any], include_load: bool = True) -> str:
+def netlist_text(circuit: dict[str, Any], p: dict[str, Any], include_load: bool = True) -> str:
     stages = max(1, int(p["plate_pairs"]))
+    ground_cap_pf = node_ground_capacitances_pf(circuit, stages)
+    mutual_cap_pf = mutual_capacitance_matrix_pf(circuit, stages)
     input_ohm = series_resistance_ohm(p, circuit, "input")
     output_ohm = series_resistance_ohm(p, circuit, "output")
     source_node = "src" if input_ohm > 0.0 else "n0"
@@ -317,10 +414,18 @@ def netlist_text(circuit: dict[str, float], p: dict[str, Any], include_load: boo
     if input_ohm > 0.0:
         lines.append(f"Rin src n0 {input_ohm:.6g}")
     for stage in range(stages):
-        lines.append(f"Cg{stage} n{stage} 0 {circuit['shuntCapPf'] * 1e-12:.6g}")
+        lines.append(f"Cg{stage} n{stage} 0 {ground_cap_pf[stage] * 1e-12:.6g}")
     for stage in range(1, stages):
         lines.append(f"R{stage} n{stage - 1} n{stage} {circuit['stageResistanceOhm']:.6g}")
-        lines.append(f"Cpar{stage} n{stage - 1} n{stage} {circuit['parasiticPf'] * 1e-12:.6g}")
+    capacitor_index = 0
+    for i in range(stages):
+        for j in range(i + 1, stages):
+            if mutual_cap_pf[i][j] <= 0.0:
+                continue
+            capacitor_index += 1
+            lines.append(
+                f"Cpar{capacitor_index} n{i} n{j} {mutual_cap_pf[i][j] * 1e-12:.6g}"
+            )
     if include_load and output_ohm > 0.0:
         lines.append(f"Rout n{stages - 1} out {output_ohm:.6g}")
     if include_load:
@@ -484,9 +589,16 @@ def sample_row(
     }
 
 
-def simulate(parameters: dict[str, Any]) -> dict[str, Any]:
+def simulate(
+    parameters: dict[str, Any],
+    capacitance_network: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     p = axisymmetric_model.normalize_parameters(parameters)
-    circuit = circuit_estimates(p)
+    circuit = circuit_with_capacitance_network(
+        circuit_estimates(p),
+        p,
+        capacitance_network,
+    )
     ngspice_result = ngspice_ac_sweep(circuit, p, include_load=True)
     ngspice_unloaded_result = ngspice_ac_sweep(circuit, p, include_load=False)
     ngspice_samples = ngspice_result.get("samples") if ngspice_result else None

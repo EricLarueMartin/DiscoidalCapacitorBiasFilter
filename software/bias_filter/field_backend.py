@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import copy
 import datetime as dt
+import io
 import json
 import math
 import mimetypes
@@ -29,6 +30,7 @@ import threading
 import time
 import traceback
 import uuid
+import zipfile
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -46,6 +48,16 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_STATIC_DIR = ROOT / "presentations" / "web"
 DEFAULT_JOB_DIR = ROOT / "simulations" / "axisymmetric" / "jobs"
 DEFAULT_FEA_RESOURCE_LOG = ROOT / "simulations" / "axisymmetric" / "logs" / "fea-resource-usage.jsonl"
+ARTIFACT_SPECS = (
+    ("simulation", "latest-geometry.json", ROOT / "simulations" / "axisymmetric" / "outputs" / "latest-geometry.json"),
+    ("simulation", "latest-geometry.svg", ROOT / "simulations" / "axisymmetric" / "outputs" / "latest-geometry.svg"),
+    ("simulation", "latest-summary.json", ROOT / "simulations" / "axisymmetric" / "outputs" / "latest-summary.json"),
+    ("simulation", "latest-field.svg", ROOT / "simulations" / "axisymmetric" / "outputs" / "latest-field.svg"),
+    ("cad", "latest-model.scad", ROOT / "hardware" / "geometry" / "generated" / "latest-model.scad"),
+    ("cad", "latest-model.obj", ROOT / "hardware" / "geometry" / "generated" / "latest-model.obj"),
+    ("cad", "latest-model.mtl", ROOT / "hardware" / "geometry" / "generated" / "latest-model.mtl"),
+    ("cad", "latest-model.stl", ROOT / "hardware" / "geometry" / "generated" / "latest-model.stl"),
+)
 
 MAX_BODY_BYTES = 1_000_000
 MAX_GRID_R_COUNT = 180
@@ -76,6 +88,50 @@ FIELD_SOLVERS = {
 
 FEA_RESOURCE_SAMPLE_INTERVAL_SECONDS = 0.1
 FEA_RESOURCE_LOG_LOCK = threading.Lock()
+
+
+def artifact_manifest() -> dict[str, Any]:
+    files = []
+    for group, name, path in ARTIFACT_SPECS:
+        available = path.is_file()
+        stat = path.stat() if available else None
+        files.append(
+            {
+                "group": group,
+                "name": name,
+                "available": available,
+                "sizeBytes": stat.st_size if stat else None,
+                "modifiedAt": (
+                    dt.datetime.fromtimestamp(stat.st_mtime, tz=dt.timezone.utc).isoformat()
+                    if stat
+                    else None
+                ),
+                "downloadUrl": f"/api/artifacts/{name}" if available else None,
+            }
+        )
+    available_count = sum(1 for item in files if item["available"])
+    return {
+        "status": "ok",
+        "files": files,
+        "availableCount": available_count,
+        "totalCount": len(files),
+        "zipUrl": "/api/artifacts.zip" if available_count else None,
+    }
+
+
+def artifact_path(name: str) -> Path | None:
+    return next((path for _, artifact_name, path in ARTIFACT_SPECS if artifact_name == name), None)
+
+
+def artifact_zip_bytes() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for group, name, path in ARTIFACT_SPECS:
+            if not path.is_file():
+                continue
+            prefix = "simulations/axisymmetric/outputs" if group == "simulation" else "hardware/geometry/generated"
+            archive.write(path, arcname=f"{prefix}/{name}")
+    return buffer.getvalue()
 
 
 @dataclass
@@ -127,6 +183,7 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         "output_series_matches_stage",
         "melf_substrate_epsr",
         "melf_metal_fill_factor",
+        "ferrite_conductor_fill_factor",
         "load_cable_length_m",
         "load_cable_impedance_ohm",
         "load_cable_velocity_factor",
@@ -205,6 +262,9 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
     params["melf_stage_parasitic_pf"] = clamp_number(params.get("melf_stage_parasitic_pf"), 0.001, 5.0, 0.3)
     params["melf_substrate_epsr"] = clamp_number(params.get("melf_substrate_epsr"), 1.0, 1000.0, 9.8)
     params["melf_metal_fill_factor"] = clamp_number(params.get("melf_metal_fill_factor"), 0.0, 0.95, 0.5)
+    params["ferrite_conductor_fill_factor"] = clamp_number(
+        params.get("ferrite_conductor_fill_factor"), 0.0, 0.95, 0.0
+    )
     params["input_series_matches_stage"] = params.get("input_series_matches_stage", True) is not False
     params["output_series_matches_stage"] = bool(params.get("output_series_matches_stage", False))
     stage_mohm = params["melf_stage_resistance_mohm"]
@@ -233,6 +293,9 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
     params["load_cable_impedance_ohm"] = clamp_number(params.get("load_cable_impedance_ohm"), 1.0, 10_000.0, 50.0)
     params["load_cable_velocity_factor"] = clamp_number(params.get("load_cable_velocity_factor"), 0.01, 1.0, 0.66)
     params["detector_capacitance_pf"] = clamp_number(params.get("detector_capacitance_pf"), 0.0, 1_000_000.0, 10.0)
+    params["additional_ground_capacitance_pf"] = clamp_number(
+        params.get("additional_ground_capacitance_pf"), 0.0, 1_000_000_000.0, 0.0
+    )
     params["thermal_min_temperature_c"] = clamp_number(params.get("thermal_min_temperature_c"), -200.0, 70.0, 20.0)
     params["thermal_epoxy_modulus_gpa"] = clamp_number(params.get("thermal_epoxy_modulus_gpa"), 0.01, 100.0, 3.0)
     params["thermal_restraint_factor"] = clamp_number(params.get("thermal_restraint_factor"), 0.0, 1.0, 1.0)
@@ -393,6 +456,17 @@ def result_for_browser(
     note: str | None = None,
 ) -> dict[str, Any]:
     grid = raw_result["grid"]
+    parameters = raw_result["parameters"]
+    model = raw_result.get("model") or {
+        "source": "solver-normalized-parameters",
+        "parameters": parameters,
+        "geometry": axisymmetric_model.geometry_summary(parameters),
+        "boundaryConditions": {
+            "biasPotentialV": parameters["bias_voltage_v"],
+            "groundPotentialV": 0.0,
+            "fieldModelCoreTreatment": "equipotential bias boundary",
+        },
+    }
     return {
         "source": source,
         "solver": solver,
@@ -416,6 +490,8 @@ def result_for_browser(
             },
         },
         "field": raw_result["field"],
+        "potential": raw_result.get("potential", grid.get("voltage")),
+        "model": model,
         "maxField": raw_result["max_field_v_per_mm"],
         "maxLocation": raw_result["max_location_mm"],
         "rawMaxField": raw_result.get("raw_max_field_v_per_mm", raw_result["max_field_v_per_mm"]),
@@ -430,7 +506,7 @@ def result_for_browser(
         "admittance": raw_result.get("admittance"),
         "resource_usage": raw_result.get("resource_usage"),
         "resource_log": raw_result.get("resource_log"),
-        "parameters": raw_result["parameters"],
+        "parameters": parameters,
         "note": note
         or "Backend uses a nonuniform structured finite-difference screening solver with deterministic rounded-edge refinement and a high-field probe refinement pass; future FEM should use exact mirror-half symmetry where appropriate.",
     }
@@ -791,6 +867,28 @@ def make_handler(state: BackendState) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
+            if parsed.path == "/api/artifacts":
+                self._send_json(artifact_manifest())
+                return
+            if parsed.path == "/api/artifacts.zip":
+                self._send_download(
+                    artifact_zip_bytes(),
+                    "discoidal-capacitor-bias-filter-artifacts.zip",
+                    "application/zip",
+                )
+                return
+            if parsed.path.startswith("/api/artifacts/"):
+                name = unquote(parsed.path.rsplit("/", 1)[-1])
+                path = artifact_path(name)
+                if path is None or not path.is_file():
+                    self._send_json({"error": "Artifact not found"}, HTTPStatus.NOT_FOUND)
+                    return
+                self._send_download(
+                    path.read_bytes(),
+                    path.name,
+                    mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+                )
+                return
             if parsed.path == "/api/health":
                 solver_status = state.solver_status()
                 source = "fea-backend-fenicsx" if solver_status["effective"] == SOLVER_FENICSX else "fea-backend-axisymmetric-fd"
@@ -839,7 +937,18 @@ def make_handler(state: BackendState) -> type[BaseHTTPRequestHandler]:
                     if not isinstance(raw_parameters, dict):
                         raise ValueError("parameters must be an object")
                     parameters = sanitized_parameters(raw_parameters)
-                    self._send_json(spice_ladder.simulate(parameters))
+                    capacitance_network = request.get(
+                        "capacitanceNetwork",
+                        request.get("capacitance_network"),
+                    )
+                    if capacitance_network is not None and not isinstance(capacitance_network, dict):
+                        raise ValueError("capacitanceNetwork must be an object")
+                    self._send_json(
+                        spice_ladder.simulate(
+                            parameters,
+                            capacitance_network=capacitance_network,
+                        )
+                    )
                 except Exception as exc:
                     self._send_json({"status": "failed", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
                 return
@@ -914,6 +1023,15 @@ def make_handler(state: BackendState) -> type[BaseHTTPRequestHandler]:
             self.send_response(status)
             self._send_common_headers()
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def _send_download(self, data: bytes, filename: str, content_type: str) -> None:
+            self.send_response(HTTPStatus.OK)
+            self._send_common_headers()
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)

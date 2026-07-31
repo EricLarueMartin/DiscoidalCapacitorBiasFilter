@@ -141,7 +141,12 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
     elif "core_volume_resistivity_ohm_cm" in p and "core_od_mm" in p:
         core_area_mm2 = math.pi * (p["core_od_mm"] / 2.0) ** 2
         if core_area_mm2 > 0.0:
-            p["core_resistance_gohm"] = p["core_volume_resistivity_ohm_cm"] * (10.0 * stack_length_mm(p) / core_area_mm2) / 1e9
+            p["core_resistance_gohm"] = (
+                p["core_volume_resistivity_ohm_cm"]
+                * (10.0 * stack_length_mm(p) / core_area_mm2)
+                * ferrite_resistive_length_fraction(p)
+                / 1e9
+            )
         p["input_series_matches_stage"] = p.get("input_series_matches_stage", True) is not False
         p["output_series_matches_stage"] = bool(p.get("output_series_matches_stage", False))
         p["input_series_resistance_mohm"] = max(0.0, float(p.get("input_series_resistance_mohm", 0.0)))
@@ -153,8 +158,14 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
     p["load_cable_impedance_ohm"] = max(1e-9, float(p.get("load_cable_impedance_ohm", 50.0)))
     p["load_cable_velocity_factor"] = max(1e-9, float(p.get("load_cable_velocity_factor", 0.66)))
     p["detector_capacitance_pf"] = max(0.0, float(p.get("detector_capacitance_pf", 10.0)))
+    p["additional_ground_capacitance_pf"] = max(
+        0.0, float(p.get("additional_ground_capacitance_pf", 0.0))
+    )
     p["melf_substrate_epsr"] = max(1.0, min(1000.0, float(p.get("melf_substrate_epsr", 9.8))))
     p["melf_metal_fill_factor"] = max(0.0, min(0.95, float(p.get("melf_metal_fill_factor", 0.5))))
+    p["ferrite_conductor_fill_factor"] = max(
+        0.0, min(0.95, float(p.get("ferrite_conductor_fill_factor", 0.0)))
+    )
     return p
 
 
@@ -168,8 +179,22 @@ def melf_effective_epsr(p: dict[str, Any]) -> float:
     return substrate / max(0.05, 1.0 - fill_factor)
 
 
+def supports_ferrite_conductor_fill(p: dict[str, Any]) -> bool:
+    material = str(p.get("core_material", ""))
+    return not uses_melf_core_model(p) and material not in {"epoxy_chain", "conductive_epoxy"}
+
+
+def ferrite_resistive_length_fraction(p: dict[str, Any]) -> float:
+    if not supports_ferrite_conductor_fill(p):
+        return 1.0
+    fill_factor = max(0.0, min(0.95, float(p.get("ferrite_conductor_fill_factor", 0.0))))
+    return max(0.05, 1.0 - fill_factor)
+
+
 def core_capacitance_epsr(p: dict[str, Any]) -> float:
-    return melf_effective_epsr(p) if uses_melf_core_model(p) else float(p.get("ferrite_epsr", 12.0))
+    if uses_melf_core_model(p):
+        return melf_effective_epsr(p)
+    return float(p.get("ferrite_epsr", 12.0)) / ferrite_resistive_length_fraction(p)
 
 
 def bias_plate_thickness_mm(p: dict[str, Any]) -> float:
@@ -241,6 +266,25 @@ def washer_gap_intervals(p: dict[str, Any]) -> list[tuple[float, float]]:
         z1 = right_z - plate_thickness_mm(p, right_kind) / 2.0
         if z1 > z0:
             intervals.append((z0, z1))
+    return intervals
+
+
+def core_segment_intervals(p: dict[str, Any]) -> list[tuple[float, float]]:
+    """Return core pieces separated by the full-diameter bias plates."""
+    intervals: list[tuple[float, float]] = []
+    length = stack_length_mm(p)
+    cursor = 0.0
+    for kind, zc in plate_centers(p):
+        if kind != "hv":
+            continue
+        half = bias_plate_thickness_mm(p) / 2.0
+        z0 = max(0.0, zc - half)
+        z1 = min(length, zc + half)
+        if z0 > cursor:
+            intervals.append((cursor, z0))
+        cursor = max(cursor, z1)
+    if cursor < length:
+        intervals.append((cursor, length))
     return intervals
 
 
@@ -330,16 +374,19 @@ def component_profiles(p: dict[str, Any]) -> list[dict[str, Any]]:
     tube_outer = tube_inner + p["tube_wall_thickness_mm"]
     components: list[dict[str, Any]] = [
         {
-            "name": "core_region",
-            "material": "core",
-            "profile": [(0.0, 0.0), (core_r, 0.0), (core_r, length), (0.0, length)],
-        },
-        {
             "name": "epoxy_fill_envelope",
             "material": "epoxy",
             "profile": [(core_r, 0.0), (tube_inner, 0.0), (tube_inner, length), (core_r, length)],
         },
     ]
+    for index, (z0, z1) in enumerate(core_segment_intervals(p)):
+        components.append(
+            {
+                "name": f"core_segment_{index:02d}",
+                "material": "core",
+                "profile": [(0.0, z0), (core_r, z0), (core_r, z1), (0.0, z1)],
+            }
+        )
     washer_inner, washer_outer = washer_radial_bounds(p)
     if washer_outer > washer_inner:
         for index, (z0, z1) in enumerate(washer_gap_intervals(p)):
@@ -365,7 +412,7 @@ def component_profiles(p: dict[str, Any]) -> list[dict[str, Any]]:
         z0 = zc - thickness / 2.0
         z1 = zc + thickness / 2.0
         if kind == "hv":
-            profile = rounded_outer_profile(core_r, hv_outer, z0, z1, edge_radius_mm(p, kind))
+            profile = rounded_outer_profile(0.0, hv_outer, z0, z1, edge_radius_mm(p, kind))
             material = "hv"
         else:
             profile = rounded_inner_profile(ground_inner, ground_outer, z0, z1, edge_radius_mm(p, kind))
@@ -402,7 +449,7 @@ def classify_point(p: dict[str, Any], r: float, z_stack: float) -> tuple[str, fl
     for kind, zc in plate_centers(p):
         thickness = plate_thickness_mm(p, kind)
         edge_radius = edge_radius_mm(p, kind)
-        if kind == "hv" and rounded_outer_plate(r, z_stack, zc, core_r, hv_r, thickness, edge_radius):
+        if kind == "hv" and rounded_outer_plate(r, z_stack, zc, 0.0, hv_r, thickness, edge_radius):
             return ("hv", p["bias_voltage_v"])
         if kind == "ground" and rounded_inner_plate(r, z_stack, zc, ground_inner, ground_outer, thickness, edge_radius):
             return ("ground", 0.0)
@@ -469,7 +516,7 @@ def edge_refinement_centers(p: dict[str, Any]) -> list[dict[str, float]]:
         if radius <= 0.0:
             continue
         half = plate_thickness_mm(p, kind) / 2.0
-        radial_span = hv_outer - core_r if kind == "hv" else ground_outer - ground_inner
+        radial_span = hv_outer if kind == "hv" else ground_outer - ground_inner
         local_radius = max(0.0, min(radius, half, radial_span / 2.0))
         if local_radius <= 0.0:
             continue
@@ -502,7 +549,7 @@ def dielectric_probe_refinement_centers(p: dict[str, Any]) -> list[dict[str, flo
     for kind, zc in plate_centers(p):
         radius = max(edge_radius_mm(p, kind), 0.05)
         half = plate_thickness_mm(p, kind) / 2.0
-        radial_span = hv_outer - core_r if kind == "hv" else ground_outer - ground_inner
+        radial_span = hv_outer if kind == "hv" else ground_outer - ground_inner
         local_radius = max(0.0, min(radius, half, radial_span / 2.0))
         if local_radius <= 0.0:
             continue
@@ -1075,6 +1122,8 @@ def geometry_summary(p: dict[str, Any]) -> dict[str, Any]:
         "notes": [
             "Axisymmetric r-z model.",
             "HV flow holes are omitted from this first-order field model.",
+            "Bias plates are solid discs extending to the axis; they have no center ID.",
+            "The core is represented as separate axial pieces divided by the solid bias plates.",
             "All HV conductors are held at the full bias voltage for local field screening.",
             "Current electrostatic solver treats conductors as equipotential boundaries; conductivity and permeability fields are carried for future RF/quasi-static backends.",
             "Ground plate OD is intended to contact the ground tube ID when the tube is included.",

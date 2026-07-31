@@ -17,8 +17,8 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=2026-07-14-project-rename">
-    <script defer src="app.js?v=2026-07-14-project-rename"></script>
+    <link rel="stylesheet" href="style.css?v=2026-07-30-cad-fill-2">
+    <script defer src="app.js?v=2026-07-31-added-cg"></script>
   </head>
   <body>
     <header class="topbar">
@@ -36,6 +36,16 @@
           <span class="theme-icon" aria-hidden="true">☾</span>
           <span class="theme-label">Dark mode</span>
         </button>
+        <label class="language-picker">
+          <span class="visually-hidden">Language</span>
+          <select id="languageSelect" aria-label="Language">
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="sux">𒅴𒂠 · Sumerian (experimental)</option>
+            <option value="en-sc-1840">South Carolina English, c. 1840</option>
+          </select>
+        </label>
       </div>
     </header>
 
@@ -45,7 +55,7 @@
           <div class="control-tabs" role="tablist" aria-label="Design setting groups">
             <button class="control-tab active" type="button" role="tab" aria-selected="true" data-control-tab="electrical">Electrical</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="geometry">Geometry</button>
-            <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="solver">Solver</button>
+            <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="solver">Field FEA</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="thermal">Thermal</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="files">Files</button>
           </div>
@@ -64,6 +74,7 @@
             <label title="Characteristic impedance used to infer lumped cable capacitance from length and velocity factor."><span>Load cable Z<sub>0</sub></span><output id="load_cable_impedance_ohm_out"></output><input id="load_cable_impedance_ohm" type="range" min="25" max="125" step="1"></label>
             <label title="Coax velocity factor used for C = length / (Z0 vf c)."><span>Load cable VF</span><output id="load_cable_velocity_factor_out"></output><input id="load_cable_velocity_factor" type="range" min="0.3" max="0.95" step="0.01"></label>
             <label title="Detector capacitance connected at the filter output."><span>Detector C</span><output id="detector_capacitance_pf_out"></output><input id="detector_capacitance_pf" type="range" min="0" max="100" step="0.001"></label>
+            <label title="Additional discrete capacitance connected from every bias plate to ground, in parallel with the geometry-derived capacitance. This changes the circuit and SPICE models only; it does not change the electrostatic FEA geometry or its reported Cg and Cpar."><span>Additional C<sub>g</sub> per bias plate</span><output id="additional_ground_capacitance_pf_out"></output><input id="additional_ground_capacitance_pf" type="range" min="0" max="10000" step="1"></label>
             <label>Core material
               <select id="core_material">
                 <option value="type61">Fair-Rite 61 NiZn</option>
@@ -107,6 +118,10 @@
                 <option value="aluminum">Aluminum</option>
                 <option value="brass">Brass</option>
                 <option value="stainless_316">316 stainless</option>
+                <option value="titanium_grade_2">Grade 2 titanium</option>
+                <option value="mocu_65_35">Mo65Cu35</option>
+                <option value="mocu_70_30">Mo70Cu30</option>
+                <option value="mocu_80_20">Mo80Cu20</option>
                 <option value="custom">Custom</option>
               </select>
             </label>
@@ -116,10 +131,15 @@
                 <option value="aluminum">Aluminum</option>
                 <option value="brass">Brass</option>
                 <option value="stainless_316">316 stainless</option>
+                <option value="titanium_grade_2">Grade 2 titanium</option>
+                <option value="mocu_65_35">Mo65Cu35</option>
+                <option value="mocu_70_30">Mo70Cu30</option>
+                <option value="mocu_80_20">Mo80Cu20</option>
                 <option value="custom">Custom</option>
               </select>
             </label>
-            <label id="core_epsr_control"><span>Conductor &epsilon;<sub>r</sub></span><output id="ferrite_epsr_out"></output><input id="ferrite_epsr" type="range" min="2" max="120" step="0.1"></label>
+            <label id="core_epsr_control"><span>Core &epsilon;<sub>r</sub></span><output id="ferrite_epsr_out"></output><input id="ferrite_epsr" type="range" min="2" max="120" step="0.1"></label>
+            <label id="ferrite_conductor_fill_factor_control" title="Fraction of each bias-to-bias ferrite path replaced by ideal conductive discs. Calculated stage resistance is multiplied by 1 - fill, while effective ferrite permittivity and Cpar are divided by 1 - fill."><span>Ferrite conductor fill</span><output id="ferrite_conductor_fill_factor_out"></output><input id="ferrite_conductor_fill_factor" type="range" min="0" max="0.9" step="0.01"></label>
             <label id="melf_stage_parasitic_control" hidden title="Entered resistor/package bias-to-bias capacitance. Epoxy coupling around the package is calculated separately."><span>Resistor C<sub>par</sub></span><output id="melf_stage_parasitic_pf_out"></output><input id="melf_stage_parasitic_pf" type="range" min="0.001" max="5" step="0.001"></label>
             <label id="melf_substrate_epsr_control" hidden title="Ceramic substrate permittivity for the geometric MELF capacitance model. Alumina is a reasonable default."><span>MELF substrate &epsilon;<sub>r</sub></span><output id="melf_substrate_epsr_out"></output><input id="melf_substrate_epsr" type="range" min="3" max="30" step="0.1"></label>
             <label id="melf_metal_fill_factor_control" hidden title="Fractional metal-film shielding estimate. Effective core permittivity is substrate epsr divided by 1 - fill factor."><span>MELF film fill</span><output id="melf_metal_fill_factor_out"></output><input id="melf_metal_fill_factor" type="range" min="0" max="0.9" step="0.01"></label>
@@ -181,7 +201,7 @@
           </div>
 
           <div class="control-group control-panel" data-control-panel="solver" hidden>
-            <h2>Solver</h2>
+            <h2>Electrostatic solver</h2>
             <label title="Browser JS runs locally. Backend adaptive FD is the Python finite-difference worker. FEniCSx uses the conforming Gmsh/DOLFINx solve when selected.">
               <span>Field solver</span>
               <select id="field_solver">
@@ -196,19 +216,7 @@
               <output id="mesh_edge_radius_ratio_out"></output>
               <input id="mesh_edge_radius_ratio" type="range" min="0.05" max="0.5" step="0.01">
             </label>
-            <label class="check" title="Default: use two unique FEniCSx regions to reconstruct the full electric-field stack."><input id="use_repeating_cell_approximation" type="checkbox"> Repeat interior FEA cell</label>
-            <div class="solver-explainer">
-              <strong>What the repeating-cell approximation solves</strong>
-              <p>FEniCSx meshes and solves only two unique axial regions:</p>
-              <ol>
-                <li><b>End region:</b> the physical end cap through the axial center of the first bias plate.</li>
-                <li><b>Interior half-cell:</b> the center of that first bias plate through the center of the next interior ground plate—the second ground plate when the end cap is counted.</li>
-              </ol>
-              <p>The far end is an exact mirror of the solved end region. Between the two ends, the interior half-cell is copied and alternately mirrored about successive bias-plate and ground-plate center planes until the reconstructed stack reaches the far-end region.</p>
-              <p>The separate three-excitation C<sub>par</sub> calculation cannot reuse that repeating field cell because its bias plates have different voltages. It keeps exact mirror symmetry through the driven middle bias plate, truncates at the neighboring bias-plate center, and grounds the exposed outer annulus on that cut.</p>
-              <p>This option affects FEniCSx only. When unchecked, the solver uses the exact half-stack mirror model. Short stacks may not run faster with the approximation.</p>
-            </div>
-            <p class="control-note">Backend auto uses FEniCSx when ready and falls back to adaptive finite difference.</p>
+            <label class="check" title="Default: reuse the unique end and interior regions for the equal-voltage field solve. Capacitance extraction solves every single-node basis field on the full stack, forms the Maxwell matrix from cross-energy integrals, then applies exact mirror averaging and shares only fully interior couplings having the same axial separation. End-involving couplings remain distinct."><input id="use_repeating_cell_approximation" type="checkbox"> Repeat interior FEA cell</label>
             <div class="actions solver-actions">
               <button id="solve" type="button">Solve field</button>
             </div>
@@ -217,33 +225,31 @@
               <span>Peak system memory used <strong id="fieldFeaPeakSystemMemory">--</strong></span>
               <span>Lowest available memory <strong id="fieldFeaLowestAvailableMemory">--</strong></span>
               <span>Maximum swap used <strong id="fieldFeaMaximumSwap">--</strong></span>
+              <span>Capacitance energy solves <strong id="fieldFeaCapacitanceSolves">--</strong></span>
             </div>
             <p class="control-note" id="fieldFeaResourceLog">FEniCSx resource use is recorded with each solve.</p>
+            <p class="control-note">Backend auto uses FEniCSx when ready and falls back to adaptive finite difference.</p>
+            <div class="solver-explainer">
+              <strong>What the repeating-cell approximation solves</strong>
+              <p>FEniCSx meshes and solves only two unique axial regions:</p>
+              <ol>
+                <li><b>End region:</b> the physical end cap through the axial center of the first bias plate.</li>
+                <li><b>Interior half-cell:</b> the center of that first bias plate through the center of the next interior ground plate—the second ground plate when the end cap is counted.</li>
+              </ol>
+              <p>The far end is an exact mirror of the solved end region. Between the two ends, the interior half-cell is copied and alternately mirrored about successive bias-plate and ground-plate center planes until the reconstructed stack reaches the far-end region.</p>
+              <p>Capacitance extraction uses a conservative version of the repeating-interior assumption. It solves every single-node basis field on the full stack, mirror-averages exactly reflected Maxwell entries, assigns one C<sub>g</sub> class to the two ends and another to interior nodes, and shares only fully interior C<sub>par</sub> terms with the same axial separation.</p>
+              <p>This option affects FEniCSx only. When unchecked, the equal-voltage peak-field solve uses the exact half-stack mirror model and the capacitance matrix uses exact reflection averaging without the repeating-interior constraint. The validation CLI can also disable all matrix symmetry for an independent full-model reference.</p>
+            </div>
           </div>
 
           <div class="control-group control-panel" data-control-panel="thermal" hidden>
             <h2>Thermal bond analysis</h2>
-            <label title="A what-if temperature for evaluating transport or operation; this is not a design target."><span>Temperature to evaluate</span><output id="thermal_min_temperature_c_out"></output><input id="thermal_min_temperature_c" type="range" min="-80" max="30" step="1"></label>
+            <label title="A what-if assembly temperature for evaluating thermally induced stress; this is not a design target."><span>Temperature to evaluate</span><output id="thermal_min_temperature_c_out"></output><input id="thermal_min_temperature_c" type="range" min="-80" max="30" step="1"></label>
             <label title="MG Chemicals does not publish Young's modulus for 9510. The saved calculation preserves a 2 to 4 GPa sensitivity range."><span>Assumed epoxy E</span><output id="thermal_epoxy_modulus_gpa_out"></output><input id="thermal_epoxy_modulus_gpa" type="range" min="2" max="4" step="0.1"></label>
-            <label title="This affects only the closed-form baseline. One is the fully restrained value; lower values represent strain relief at free edges and interfaces."><span>Closed-form restraint</span><output id="thermal_restraint_factor_out"></output><input id="thermal_restraint_factor" type="range" min="0.25" max="1" step="0.05"></label>
+            <label title="Dimensionless fraction of the radial and circumferential (hoop) thermal-mismatch strains prevented in the closed-form plane-stress baseline. It assumes equal radial and hoop stress while axial and r-z shear stress are zero. k = 1 is not an upper bound on local FEA stress."><span>Radial + hoop restraint k</span><output id="thermal_restraint_factor_out"></output><input id="thermal_restraint_factor" type="range" min="0.25" max="1" step="0.05"></label>
             <label title="Target element size for the axisymmetric thermoelastic FEniCSx mesh."><span>Thermal FEA mesh</span><output id="thermal_mesh_size_mm_out"></output><input id="thermal_mesh_size_mm" type="range" min="0.1" max="1" step="0.05"></label>
-            <div class="thermal-summary" aria-label="Thermal stress estimate">
-              <span>Largest CTE mismatch <strong id="thermalControllingInterface">--</strong></span>
-              <span>&Delta;&alpha; <strong id="thermalDeltaCte">--</strong></span>
-              <span>Free radial mismatch <strong id="thermalRadialMismatch">--</strong></span>
-              <span>Estimated stress <strong id="thermalStress">--</strong></span>
-              <span>Strength margin <strong id="thermalStrengthMargin">--</strong></span>
-              <span>Estimated risk onset <strong id="thermalFailureOnset">--</strong></span>
-            </div>
-            <div class="thermal-warning" id="thermalStatus" role="status">--</div>
             <div class="actions solver-actions">
               <button id="solveThermalFea" type="button">Solve thermal FEA</button>
-            </div>
-            <div class="thermal-summary" aria-label="Thermal FEA comparison">
-              <span>FEA epoxy tensile P99 <strong id="thermalFeaP99">Not solved</strong></span>
-              <span>FEA raw peak <strong id="thermalFeaRawPeak">--</strong></span>
-              <span>FEA / closed form <strong id="thermalFeaRatio">--</strong></span>
-              <span>FEA mesh <strong id="thermalFeaMesh">--</strong></span>
             </div>
             <div class="thermal-summary" aria-label="Thermal FEA memory use">
               <span>Peak FEA process memory <strong id="thermalFeaPeakRss">Not solved</strong></span>
@@ -252,13 +258,29 @@
               <span>Maximum swap used <strong id="thermalFeaMaximumSwap">--</strong></span>
             </div>
             <p class="control-note" id="thermalFeaResourceLog">FEniCSx resource use is recorded with each solve.</p>
+            <div class="thermal-summary" aria-label="Thermal FEA comparison">
+              <span>FEA epoxy tensile P99 <strong id="thermalFeaP99">Not solved</strong></span>
+              <span>FEA raw peak <strong id="thermalFeaRawPeak">--</strong></span>
+              <span>FEA / closed form <strong id="thermalFeaRatio">--</strong></span>
+              <span>FEA mesh <strong id="thermalFeaMesh">--</strong></span>
+            </div>
             <div class="thermal-warning" id="thermalFeaStatus" role="status">Run the thermal FEA for a geometry-based comparison.</div>
+            <div class="thermal-summary" aria-label="Thermal stress estimate">
+              <span>Largest CTE mismatch <strong id="thermalControllingInterface">--</strong></span>
+              <span>&Delta;&alpha; <strong id="thermalDeltaCte">--</strong></span>
+              <span>Free radial mismatch <strong id="thermalRadialMismatch">--</strong></span>
+              <span>Estimated stress <strong id="thermalStress">--</strong></span>
+              <span>Strength margin <strong id="thermalStrengthMargin">--</strong></span>
+              <span>Bulk-strength proxy crossing <strong id="thermalFailureOnset">--</strong></span>
+            </div>
+            <div class="thermal-warning" id="thermalStatus" role="status">--</div>
             <div class="solver-explainer thermal-explainer">
               <strong>Calculation method</strong>
-              <p>The temperature control is a what-if evaluation, not a design target. The default 20&nbsp;&deg;C setting checks ordinary room-temperature handling.</p>
+              <p>The temperature control evaluates thermally induced stress at a selected assembly temperature; it is not a design target.</p>
               <p>This is a closed-form thermal-mismatch estimate, not a thermal-stress FEA. Below the 9510 glass transition at 70&nbsp;&deg;C, the rigid cured epoxy wants to contract much more than alumina or copper. The estimate uses &sigma; = kE&Delta;&alpha;&Delta;T/(1 &minus; &nu;) and compares it with the published 20&nbsp;MPa cured tensile strength.</p>
-              <p>The default k = 1 calculation is intentionally conservative. At k = 0.5, the nominal risk onset moves to <strong id="thermalHalfRestraintOnset">--</strong>, showing why a geometry-specific coupon is required.</p>
-              <p>The FEniCSx model solves the bonded copper, alumina, epoxy, and core solids with axisymmetric linear elasticity and exact center-plane symmetry. Interfaces are perfectly bonded and exposed surfaces are traction-free. It reports epoxy maximum-principal tensile stress; it does not model debonding or viscoelastic relaxation.</p>
+              <p><em>k</em> is the fraction of radial and circumferential (hoop) mismatch strain prevented in the closed-form approximation. It assumes &sigma;<sub>rr</sub> = &sigma;<sub>&theta;&theta;</sub> and &sigma;<sub>zz</sub> = &sigma;<sub>rz</sub> = 0. It is not a prescribed surface shift, and it does not control the FEA.</p>
+              <p>Axisymmetry removes variation with circumferential angle, but radial displacement still changes circumference, so hoop strain and stress remain. The FEA includes &sigma;<sub>rr</sub>, &sigma;<sub>zz</sub>, &sigma;<sub>&theta;&theta;</sub>, and &sigma;<sub>rz</sub>. Local three-direction confinement can therefore exceed the radial-plus-hoop plane-stress baseline. At <em>k</em> = 0.5, the 20 MPa bulk-strength proxy crossing moves to <strong id="thermalHalfRestraintOnset">--</strong>.</p>
+              <p>The FEniCSx model solves the selected plate and tube conductors, alumina, epoxy, and core solids with axisymmetric linear elasticity and exact center-plane symmetry. Its interfaces are perfectly bonded, so it reports epoxy stress but cannot predict separation. A separation-temperature solve requires cohesive interface laws and adhesion or fracture data for the actual material pairs and surface preparations.</p>
               <p>The published 3.9% cure shrinkage is not added as elastic strain because the locked-in fraction after gel is unknown. Any retained cure stress reduces the available cold margin.</p>
               <p><a href="https://mgchemicals.com/downloads/tds/tds-9510.pdf">9510 TDS</a> &middot; <a href="https://www2.coorstek.com/media/4235/advanced-alumina.pdf">CoorsTek alumina</a> &middot; <a href="https://alloys.copper.org/alloy/C11000">C110 copper</a></p>
             </div>
@@ -309,18 +331,28 @@
 
           <div class="metric-strip" aria-label="RC ladder estimates">
             <div>
-              <span title="Capacitance of one adjacent HV-ground plate gap through one washer.">Gap C</span>
-              <strong id="pairCapacitance">--</strong>
-              <small>one HV-ground gap</small>
+              <span title="Analytical capacitance from one bias plate to ground through its two adjacent washers. Each washer is treated as an axial parallel-plate capacitor; the two equal capacitances are in parallel, so Cg,analytic = 2 Cwasher. Compare this directly with the per-node FEA Cg values.">Two-washer analytic C<sub>g</sub></span>
+              <strong id="analyticStageCapacitance">--</strong>
+              <small>per bias plate sanity check</small>
             </div>
             <div>
               <span>C vs FR4</span>
               <strong id="washerGain">--</strong>
             </div>
             <div>
-              <span title="Capacitance from one bias plate to its two adjacent ground plates. This is the Cg used by the stage attenuation estimate.">Stage C<sub>g</sub></span>
+              <span title="FEniCSx capacitance from each individual bias node to ground, extracted from the full capacitance matrix. Values are listed in axial node order.">FEA C<sub>g</sub> by bias node</span>
               <strong id="shuntCapacitance">--</strong>
-              <small>2 x gap C</small>
+              <small>axial node order</small>
+            </div>
+            <div>
+              <span title="Capacitance used by the circuit model at each bias node: geometry-derived FEA Cg plus the entered additional discrete capacitance. The adjacent-bias Cpar values are not changed.">Circuit C<sub>g</sub> by bias node</span>
+              <strong id="circuitShuntCapacitance">--</strong>
+              <small id="additionalGroundCapacitanceSummary">FEA + added capacitor</small>
+            </div>
+            <div>
+              <span title="Independent FEniCSx cross-check of stage capacitance to ground. The one-bias geometry has no other bias electrode, while the three-bias result subtracts the middle plate's mutual capacitance to both adjacent bias plates using three energy states.">FEA C<sub>g</sub> method check</span>
+              <strong id="cgMethodComparison">--</strong>
+              <small id="cgMethodComparisonDifference">one bias vs corrected three bias</small>
             </div>
             <div>
               <span title="Total two-terminal capacitance from all HV plates/core to grounded plates/tube. Uses FEniCSx energy extraction after a FEniCS solve; otherwise uses 2N x the washer-gap estimate.">Total C<sub>g</sub></span>
@@ -328,14 +360,14 @@
               <small id="totalGroundCapSource">estimate</small>
             </div>
             <div>
-              <span title="Parasitic capacitance between adjacent bias plates. Calculated mode uses core material and geometry plus epoxy; entered mode uses resistor/package Cpar plus calculated epoxy coupling.">Stage C<sub>par</sub></span>
+              <span title="Analytical or entered parasitic capacitance between adjacent bias plates. Retained as a comparison with FEA.">Analytic C<sub>par</sub></span>
               <strong id="parasiticCapacitance">--</strong>
-              <small>resistor/core + epoxy</small>
+              <small>comparison only</small>
             </div>
             <div>
-              <span title="FEA three-bias energy-polarization estimate of capacitance between adjacent bias stages, with the core included as dielectric.">FEA C<sub>par</sub></span>
+              <span title="FEniCSx mutual capacitance between each adjacent pair of bias nodes, extracted from the full capacitance matrix. Values are listed in axial pair order.">FEA adjacent C<sub>par</sub></span>
               <strong id="feaParasiticCapacitance">--</strong>
-              <small id="feaParasiticCapacitanceSource">adjacent stages</small>
+              <small id="feaParasiticCapacitanceSource">axial pair order</small>
             </div>
             <div>
               <span title="Load resistance inferred from the DC bias voltage and the selected load current.">Load R</span>
@@ -421,6 +453,7 @@
             <div class="viewer-tabs" role="tablist" aria-label="Design viewer tabs">
               <button class="viewer-tab active" type="button" data-viewer-panel="cadPanel" role="tab" aria-selected="true">CAD mesh</button>
               <button class="viewer-tab" type="button" data-viewer-panel="geometryPanel" role="tab" aria-selected="false">FEA model regions</button>
+              <button class="viewer-tab" type="button" data-viewer-panel="potentialPanel" role="tab" aria-selected="false">Potential</button>
               <button class="viewer-tab" type="button" data-viewer-panel="fieldPanel" role="tab" aria-selected="false">Electric field</button>
               <button class="viewer-tab" type="button" data-viewer-panel="thermalFeaPanel" role="tab" aria-selected="false">Thermal FEA</button>
             </div>
@@ -431,6 +464,12 @@
                 <div class="mini-actions" aria-label="CAD view controls">
                   <button id="cadReset" type="button" title="Reset CAD view">Reset view</button>
                   <button id="cadCutaway" type="button" title="Toggle cutaway view">Cutaway</button>
+                  <button id="cadFill" type="button" title="Switch between the existing shaded surface mesh and solid-material rendering. In Cutaway view, Filled mode closes each exposed material region with section faces." aria-pressed="false">Surface</button>
+                  <label class="cad-opacity-control" title="Master material opacity used by Filled rendering. Use 100% for opaque solids or lower values to inspect overlapping internal parts through the closed material surfaces.">
+                    <span>Opacity</span>
+                    <input id="cadFillOpacity" type="range" min="0.1" max="1" step="0.05" value="1" disabled>
+                    <output id="cadFillOpacityValue" for="cadFillOpacity">100%</output>
+                  </label>
                 </div>
               </div>
               <canvas id="cadCanvas" width="900" height="440"></canvas>
@@ -444,12 +483,17 @@
             </figure>
 
             <figure class="viewer-panel" id="geometryPanel" role="tabpanel" hidden>
-              <figcaption>Representative r-z material regions used by the cylindrically symmetric FEA models</figcaption>
+              <figcaption>Backend-generated r-z material regions sent to the cylindrically symmetric FEA models</figcaption>
               <canvas id="geometryCanvas" width="900" height="440"></canvas>
             </figure>
 
+            <figure class="viewer-panel" id="potentialPanel" role="tabpanel" hidden>
+              <figcaption>Solved electric potential and imposed conductor boundary potentials</figcaption>
+              <canvas id="potentialCanvas" width="900" height="440"></canvas>
+            </figure>
+
             <figure class="viewer-panel" id="fieldPanel" role="tabpanel" hidden>
-              <figcaption>Electric field magnitude</figcaption>
+              <figcaption>Electric field magnitude in dielectric regions; conductor colors identify boundary potential</figcaption>
               <canvas id="fieldCanvas" width="900" height="440"></canvas>
             </figure>
 
@@ -461,7 +505,7 @@
         </section>
       </section>
 
-      <section class="view slides" id="slides" aria-label="Presentation slides">
+      <section class="view slides" id="slides" aria-label="Presentation slides" aria-roledescription="slide deck">
         <article class="slide slide-visual">
           <div class="slide-copy">
             <p class="eyebrow">Detector bias filtering</p>
@@ -479,13 +523,14 @@
             <h2>FEA Model</h2>
             <ul>
               <li>The r-z model uses cylindrical symmetry about the filter axis.</li>
+              <li>FEniCSx meshes the dielectric regions and applies fixed potentials to conductor surfaces: bias/core at V and ground/tube at 0 V.</li>
               <li>The complete idealized stack has exact mirror symmetry about its axial center plane.</li>
               <li>By default, FEA solves one physical end region and one inner region, then copies and mirrors them to reconstruct the stack; reuse of the inner region is the finite-stack approximation.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideMaterialCanvas" width="1100" height="620"></canvas>
-            <figcaption>Cylindrical r-z half-section used by the axisymmetric FEA model</figcaption>
+            <figcaption>Cylindrical r-z geometry used by the axisymmetric FEA model</figcaption>
           </figure>
         </article>
 
@@ -493,10 +538,11 @@
           <div class="slide-copy slide-copy-compact">
             <h2>Electrical Model for SPICE Simulation</h2>
             <ul>
-              <li>R<sub>stage</sub> connects bias nodes. Each node sees C<sub>g</sub> = 2C<sub>gap</sub> through its two adjacent washers.</li>
-              <li>C<sub>par</sub> bridges adjacent nodes in parallel with R<sub>stage</sub> and sets the high-frequency feedthrough limit.</li>
+              <li>R<sub>stage</sub> connects bias nodes and remains entered directly or calculated from resistive-core geometry.</li>
+              <li>Each C<sub>g,i</sub> is the FEA capacitance from one bias plate to ground.</li>
+              <li>Each C<sub>par,i,j</sub> is the FEA mutual capacitance between a pair of bias plates.</li>
               <li>End resistances occur once. Cable, detector, and load conductance appear only at the final node.</li>
-              <li>The curve is one isolated section; the assembled filter uses the full unbuffered ladder solve.</li>
+              <li>The single-stage curve uses average FEA C<sub>g</sub> and average adjacent FEA C<sub>par</sub>; SPICE uses the complete node-resolved capacitance network.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -505,16 +551,40 @@
           </figure>
         </article>
 
-        <article class="slide slide-copy-wide">
-          <p class="eyebrow">Simulation method</p>
-          <h2>FEA Connects Geometry to Circuit Values</h2>
-          <ol class="method-steps">
-            <li><strong>Mesh the dielectric:</strong> Gmsh creates a conforming r-z domain around the actual rounded conductor boundaries.</li>
-            <li><strong>Solve the potential:</strong> FEniCSx applies conductor voltages and solves the cylindrical electrostatic weak form.</li>
-            <li><strong>Extract field and energy:</strong> the field map supplies dielectric stress; stored energy supplies capacitance.</li>
-            <li><strong>Evaluate the circuit:</strong> the FEA capacitances populate the loaded RC and SPICE ladder models.</li>
-          </ol>
-          <p>The repeating-cell approximation is the default: it solves one physical end and one interior half-cell, then reconstructs the remaining uniform stack. Clear the checkbox to use the exact mirror-half solve.</p>
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <h2>Bias-to-Ground Capacitance from FEA</h2>
+            <ul>
+              <li>A one-bias geometry gives C<sub>g</sub> directly because no bias-to-bias capacitance exists.</li>
+              <li>In the three-bias geometry, the middle-only result C<sub>m</sub> includes capacitance to both grounded neighboring bias plates and therefore overcounts C<sub>g</sub>.</li>
+              <li>The neighbors-only and all-bias states remove that mutual contribution: C<sub>g,m</sub> = (C<sub>m</sub> &minus; C<sub>n</sub> + C<sub>a</sub>)/2.</li>
+              <li>The full design uses the equivalent Maxwell row sum C<sub>g,i</sub> = &Sigma;<sub>j</sub>C<sub>ij</sub>.</li>
+              <li>The resistive core remains dielectric during capacitance extraction and is not treated as an electrode.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCapacitanceExtractionCanvas" width="1100" height="620"></canvas>
+            <figcaption>Independent one-bias and corrected three-bias FEniCSx extractions of stage capacitance to ground</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <h2>Bias-to-Bias Parasitic Capacitance from FEA</h2>
+            <ul>
+              <li>The panels show the actual full-stack r-z region and representative boundary potentials returned by FEniCSx.</li>
+              <li>The brown core is dielectric with its selected effective permittivity; only the solid bias-plate cross sections are electrodes.</li>
+              <li>Exact reflected basis fields are reused. For two bias plates, node B is the mirror of node A and is not solved separately.</li>
+              <li>The mirrored field is reused directly in the Maxwell cross-energy integral; the all-bias energy remains an independent total check.</li>
+              <li>For three plates, only one end, the center, and all-bias states are solved; the far-end basis is reused by reflection.</li>
+              <li>The two-node panel is reconstructed from the linear basis fields as a visual check, not an additional solve.</li>
+              <li>C<sub>par,i,j</sub> is the negative off-diagonal Maxwell coefficient, &minus;C<sub>ij</sub>.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCparExtractionCanvas" width="1100" height="620"></canvas>
+            <figcaption>Representative excitations from the full node-resolved capacitance extraction</figcaption>
+          </figure>
         </article>
 
         <article class="slide slide-visual">
@@ -533,14 +603,32 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Mechanical failure analysis</p>
-            <h2>Epoxy Bonding Thermal Limit</h2>
+            <h2>SPICE Simulation of the Complete Filter</h2>
             <ul>
-              <li>The closed-form baseline uses differential thermal contraction; the axisymmetric FEA solves the perfectly bonded solid geometry with exact center-plane symmetry.</li>
-              <li>The nominal full-restraint strength crossing is about +4&nbsp;&deg;C; the assumed 2&ndash;4 GPa modulus range shifts it from &minus;29 to +21&nbsp;&deg;C.</li>
-              <li>FEA reports the 99th-percentile epoxy principal tensile stress; its raw material-corner peak remains a mesh-sensitive diagnostic.</li>
-              <li>Neither model includes cure shrinkage, viscoelastic relaxation, voids, or interface debonding.</li>
-              <li>Until bonded-ring coupons are qualified, transport at controlled room temperature&mdash;preferably at or above 25&nbsp;&deg;C&mdash;and avoid unheated or freezing shipment.</li>
+              <li>The backend solves every R, C<sub>g</sub>, and C<sub>par</sub> element in the unbuffered ladder.</li>
+              <li>Each bias node uses its own FEA C<sub>g,i</sub>; every FEA mutual C<sub>par,i,j</sub> is included.</li>
+              <li>The loaded curve includes the cable transmission line, detector capacitance, and DC load conductance once at the final node.</li>
+              <li>The unloaded curve removes the cable and detector load to show voltage-noise attenuation at the bare filter output.</li>
+              <li>End resistors occur only where specified; the complete solve avoids multiplying an isolated one-section response.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
+            <figcaption>Complete RC ladder with loaded and unloaded output conditions</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Possible mechanical limitation</p>
+            <h2>Possible Thermal Limits of Heat-Cured Epoxy</h2>
+            <ul>
+              <li>The closed form assumes equal radial and hoop stress with zero axial and r-z shear stress.</li>
+              <li>The FEA maximum-principal result combines radial, axial, hoop, and r-z shear stress and is the most limiting trend shown.</li>
+              <li>The +4&nbsp;&deg;C marker is where the closed-form stress crosses the 20&nbsp;MPa bulk tensile strength; it is not a predicted separation temperature.</li>
+              <li>FEA reports the 99th-percentile epoxy maximum-principal tensile stress; its raw material-corner peak remains mesh sensitive.</li>
+              <li>Shear-driven bond separation could open a discharge path; predicting it requires cohesive interface laws and adhesion or fracture data for the actual bonds.</li>
+              <li>The dashed <em>k</em> = 0.5 FEA trend is a linear stress-scaling sensitivity, not a second interface-compliance solve.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -551,7 +639,7 @@
 
         <article class="slide slide-copy-wide">
           <p class="eyebrow">Candidate limitation</p>
-          <h2>MELF + Alumina Falls Short at 50/60 Hz</h2>
+          <h2>Available MELF Resistance Falls Short at 50/60 Hz</h2>
           <ul>
             <li>The available 12 M&Omega; MELF value is much lower than the desired per-stage resistance.</li>
             <li>Alumina is practical and robust, but its modest permittivity limits the shunt capacitance.</li>
@@ -560,48 +648,140 @@
           </ul>
         </article>
 
-        <article class="slide slide-visual">
-          <div class="slide-copy slide-copy-compact">
-            <h2>SPICE Simulation on RC Ladder</h2>
-            <ul>
-              <li>The backend solves the individual R, C<sub>g</sub>, and C<sub>par</sub> ladder elements.</li>
-              <li>The loaded curve includes the cable as a transmission line terminated by the detector capacitance and DC load conductance.</li>
-              <li>The unloaded curve removes load current, cable, and detector capacitance, giving the voltage-noise attenuation measured at the filter output terminal alone.</li>
-            </ul>
-          </div>
-          <figure class="slide-figure">
-            <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
-            <figcaption>Full RC ladder with loaded and unloaded output conditions</figcaption>
-          </figure>
-        </article>
-
         <article class="slide prototype-slide">
-          <p class="eyebrow">Proposed prototypes</p>
-          <h2>Two Core Options</h2>
-          <p class="prototype-shared"><strong>Both prototypes:</strong> stock alumina washers, copper bias and ground plates, a copper ground tube, and epoxy fill.</p>
+          <p class="eyebrow">Proposed first article</p>
+          <h2>Compare Core and Potting Approaches</h2>
+          <p class="prototype-shared"><strong>Shared geometry:</strong> 6.6 &times; 20 &times; 1.5 mm stock alumina washers with the same copper plates and grounded tube.</p>
           <div class="prototype-comparison">
             <section class="prototype-path ferrite-path">
-              <h3>Ferrite-disc core</h3>
+              <h3>2.0 mm ferrite core</h3>
               <ul>
-                <li>Bulk resistivity is near the target, and ferrite can be cut and lapped into matching discs.</li>
-                <li>Main uncertainty: excess 1/f noise from its polycrystalline conduction structure.</li>
-                <li>Measure resistance, stability, and noise under representative bias.</li>
+                <li>Potentially much higher resistance and stronger 50/60 Hz attenuation.</li>
+                <li>Measure excess noise, voltage coefficient, contact resistance, and material spread.</li>
+                <li>Conductive discs can shorten an overly resistive path, trading lower R for higher C<sub>par</sub>.</li>
               </ul>
             </section>
             <section class="prototype-path melf-path">
-              <h3>MELF-resistor core</h3>
+              <h3>2.2 mm MELF resistor</h3>
               <ul>
-                <li>Thin-film MELF resistors are a known low-noise, repeatable technology.</li>
-                <li>Available resistance is too low; with alumina's modest capacitance, performance is poor at 50/60 Hz.</li>
-                <li>Establish the noise baseline and test higher-R or multi-part layouts.</li>
+                <li>Known thin-film construction provides the repeatable low-noise reference.</li>
+                <li>The available 12 M&Omega; value limits power-line attenuation.</li>
+                <li>Nearly the same diameter permits comparison in the same mechanical envelope.</li>
               </ul>
             </section>
           </div>
-          <p class="prototype-hybrid"><strong>Hybrid to consider:</strong> after ferrite excess noise is measured, use ferrite stages first for 50/60&nbsp;Hz attenuation, followed by MELF stages for lower resistor noise near the detector.</p>
+          <p class="prototype-hybrid"><strong>Potting comparison:</strong> build representative coupons and, if practical, cross the core comparison with a vacuum-degassed heat-cured epoxy and a compliant two-part epoxy. Compare voiding, thermal cycling, adhesion, leakage, partial discharge, attenuation, drift, and low-frequency noise before selecting the construction.</p>
+        </article>
+
+        <article class="slide prototype-slide">
+          <p class="eyebrow">Prototype extension</p>
+          <h2>Discrete Capacitors Can Supply the Missing C<sub>g</sub></h2>
+          <div class="prototype-comparison">
+            <section class="prototype-path ferrite-path">
+              <h3>Electrical opportunity</h3>
+              <ul>
+                <li>Add one high-voltage capacitor from each bias plate to ground.</li>
+                <li>The Designer's Additional C<sub>g</sub> input adds it per bias node while retaining FEA C<sub>g</sub> and adjacent C<sub>par</sub> separately.</li>
+                <li>This directly improves 50/60 Hz attenuation without requiring extreme washer permittivity.</li>
+              </ul>
+            </section>
+            <section class="prototype-path melf-path">
+              <h3>Qualification burden</h3>
+              <ul>
+                <li>Select on rated DC voltage, leakage, voltage coefficient, loss, noise, and partial-discharge data.</li>
+                <li>Package voids and terminations can dominate PD even when the bulk dielectric is strong.</li>
+                <li>Real placement can add C<sub>par</sub> and lead inductance absent from the ideal entered capacitance.</li>
+              </ul>
+            </section>
+          </div>
+          <p class="prototype-hybrid"><strong>Mechanical option:</strong> use fitted alumina around the capacitor and conductor stack, with only thin vacuum-wetted epoxy joints. This reduces bulk polymer volume but adds interfaces, so PD coupons and the thin-bondline thermal study remain part of the decision.</p>
+        </article>
+
+        <article class="slide backup-divider">
+          <p class="eyebrow">Backup slides</p>
+          <h2>Verify the FEA Against Analytical and Limiting Cases</h2>
+          <p>Supporting slides preserve the prototype assumptions, circuit checks, capacitance comparisons, mesh-aware field checks, and geometries with known analytical behavior.</p>
+        </article>
+
+        <article class="slide slide-visual prototype-geometry-slide">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: prototype geometry</p>
+            <h2>One Geometry Accepts Either Core</h2>
+            <ul>
+              <li>Washer candidate: 6.6 mm ID, 20 mm OD, 1.5 mm thick alumina.</li>
+              <li>Core-to-ground radial gap is 1.55 mm with 2.0 mm ferrite and 1.45 mm with the 2.2 mm MELF.</li>
+              <li>The washer overlap gives 16.5 pF per washer, or 33.0 pF shunt capacitance per bias node.</li>
+              <li>This is a fixed prototype reference; the earlier report slides continue to follow the current Designer inputs.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slidePrototypeGeometryCanvas" width="1100" height="620"></canvas>
+            <figcaption>Fixed copper and alumina envelope with interchangeable 2.0 and 2.2 mm inserts</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual prototype-performance-slide">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: prototype simulation</p>
+            <h2>Ferrite Has the Larger Potential Payoff</h2>
+            <ul>
+              <li>MELF model: 12 M&Omega; per resistive section and calculated package/epoxy C<sub>par</sub>.</li>
+              <li>Ferrite model: 2.0 mm Type 61, &rho; = 10<sup>8</sup> &Omega;&middot;cm, &epsilon;<sub>r</sub> = 12.</li>
+              <li>The pre-run curve uses zero conductive-disc fill; the Designer control can sweep the resistance-versus-C<sub>par</sub> trade.</li>
+              <li>Loaded results include the 10 m cable, 10 pF detector, and 1 nA load at 6 kV.</li>
+              <li>The ferrite result is a sensitivity prediction until resistance and noise are measured.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slidePrototypePerformanceCanvas" width="1100" height="620"></canvas>
+            <figcaption>Same washer geometry and load; only the resistive-core implementation changes</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-copy-wide pd-material-slide">
+          <p class="eyebrow">Backup: insulation choice</p>
+          <h2>Partial Discharge Is a System Property</h2>
+          <p>No universal material-only PDIV ranking applies. Voids, interfaces, ceramic defects, field geometry, voltage history, ripple, and rise time can dominate the bulk dielectric strength.</p>
+          <div class="epoxy-table-wrap">
+            <table class="epoxy-choice-table pd-choice-table">
+              <thead>
+                <tr>
+                  <th scope="col">Construction</th>
+                  <th scope="col">Expected advantage</th>
+                  <th scope="col">Dominant PD concern</th>
+                  <th scope="col">Use in prototype</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">Dense alumina + thin epoxy</th><td>Low-loss inorganic bulk; less polymer volume to contain voids or erode.</td><td>Chips, pores, triple points, and incompletely wetted seams.</td><td>Strong candidate with inspected parts and vacuum-wetted coupon joints.</td></tr>
+                <tr><th scope="row">Bulk cast epoxy</th><td>Simple fill with fewer discrete part interfaces.</td><td>Gas voids or debonds can discharge, tree, erode, and puncture.</td><td>Keep as the baseline control.</td></tr>
+                <tr><th scope="row">Flexible gel / liquid</th><td>Lower stored thermal stress and easier rework.</td><td>Bubbles, surface paths, contamination, and DC space-charge history.</td><td>Coupon comparison; published tests do not show an automatic PDIV advantage.</td></tr>
+                <tr><th scope="row">Discrete HV capacitor</th><td>Large C<sub>g</sub> in a compact, specified component.</td><td>Package and termination PD, leakage, voltage coefficient, loss, and microphonics.</td><td>Use only with component-level DC and PD qualification.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="epoxy-table-note">Published ceramic-substrate tests found strongly waveform- and medium-dependent PDIV. Alumina fillers improve epoxy erosion resistance, but do not eliminate macroscopic void or interface risk.</p>
+        </article>
+
+        <article class="slide slide-visual alumina-thermal-study-slide">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: fitted-alumina thermal study</p>
+            <h2>Thin Epoxy Reduces Volume, Not Necessarily Local Stress</h2>
+            <ul>
+              <li>Former bulk-epoxy regions are changed to fitted alumina except for a specified epoxy clearance around each solid profile.</li>
+              <li>Every interface remains perfectly bonded; the model does not predict debonding, cure shrinkage, voids, or viscoelastic relaxation.</li>
+              <li>P99 principal tension and absolute r-z shear are compared at 20&nbsp;&deg;C after cooling from the 70&nbsp;&deg;C stress-free reference.</li>
+              <li>The 0.10 mm bondline uses a 0.05 mm target mesh; raw corner peaks remain mesh-sensitive diagnostics.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideAluminaThermalStudyCanvas" width="1100" height="620"></canvas>
+            <figcaption>Mesh-resolved comparative insert model; final machinable alumina geometry still requires detailed CAD</figcaption>
+          </figure>
         </article>
 
         <article class="slide slide-copy-wide epoxy-choice-slide">
-          <p class="eyebrow">Potting material trade</p>
+          <p class="eyebrow">Backup: potting material trade</p>
           <h2>Epoxy Choice</h2>
           <p>Lower viscosity and adequate working time help remove gas and fill narrow interfaces. Compliance may reduce thermal stress, but only representative cured coupons can qualify adhesion and partial-discharge behavior.</p>
           <div class="epoxy-table-wrap">
@@ -625,21 +805,17 @@
         </article>
 
         <article class="slide slide-copy-wide">
-          <p class="eyebrow">Prototype plan</p>
-          <h2>One Mechanical Build Can Compare Both Core Inserts</h2>
-          <ul>
-            <li>Use the same purchased alumina washers and machined copper plate/tube envelope for both builds.</li>
-            <li>Bond cut ferrite discs to bias plates with controlled conductive-epoxy joints.</li>
-            <li>Install the MELF alternative as discrete axial stage elements with controlled terminations.</li>
-            <li>Pot both variants with the same epoxy and vacuum/pressure cure process.</li>
-            <li>Compare attenuation, leakage, drift, and low-frequency noise without changing the surrounding geometry.</li>
-          </ul>
-        </article>
-
-        <article class="slide backup-divider">
-          <p class="eyebrow">Backup slides</p>
-          <h2>Analytical and Circuit Checks Support the Main Results</h2>
-          <p>These cross-checks defend the ladder treatment, FEA scale, capacitance extraction, and rounded-edge assumptions if the numerical model is challenged.</p>
+          <p class="eyebrow">Backup: prototype test sequence</p>
+          <h2>Measure the Ferrite Before Trusting the Model</h2>
+          <ol class="method-steps">
+            <li><strong>Characterize the ferrite.</strong> Cut nominal 2.0 mm samples and measure resistance versus length, voltage, temperature, and time.</li>
+            <li><strong>Measure noise scaling.</strong> Compare absolute and normalized resistance-noise spectra with MELF, and compare another readily available diameter if useful.</li>
+            <li><strong>Qualify the washer.</strong> Inspect the purchased alumina for dimensions, flatness, chips, finish, and trapped-interface risk.</li>
+            <li><strong>Dry-fit both cores.</strong> Confirm that cut 2.0 mm ferrite and 2.2 mm MELF inserts use identical plates, washers, alignment, and clearances.</li>
+            <li><strong>Use the epoxy sample.</strong> Make small wetting and thermal-cycle coupons before potting the full stack.</li>
+            <li><strong>Compare complete filters.</strong> Measure attenuation, leakage, discharge pulses, drift, and low-frequency noise under the same bias and load.</li>
+          </ol>
+          <p class="prototype-hybrid"><strong>Possible later hybrid:</strong> ferrite stages first for 50/60 Hz attenuation, followed by MELF stages near the detector if the ferrite has measurable excess noise.</p>
         </article>
 
         <article class="slide slide-visual">
@@ -660,6 +836,114 @@
         </article>
 
         <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: Cpar solver consistency</p>
+            <h2>Full, Mirror, and Repeated Models Agree</h2>
+            <ul>
+              <li>The reference meshes the complete stack and applies no symmetry to the extracted matrix.</li>
+              <li>The mirror case averages only exactly reflected Maxwell-matrix entries.</li>
+              <li>The repeated case additionally shares fully interior entries; end coupling remains distinct.</li>
+              <li>For two through five bias plates, all three methods give the same average adjacent C<sub>par</sub>.</li>
+              <li>The default geometry gives FEA/analytic &asymp; 0.478 because the intervening ground plate shields the axial path.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCparStrategyValidationCanvas" width="1100" height="620"></canvas>
+            <figcaption>Matched FEniCSx Maxwell-matrix results for 2&ndash;5 bias plates</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: Cpar analytical limit</p>
+            <h2>Cpar Converges Toward the Axial Approximation</h2>
+            <ul>
+              <li>Use three bias plates in a uniform &epsilon;<sub>r</sub> = 3.4 dielectric.</li>
+              <li>Make the ground plate a narrow outer annulus and move it and the grounded tube radially outward.</li>
+              <li>Increase the bias-disc diameter with the ground-hole diameter so most field energy is axial.</li>
+              <li>FEA/&epsilon;A/d rises monotonically from 0.720 at 24 mm OD to 0.949 at 120 mm OD.</li>
+              <li>This limiting geometry verifies that ordinary designs fall below the parallel-plate estimate because of shielding, not a capacitance scaling error.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCparLimitValidationCanvas" width="1100" height="620"></canvas>
+            <figcaption>Ground-edge contribution becomes small compared with the widening axial-field area</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: Cg end effects</p>
+            <h2>C<sub>g</sub> Matrix: Two vs Three Bias Plates</h2>
+            <ul>
+              <li>The two-bias matrix has one unique end-node basis field; the opposite end is its exact reflection.</li>
+              <li>The three-bias matrix has two unique basis fields: one end and the center. The far end reuses the first field by reflection.</li>
+              <li>Comparing the two-bias value with the three-bias end and center values exposes finite-stack end effects.</li>
+              <li>The reflected field supplies the remaining cross-energy coefficients; the all-bias energy independently verifies the row-sum total.</li>
+              <li>For two or three plates, Repeat interior adds no further class: there is either no interior node or only one.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCgPlateCountComparisonCanvas" width="1100" height="620"></canvas>
+            <figcaption>Exact-reflection capacitance matrices for two and three bias plates</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: Cg solver consistency</p>
+            <h2>Cg Matrix Treatments Agree</h2>
+            <ul>
+              <li>The campaign includes the previously omitted one-bias case, then two through five bias plates.</li>
+              <li>The reference uses the complete stack with no matrix symmetry; exact mirror averages only reflected entries.</li>
+              <li>Repeating treatment additionally shares interior-node classes while preserving total C<sub>g</sub>.</li>
+              <li>Mean C<sub>g</sub> agrees to displayed precision for every treatment.</li>
+              <li>The largest node-level change is 0.066% for full versus mirror and 0.046% for repeat versus mirror.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCgStrategyValidationCanvas" width="1100" height="620"></canvas>
+            <figcaption>Matched node-resolved FEniCSx C<sub>g</sub> results for one through five bias plates</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: Cg analytical limit</p>
+            <h2>Cg Converges Toward Two Flat Washers</h2>
+            <ul>
+              <li>Use one bias plate between two ground plates so center-plane mirror symmetry is exact.</li>
+              <li>Use a 2.0 mm core, 2.2 mm ground ID, and uniform &epsilon;<sub>r</sub> = 3.4 dielectric.</li>
+              <li>Increase matched washer and bias OD from 12 to 120 mm while retaining a 2 mm radial tube gap.</li>
+              <li>FEA/(2&epsilon;A/d) falls monotonically from 1.449 to 1.038.</li>
+              <li>The positive excess is fringing capacitance; its fractional contribution shrinks as plate area grows.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCgLimitValidationCanvas" width="1100" height="620"></canvas>
+            <figcaption>Exact-mirror one-bias FEA approaches the two-washer parallel-plate result</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: Cg validation audit trail</p>
+            <h2>The Limiting-Case Harness Needed Correction</h2>
+            <ul>
+              <li>Initial three-bias wide-disc batches were stopped near 5.7 GiB RSS before swap or OOM.</li>
+              <li>The primary cause was a 0.01 mm radial gap imposing a 0.024 mm global coarse target over the large disc.</li>
+              <li>An interim retained-memory diagnosis was incomplete; the completed mesh records exposed the global overrefinement.</li>
+              <li>The first isolated subprocess launch also had a <code>sys</code>-shadowing bug and failed before FEA.</li>
+              <li>The final test uses one bias plate, exact mirror symmetry, a 0.10 mm radial gap, and isolated diameter cases; swap remained zero.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideCgValidationHistoryCanvas" width="1100" height="620"></canvas>
+            <figcaption>Failed attempts, diagnosis, correction, and retained result records</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
           <div class="slide-copy">
             <p class="eyebrow">Backup: capacitance validation</p>
             <h2>Total Capacitance Checks the FEA Scale</h2>
@@ -672,22 +956,6 @@
           <figure class="slide-figure">
             <canvas id="slideFeaSanityCanvas" width="1100" height="620"></canvas>
             <figcaption>Total HV-to-ground capacitance from analytic overlap and FEA energy</figcaption>
-          </figure>
-        </article>
-
-        <article class="slide slide-visual">
-          <div class="slide-copy">
-            <p class="eyebrow">Backup: mutual capacitance</p>
-            <h2>Three FEA Excitations Isolate C<sub>par</sub></h2>
-            <ul>
-              <li>Middle-only, neighbors-only, and all-bias energy solves cancel capacitance-to-ground terms.</li>
-              <li>The resulting polarization identity isolates the mutual capacitance to the two neighboring bias plates.</li>
-              <li>The axial &epsilon;A/d estimate is expected to run high because grounded plates intercept fringing flux.</li>
-            </ul>
-          </div>
-          <figure class="slide-figure">
-            <canvas id="slideCparExtractionCanvas" width="1100" height="620"></canvas>
-            <figcaption>Three energy solves isolate adjacent-bias parasitic capacitance</figcaption>
           </figure>
         </article>
 
@@ -740,27 +1008,24 @@
             <figcaption>Capacitance per length per electric-field stress</figcaption>
           </figure>
         </article>
+        <nav class="slide-deck-controls" aria-label="Slide navigation">
+          <button id="previousSlide" type="button" aria-label="Previous slide" title="Previous slide">&lsaquo;</button>
+          <input id="slideScrubber" type="range" min="1" max="1" value="1" step="1" aria-label="Go to slide">
+          <output id="slideCounter" for="slideScrubber" aria-live="polite">1 / 1</output>
+          <button id="nextSlide" type="button" aria-label="Next slide" title="Next slide">&rsaquo;</button>
+        </nav>
       </section>
 
       <section class="view artifacts" id="artifacts" aria-label="Generated artifacts">
-        <h2>Generated Files</h2>
-        <p>The repository script writes compact geometry and field outputs to <code>simulations/axisymmetric/outputs/</code>.</p>
-        <ul>
-          <li><code>latest-geometry.json</code></li>
-          <li><code>latest-geometry.svg</code></li>
-          <li><code>latest-summary.json</code></li>
-          <li><code>latest-field.svg</code></li>
-        </ul>
-        <p>It also writes CAD and mesh exports to <code>hardware/geometry/generated/</code>.</p>
-        <ul>
-          <li><code>latest-model.scad</code></li>
-          <li><code>latest-model.obj</code></li>
-          <li><code>latest-model.mtl</code></li>
-          <li><code>latest-model.stl</code></li>
-        </ul>
-        <pre><code>python software/bias_filter/axisymmetric_model.py export
-python software/bias_filter/axisymmetric_model.py solve
-python software/bias_filter/axisymmetric_model.py cad</code></pre>
+        <div class="artifact-heading">
+          <div>
+            <p class="eyebrow">Latest server exports</p>
+            <h2>Generated Files</h2>
+          </div>
+          <a class="artifact-download-all" id="artifactDownloadAll" href="/api/artifacts.zip" download hidden>Download all (.zip)</a>
+        </div>
+        <p class="artifact-status" id="artifactStatus" role="status">Loading generated files...</p>
+        <div class="artifact-groups" id="artifactGroups"></div>
       </section>
     </main>
   </body>

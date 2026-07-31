@@ -47,13 +47,30 @@ The JavaScript fallback and the current Python backend use locally refined struc
 
 The Python backend now returns nonuniform `rCoords` and `zCoords` plus mesh metadata. The browser field plot draws cells from those coordinates rather than from a fixed pixel raster. This is adaptive coordinate refinement on a structured finite-difference stencil, not a conforming finite-element mesh.
 
-The capacitance model intentionally keeps using the simple washer-overlap approximation. The field solvers use a z-dependent dielectric map: washer permittivity only inside flat annular washer slabs between plate faces, and epoxy permittivity around the rounded plate edges. This matters for edge-stress estimates because the rounded-edge high-field region is usually in epoxy, not in the washer.
+For reviewability, the backend result is also the display contract. Each solve
+returns the normalized parameters, serialized component profiles, material
+regions, boundary potentials, sampled solved potential, and sampled field.
+The CAD, FEA model-region, potential, and field-overlay views consume that
+returned model. They must not reconstruct a second geometry from the original
+browser inputs after the backend has normalized those inputs.
+
+The analytical capacitance sanity check uses the simple washer-overlap approximation. The FEniCSx backend now extracts the node-resolved `Cg` and `Cpar` network from unit basis fields and Maxwell cross-energy integrals. Both field and capacitance solves use the same z-dependent dielectric map: washer permittivity only inside flat annular washer slabs between plate faces, and epoxy permittivity around the rounded plate edges. This matters for edge-stress estimates because the rounded-edge high-field region is usually in epoxy, not in the washer.
 
 As of the current handoff, the flat washer-overlap regions must verify against the expected `E = V / gap` baseline before any rounded-edge maximum is trusted. For the default 6 kV bias and 1 mm axial gap, samples through the middle of each washer gap should be about 6.0 kV/mm. This caught an initial FEniCSx boundary-tagging bug where conductor faces on one side of a plate were missed because Gmsh/DOLFINx boundary coordinates landed infinitesimally outside the ideal plate interval. The FEniCSx boundary marker now uses a tiny geometric tolerance for Dirichlet HV/ground tags, and the deployed Pi FEniCSx result again gives about 6.0 kV/mm in all default washer gaps. The raw point maximum near rounded conductor edges is not yet converged enough for breakdown acceptance. Mesh sweeps can move isolated single-cell spikes between edge features, so the web UI reports a neighborhood-supported Emax based on the 75th percentile of a same-material 3x3 dielectric neighborhood and keeps the raw point maximum as a diagnostic.
 
 The field plot color scale should remain an absolute field-magnitude scale in V/mm. Material breakdown values can be shown as colorbar ticks and margin readouts, but individual dielectric pixels should not be normalized by their own material breakdown value when the colorbar is labeled in kV/mm.
 
-The red fill in the field plot means an HV equipotential conductor, not electric field inside metal. The HV plates and the resistive/ferrite core are both held at the bias voltage in the electrostatic solve and should appear with the same HV cue in the field view. Grounded copper is green. Material/CAD views can still show ferrite as brown and dielectrics by material.
+The field plot colors only dielectric samples with the absolute electric-field
+scale. Conductors are overlaid afterward from the backend model: red denotes
+the imposed bias/core boundary potential and green denotes the imposed
+ground/tube boundary potential. An explicit legend separates these voltage
+cues from the electric-field colorbar. The Potential tab plots the sampled
+scalar solution and fills conductor interiors with their imposed boundary
+values. Physically, each bias plate is a solid disc extending to the axis and
+the resistive/ferrite core is divided into pieces by those discs. For the
+peak-field model, the bias discs and exposed surfaces of all core pieces are
+assigned the bias voltage; the small operating voltage gradient through the
+resistive path is omitted.
 
 ## Mesh Requirements
 
@@ -75,7 +92,7 @@ The alternating stack starts and ends on ground plates and uses uniform plate th
 - `mirror_half`: solve one end of the stack through the middle plate, then mirror the field across the center plane. The mirror plane has even-potential symmetry, `dV/dz = 0`, outside regions already fixed as conductor.
 - `full_stack`: keep as a reference solve and as a simple browser-compatible fallback.
 
-The half-domain FEniCSx mesh uses the natural Neumann condition at the center plane, doubles the integrated electrostatic energy for total-capacitance reconstruction, and mirrors field samples back into the full browser grid. The same reduction is used for the three symmetric energy-polarization solves that estimate adjacent-bias parasitic capacitance.
+The half-domain FEniCSx mesh uses the natural Neumann condition at the center plane, doubles the integrated electrostatic energy for total-capacitance reconstruction, and mirrors field samples back into the full browser grid. Node-resolved capacitance basis excitations generally are not mirror-symmetric, so their Maxwell matrix is extracted on a full-stack mesh; exact reflection can then be imposed by averaging reflected matrix entries.
 
 A single repeating interior cell is not exact for a finite stack because electrostatic end effects are global, so only the full-stack center plane is exact without an approximation. The web designer nevertheless enables `end_repeat_approx` by default for routine screening because the tested error is small and the Pi runtime improvement is substantial. It solves two regions: (A) the physical axial end through the center of the first bias plate, and (B) that bias-plate center through the center of the next ground plate. Region A is mirrored at the far end. Region B is alternately copied and mirrored across successive bias-plate and ground-plate center planes. Energy is reconstructed as `2 U_A + 2 (N_pairs - 1) U_B`. A one-pair stack falls back to exact `mirror_half` because it has no repeated interior region. Clear the checkbox for the exact mirror-half reference solve.
 
@@ -84,6 +101,18 @@ The mirror-half implementation must retain a same-geometry `full_stack` comparis
 - Peak electric field should agree within about 0.5% or 10 V/mm, whichever is looser during early solver development.
 - Peak location should map to the same physical edge class after mirroring.
 - Reconstructed full-field samples from the half-stack should agree with the full-stack field within about 1%.
+
+Capacitance-network consistency and analytical limiting behavior are tested
+separately. The matrix campaign uses ordinary geometry with one through five
+bias plates and compares raw full-matrix, exact reflected, and
+repeated-interior node values. The analytical `Cg` limit uses one bias plate
+between two ground plates with exact mirror symmetry, ground ID close to core
+OD, and increasing bias/washer OD. This avoids spending Pi memory on plate
+counts that add no information to the parallel-plate limit. The completed
+12-to-120 mm sweep approaches the two-washer analytical result monotonically,
+from FEA/analytic 1.4486 to 1.0384, with zero swap use. See
+`docs/knowledge/fenicsx-fea.md` for dimensions, failed attempts, and raw-result
+paths.
 
 ## Solver Benchmarks
 

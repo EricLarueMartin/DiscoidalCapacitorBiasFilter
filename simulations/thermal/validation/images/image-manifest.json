@@ -1,0 +1,17 @@
+{
+  "source": "simulations\\thermal\\validation\\thermal-validation-results.json",
+  "images": [
+    "simulations\\thermal\\validation\\images\\analytical-check-summary.png",
+    "simulations\\thermal\\validation\\images\\linearity-and-invariance.png",
+    "simulations\\thermal\\validation\\images\\mesh-convergence.png",
+    "simulations\\thermal\\validation\\images\\mirror-vs-full-stack.png",
+    "simulations\\thermal\\validation\\images\\known-limit-fields.png",
+    "simulations\\thermal\\validation\\images\\stress-field-0p6.png",
+    "simulations\\thermal\\validation\\images\\stress-field-0p45.png",
+    "simulations\\thermal\\validation\\images\\stress-field-0p3.png",
+    "simulations\\thermal\\validation\\images\\stress-field-0p2.png",
+    "simulations\\thermal\\validation\\images\\stress-field-0p15.png",
+    "simulations\\thermal\\validation\\images\\stress-field-0p1.png",
+    "simulations\\thermal\\validation\\images\\mesh-field-comparison.png"
+  ]
+}

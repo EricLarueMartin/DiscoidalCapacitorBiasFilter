@@ -1,0 +1,96 @@
+{
+  "generated_utc": "2026-07-31T14:44:11.674106+00:00",
+  "solver": "axisymmetric-linear-thermoelastic-fenicsx",
+  "purpose": "Compare the existing bulk epoxy fill with fitted machined alumina occupying former bulk epoxy volume while a thin epoxy clearance remains around each modeled solid component.",
+  "temperature": {
+    "stress_free_c": 70.0,
+    "evaluated_c": 20.0
+  },
+  "geometry_source": "hardware/geometry/default-parameters.json",
+  "method": {
+    "bulk_epoxy": "Existing production thermal geometry.",
+    "fitted_alumina": "Mesh cells formerly assigned epoxy are reassigned to alumina when their centroid is farther than the specified clearance from every core, washer, plate, and tube profile.",
+    "interpretation": "A mesh-resolved comparative fitted-insert model, not final machinable CAD. Perfect bonding is retained and no cohesive failure, cure shrinkage, void, or viscoelastic relaxation is modeled.",
+    "reported_statistics": "P95/P99 cell-center epoxy stresses are design comparisons; raw corner peaks remain mesh-sensitive diagnostics."
+  },
+  "cases": [
+    {
+      "name": "bulk_epoxy_0p10mm_mesh",
+      "bondline_mm": null,
+      "mesh_size_mm": 0.1,
+      "mesh_cells": 79254,
+      "epoxy_cell_fraction_of_epoxy_plus_alumina": 0.5156538698419216,
+      "epoxy_principal_tensile_p95_mpa": 29.529115114163858,
+      "epoxy_principal_tensile_p99_mpa": 31.928083040354203,
+      "epoxy_principal_tensile_raw_max_mpa": 78.8839746745745,
+      "epoxy_rz_shear_p99_abs_mpa": 12.462293836969392,
+      "epoxy_rz_shear_raw_max_abs_mpa": 30.702577996069397,
+      "epoxy_axial_tensile_p99_mpa": 29.527204398836457,
+      "case_file": "cases/bulk_epoxy_0p10mm_mesh.json"
+    },
+    {
+      "name": "fitted_alumina_0p5mm_bondline",
+      "bondline_mm": 0.5,
+      "mesh_size_mm": 0.1,
+      "mesh_cells": 79254,
+      "epoxy_cell_fraction_of_epoxy_plus_alumina": 0.3118712789981523,
+      "epoxy_principal_tensile_p95_mpa": 33.60113818429342,
+      "epoxy_principal_tensile_p99_mpa": 34.62202182420698,
+      "epoxy_principal_tensile_raw_max_mpa": 59.19414885987436,
+      "epoxy_rz_shear_p99_abs_mpa": 7.163404687345618,
+      "epoxy_rz_shear_raw_max_abs_mpa": 25.160738739956727,
+      "epoxy_axial_tensile_p99_mpa": 32.760353478552176,
+      "case_file": "cases/fitted_alumina_0p5mm_bondline.json",
+      "principal_p99_ratio_to_bulk_epoxy": 1.0843752122683934,
+      "rz_shear_p99_ratio_to_bulk_epoxy": 0.5748062741142709
+    },
+    {
+      "name": "fitted_alumina_0p3mm_bondline",
+      "bondline_mm": 0.3,
+      "mesh_size_mm": 0.1,
+      "mesh_cells": 79254,
+      "epoxy_cell_fraction_of_epoxy_plus_alumina": 0.20255081092178198,
+      "epoxy_principal_tensile_p95_mpa": 33.6235794552309,
+      "epoxy_principal_tensile_p99_mpa": 34.17906658042548,
+      "epoxy_principal_tensile_raw_max_mpa": 47.60245185726234,
+      "epoxy_rz_shear_p99_abs_mpa": 5.810362208709817,
+      "epoxy_rz_shear_raw_max_abs_mpa": 21.468358096161552,
+      "epoxy_axial_tensile_p99_mpa": 33.52117097335129,
+      "case_file": "cases/fitted_alumina_0p3mm_bondline.json",
+      "principal_p99_ratio_to_bulk_epoxy": 1.0705016814578638,
+      "rz_shear_p99_ratio_to_bulk_epoxy": 0.4662353724539361
+    },
+    {
+      "name": "fitted_alumina_0p2mm_bondline",
+      "bondline_mm": 0.2,
+      "mesh_size_mm": 0.1,
+      "mesh_cells": 79254,
+      "epoxy_cell_fraction_of_epoxy_plus_alumina": 0.1415263806199959,
+      "epoxy_principal_tensile_p95_mpa": 32.7085694267658,
+      "epoxy_principal_tensile_p99_mpa": 34.41565655619649,
+      "epoxy_principal_tensile_raw_max_mpa": 41.12942316493634,
+      "epoxy_rz_shear_p99_abs_mpa": 6.832633257297512,
+      "epoxy_rz_shear_raw_max_abs_mpa": 18.47684867004408,
+      "epoxy_axial_tensile_p99_mpa": 33.90785542633062,
+      "case_file": "cases/fitted_alumina_0p2mm_bondline.json",
+      "principal_p99_ratio_to_bulk_epoxy": 1.077911771674429,
+      "rz_shear_p99_ratio_to_bulk_epoxy": 0.5482644966232867
+    },
+    {
+      "name": "fitted_alumina_0p1mm_bondline",
+      "bondline_mm": 0.1,
+      "mesh_size_mm": 0.05,
+      "mesh_cells": 314668,
+      "epoxy_cell_fraction_of_epoxy_plus_alumina": 0.07344946475381257,
+      "epoxy_principal_tensile_p95_mpa": 32.14301319546119,
+      "epoxy_principal_tensile_p99_mpa": 37.994110963260525,
+      "epoxy_principal_tensile_raw_max_mpa": 46.8751695341557,
+      "epoxy_rz_shear_p99_abs_mpa": 10.448068927939055,
+      "epoxy_rz_shear_raw_max_abs_mpa": 18.80671375928837,
+      "epoxy_axial_tensile_p99_mpa": 36.59957730944329,
+      "case_file": "cases/fitted_alumina_0p1mm_bondline.json",
+      "principal_p99_ratio_to_bulk_epoxy": 1.1899903578689461,
+      "rz_shear_p99_ratio_to_bulk_epoxy": 0.8383744649756901
+    }
+  ]
+}
