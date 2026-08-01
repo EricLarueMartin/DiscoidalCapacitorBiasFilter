@@ -29,6 +29,24 @@ stress, a conservative upper bound, nor a prediction of separation. The
 current models do not calculate the temperature at which an epoxy-to-alumina
 or epoxy-to-copper interface opens and creates a void.
 
+## What strength data are actually published for 9510?
+
+The MG Chemicals 9510 technical data sheet reports a cured tensile strength of
+`20 N/mm^2` (20 MPa). It does **not** report a bulk shear strength. Its ASTM
+D1002 lap-shear results are adhesive-joint tests and depend on the named
+substrate: 9.2 MPa on stainless steel, 5.8 MPa on aluminum, 3.8 MPa on ABS,
+and 1.1 MPa on polycarbonate. No copper or alumina lap-shear value is
+published in that sheet.
+
+Those lap-shear numbers must not be used as a failure threshold for the local
+`r-z` epoxy shear reported by the axisymmetric FEA. The stress state, specimen
+geometry, interface preparation, and substrates are different. Qualification
+still requires tensile/cleavage and shear coupons made with the actual copper
+or selected conductor finish, machined alumina, surface preparation, bondline,
+and heat-cure schedule.
+
+Source: [MG Chemicals 9510 Technical Data Sheet](https://mgchemicals.com/downloads/tds/tds-9510.pdf).
+
 ## Closed-form baseline
 
 Below the epoxy glass transition, the first-order equibiaxial estimate is:
@@ -371,10 +389,13 @@ python3 software/bias_filter/thermal_alumina_insert_study.py
 python3 software/bias_filter/plot_thermal_alumina_study.py
 ```
 
-## CTE-matched conductor presets
+## Compliant and CTE-matched conductor presets
 
-The thermal FEA provides independent plate and tube presets for Grade 2
-titanium and Mo-Cu 65/35, 70/30, and 80/20. The Grade 2 titanium preset uses
+The thermal FEA provides independent plate and tube presets for 1050-O
+aluminum, Grade 2 titanium, and Mo-Cu 65/35, 70/30, and 80/20. The aluminum
+preset uses 69 GPa, 0.33, and 23.55 ppm/K for Young's modulus, assumed Poisson
+ratio, and CTE. Its 28 n-ohm-m resistivity corresponds to about 61.6% of the
+copper conductivity used here. The Grade 2 titanium preset uses
 105 GPa, 0.34, and 8.6 ppm/K for Young's modulus, Poisson ratio, and CTE. The
 Mo-Cu presets use the supplier's respective modulus/CTE pairs of 200 GPa/8.6,
 210 GPa/8.2, and 220 GPa/6.3 ppm/K. Because the cited Mo-Cu sheet does not
@@ -386,6 +407,81 @@ This separation of plate and tube regions matters: a Mo-Cu or titanium plate
 study can retain the readily available copper outer tube. Electrostatic FEA
 still treats every conductor as an equipotential, while thermal FEA assigns
 each region its selected elastic properties.
+
+### Conductor and fitted-alumina campaign
+
+The checked-in campaign in
+`simulations/thermal/conductor-study/thermal-conductor-study.json` uses the
+default geometry, a 70 to 20 C cooldown, exact mirror symmetry, a 0.10 mm
+target mesh, and perfectly bonded interfaces. The primary comparison changes
+the plates while retaining the practical copper tube. Each material is solved
+with both bulk epoxy and the representative 0.30 mm fitted-alumina bondline.
+
+| Plate material; copper tube retained | CTE (ppm/K) | Conductivity vs Cu | Bulk P99 tension | Bulk P99 shear | Fitted P99 tension | Fitted P99 shear |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Copper | 16.9 | 100% | 31.93 MPa | 12.46 MPa | 34.18 MPa | 5.81 MPa |
+| 1050-O aluminum | 23.55 | 61.6% | 31.14 MPa | 12.21 MPa | 34.38 MPa | 7.41 MPa |
+| Grade 2 titanium | 8.6 | 3.8% | 32.54 MPa | 12.97 MPa | 35.09 MPa | 5.51 MPa |
+| Mo65Cu35 | 8.6 | 46.6% | 33.66 MPa | 13.25 MPa | 35.64 MPa | 5.36 MPa |
+| Mo70Cu30 | 8.2 | 44.8% | 33.83 MPa | 13.30 MPa | 35.82 MPa | 5.44 MPa |
+| Mo80Cu20 | 6.3 | 34.5% | 34.27 MPa | 13.46 MPa | 36.06 MPa | 5.72 MPa |
+
+The important result is that matching the alumina CTE does not reduce the
+epoxy P99 principal tension in this fully bonded geometry. With bulk epoxy,
+Grade 2 titanium is the least disruptive alternative but still raises P99
+tension by 1.9%; the Mo-Cu grades raise it by 5.4% to 7.3%. Mo70Cu30 matches
+the nominal alumina CTE exactly, but its 210 GPa modulus makes the surrounding
+assembly stiffer, and its P99 tension is 6.0% above copper. CTE alone is
+therefore not a sufficient selection metric.
+
+The fitted-alumina result is also a trade rather than a general stress
+reduction. With copper conductors, the 0.30 mm layout reduces P99 absolute
+r-z shear by 53.4%, from 12.46 to 5.81 MPa, but increases P99 principal
+tension by 7.1%, from 31.93 to 34.18 MPa. CTE-matched plates reduce fitted-case
+shear slightly further, while increasing principal tension. Replacing both
+plates and tube does not reverse the conclusion: the fitted titanium and
+Mo70Cu30 cases give 35.30 and 35.63 MPa P99 principal tension, respectively.
+
+Electrical conductivity is recorded for the engineering trade but is not an
+input to the thermoelastic solve. It also does not change the electrostatic
+FEA, which treats each conductor as an equipotential. It can matter later for
+contact behavior, RF skin loss, and damping in a full electromagnetic model.
+Mo-Cu retains roughly 35% to 47% of copper conductivity, while Grade 2
+titanium is about 3.8% of copper. Those differences do not create a thermal-
+stress benefit in the present model.
+
+Lower modulus plus a somewhat closer epoxy CTE does help the bulk-epoxy
+layout modestly. Aluminum plates with the copper tube retained reduce P99
+principal tension by 2.5%, from 31.93 to 31.14 MPa. Changing the tube as well
+gives 31.01 MPa, a 2.9% reduction. This benefit does not carry over to the
+fitted-alumina layout: all-aluminum metalwork gives 34.30 MPa P99 tension,
+0.3% above copper, while P99 shear rises from 5.81 to 8.27 MPa. Aluminum is
+therefore a useful bulk-potting candidate, not a general stress solution.
+
+### Annealed-copper plasticity sensitivity
+
+Two additional cases use incremental small-strain associative J2
+elastic-perfectly-plastic copper. Yield strength is 69 MPa, corresponding to
+the published 10 ksi 0.5%-extension yield for soft C11000 grain-size tempers;
+hardening is zero because a certified purchased-product curve is not yet
+available. Eight cooldown increments are used. The copper plate and tube
+von Mises maxima return to 69.000 MPa, and a coarse four-versus-eight increment
+check changed epoxy P99 tension by about 0.035%.
+
+Matched-mesh linear copper references are required because the plastic cases
+use 0.30 mm requested mesh in bulk epoxy and the fitted bondline cap refines
+the other case to 0.15 mm. Relative to those references, plasticity changes
+bulk P99 tension by -0.41% and shear by +0.35%. In fitted alumina it changes
+tension by -0.003% and shear by +5.87%. Copper does yield in the idealized
+model, but that yielding provides essentially no useful epoxy-tension relief.
+Do not treat this as copper qualification: temper, prior cold work, cyclic
+hardening, creep, and the actual stress-strain curve remain unmeasured inputs.
+
+Reproduction:
+
+```bash
+python3 software/bias_filter/thermal_conductor_study.py
+```
 
 ## Vacuum degassing
 
@@ -408,9 +504,11 @@ than treating elapsed vacuum time alone as proof of a void-free bond.
   https://www2.coorstek.com/media/4235/advanced-alumina.pdf
 - Copper Development Association C11000 properties:
   https://alloys.copper.org/alloy/C11000
+- Hydro EN AW-1050A properties:
+  https://www.hydro.com/globalassets/08-about-hydro/hydro-worldwide/germany/extrusion-germany/alloy-data-sheets/hydro-en-aw-1050a.pdf
 - Vishay MMB 0207 datasheet (alumina ceramic body and operating range):
   https://www.vishay.com/docs/28963/mmu0102_mma0204_mmb0207.pdf
 - H.C. Starck Solutions Mo-Cu composite data:
   https://www.hcstarcksolutions.com/wp-content/uploads/PD-7101_1-MoCu-Composites.pdf
-- TIMET titanium design and fabrication handbook:
-  https://www.timet.com/assets/local/documents/technicalmanuals/DesignandFabrication.pdf
+- Robert Laminage Grade 2 titanium data:
+  https://www.robertlaminage.com/en/node/521

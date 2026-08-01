@@ -1,0 +1,174 @@
+{
+  "solver": "axisymmetric-electroquasistatic-multiport-fenicsx",
+  "status": "completed",
+  "scope": "distributed electric field and resistive core; no magnetic induction, radiation, or 3D MELF helix",
+  "ports": [
+    "bias_plate_1",
+    "bias_plate_2"
+  ],
+  "excitation": "input bias plate fixed at 1 V; internal plates floating; output terminated",
+  "mesh": {
+    "type": "gmsh-dolfinx-axisymmetric-solid",
+    "target_size_mm": 0.6,
+    "cells": 6322,
+    "vertices": 3256,
+    "solved_z_min_mm": 0.0,
+    "solved_z_max_mm": 13.5,
+    "full_stack_length_mm": 13.5,
+    "solve_strategy": "full_stack",
+    "symmetry": "full stack with one axial rigid-body anchor",
+    "material_surface_counts": {
+      "epoxy": 5,
+      "alumina": 4,
+      "plate": 5,
+      "core": 3,
+      "tube": 1
+    },
+    "material_layout": "bulk_epoxy"
+  },
+  "materials": {
+    "core_conductivity_s_per_m": 9.864975811481116e-05,
+    "core_conductivity_basis": "homogeneous cylinder calibrated to entered interstage resistance",
+    "epoxy_conductivity_s_per_m": 3.846153846153846e-12,
+    "relative_permittivity": {
+      "epoxy": 3.7,
+      "alumina": 10.0,
+      "plate": 1.0,
+      "core": 19.6,
+      "tube": 1.0
+    }
+  },
+  "parameters": {
+    "units": "mm",
+    "bias_voltage_v": 6000,
+    "core_volume_resistivity_log10_ohm_cm": 8.0,
+    "core_volume_resistivity_ohm_cm": 100000000.0,
+    "use_direct_stage_circuit": true,
+    "use_direct_stage_capacitance": false,
+    "melf_stage_resistance_mohm": 12.0,
+    "melf_stage_resistance_log10_ohm": 7.079181246047625,
+    "melf_stage_parasitic_pf": 0.3,
+    "melf_substrate_epsr": 9.8,
+    "melf_metal_fill_factor": 0.5,
+    "ferrite_conductor_fill_factor": 0.0,
+    "input_series_resistance_mohm": 12.0,
+    "output_series_resistance_ohm": 50.0,
+    "input_series_matches_stage": true,
+    "output_series_matches_stage": false,
+    "load_current_na": 1.0,
+    "load_cable_length_m": 10.0,
+    "load_cable_impedance_ohm": 50.0,
+    "load_cable_velocity_factor": 0.66,
+    "detector_capacitance_pf": 10.0,
+    "additional_ground_capacitance_pf": 0.0,
+    "core_resistance_gohm": 0.024000050000000002,
+    "core_od_mm": 2.2,
+    "use_package_core_od": true,
+    "core_material": "mmb0207_melf",
+    "ferrite_epsr": 6.0,
+    "core_to_ground_gap_mm": 1.4499999999999997,
+    "hv_to_tube_gap_mm": 2.25,
+    "hv_plate_od_mm": 21.5,
+    "ground_plate_inner_diameter_mm": 5.1,
+    "washer_id_mm": 6.6,
+    "washer_od_mm": 20.0,
+    "washer_id_mode": "ground_flat_id",
+    "washer_od_mode": "bias_flat_od",
+    "ground_plate_od_mm": 26.0,
+    "tube_id_mm": 26.0,
+    "plate_gap_mm": 1.5,
+    "plate_thickness_mm": 1.5,
+    "bias_plate_thickness_mm": 1.5,
+    "ground_plate_thickness_mm": 1.5,
+    "ground_matches_bias_thickness": true,
+    "edge_diameter_percent": 100.0,
+    "edge_radius_mm": 0.75,
+    "washer_material": "alumina",
+    "washer_epsr": 10.0,
+    "epoxy_material": "mg_9510",
+    "epoxy_epsr": 3.7,
+    "plate_material": "copper",
+    "plate_conductivity_log10_s_per_m": 7.763427993562937,
+    "plate_relative_permeability": 1.0,
+    "tube_material": "copper",
+    "tube_conductivity_log10_s_per_m": 7.763427993562937,
+    "tube_relative_permeability": 1.0,
+    "rf_compare_frequency_log10_mhz": 0.0,
+    "plate_pairs": 2,
+    "include_ground_tube": true,
+    "field_solver": "backend_auto",
+    "mesh_edge_radius_ratio": 0.2,
+    "tube_wall_thickness_mm": 1.0,
+    "domain_margin_mm": 4.0,
+    "grid_r_count": 90,
+    "grid_z_count": 150,
+    "solver_iterations": 700,
+    "solver_tolerance_v": 0.01,
+    "solve_strategy": "end_repeat_approx",
+    "use_repeating_cell_approximation": true,
+    "thermal_min_temperature_c": 20.0,
+    "thermal_epoxy_modulus_gpa": 3.0,
+    "thermal_restraint_factor": 1.0,
+    "thermal_mesh_size_mm": 0.6,
+    "washer_id_matches_ground": false,
+    "washer_od_matches_bias": false,
+    "admittance_mesh_size_mm": 0.6,
+    "_thermal_validation_solve_strategy": "full_stack",
+    "_thermal_material_layout": "bulk_epoxy"
+  },
+  "samples": [
+    {
+      "frequency_hz": 1000.0,
+      "y_real_s": [
+        [
+          8.337053176611286e-08,
+          -8.332882418006291e-08
+        ],
+        [
+          -8.332882418006291e-08,
+          8.33705455074185e-08
+        ]
+      ],
+      "y_imag_s": [
+        [
+          2.527596797110156e-07,
+          -5.997537941121221e-10
+        ],
+        [
+          -5.997537941121221e-10,
+          2.527648269505092e-07
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 6.413877374137497e-06
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": 0.0002462376639814915,
+          "imag": -0.012496290134943291
+        },
+        "magnitude": 0.012498715939001257,
+        "magnitude_db": -38.06269204264039,
+        "phase_deg": -88.87114070108272,
+        "input_impedance_ohm": {
+          "real": 1167902.7371497755,
+          "imag": -3556584.2448807913
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.0002462376639814915,
+            "imag": -0.012496290134943291
+          }
+        ]
+      },
+      "solve_seconds": 0.29375455901026726,
+      "reciprocity_max_abs_s": 0.0
+    }
+  ],
+  "elapsed_seconds": 0.5198326469399035
+}

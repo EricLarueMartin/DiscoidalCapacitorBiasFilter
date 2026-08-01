@@ -7,7 +7,7 @@ and the SPICE/MNA solve combines that matrix with discrete stage resistances.
 That is the correct first comparison model, but it does not solve current flow
 and displacement current together in the physical filter volume.
 
-The next electrical model should calculate a complex nodal admittance matrix
+The implemented first electrical field model calculates a complex nodal admittance matrix
 directly from the filter geometry over frequency. It should answer three
 separate questions:
 
@@ -20,7 +20,7 @@ separate questions:
 Calling only `G_load + j omega C_total` a full admittance is not sufficient.
 The required result is a multi-electrode field-derived matrix.
 
-## First Model: Axisymmetric Electroquasistatics
+## Implemented First Model: Axisymmetric Electroquasistatics
 
 For dimensions of a few centimetres and the current 1 Hz to 100 MHz range, the
 first field model should be electroquasistatic (EQS), not a full-wave RF solve.
@@ -45,6 +45,36 @@ div(sigma grad(V_i) + omega epsilon grad(V_r)) = 0
 
 in a mixed real-valued function space. A complex build may be supported later,
 but it must reproduce the coupled-real result.
+
+The implementation is `software/bias_filter/admittance_fenicsx_solver.py`.
+It meshes the complete full stack, applies a 1 V basis excitation to each bias
+plate, extracts the complete complex nodal matrix with the reciprocal complex
+energy bilinear form, and solves the terminated nodal equations with the input
+fixed and the intermediate bias plates floating. The first and last bias
+plates are therefore the driven input and measured output; this is not a
+capacitance-only post-processing calculation.
+
+Two transfer conditions are reported separately. The system-level result uses
+the selected detector and cable termination. The intrinsic validation result
+fixes the first bias plate at 1 V, leaves the last plate open-circuit, and
+removes the input resistor, output resistor, cable, detector capacitance, and
+load conductance. Only that intrinsic condition is compared with the bare
+`G + j omega C_Maxwell` SPICE filter, because matching port conditions is
+required for a meaningful field-versus-lumped validation.
+
+Example on the FEniCSx host:
+
+```bash
+python3 software/bias_filter/admittance_fenicsx_solver.py \
+  --parameters hardware/geometry/default-parameters.json \
+  --frequencies 1 10 100 1000 10000 100000 1000000 10000000 100000000 \
+  --mesh-mm 0.3 \
+  --output simulations/electromagnetic/default-eqs-sweep.json
+```
+
+The current cable is a lumped capacitance in this EQS termination. That is a
+useful comparison through its electrically short range, not a substitute for
+a transmission-line or full-wave model at the high-frequency endpoint.
 
 ## Geometry and Materials
 
@@ -82,7 +112,10 @@ I_i = integral_Gamma_i (sigma + j omega epsilon) grad(V_j).n dA
 Y_ij = I_i / 1 V
 ```
 
-The resulting full nodal matrix includes distributed resistive and capacitive
+The implementation obtains the same terminal-current matrix through the
+reciprocal complex-energy bilinear form. This avoids fragile facet-current
+integration while preserving the complete complex port matrix. The resulting
+full nodal matrix includes distributed resistive and capacitive
 coupling in one solution. Internal bias plates are not prescribed in the final
 transfer calculation: their zero-external-current conditions are enforced by
 nodal KCL using this matrix.

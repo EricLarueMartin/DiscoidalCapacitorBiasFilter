@@ -185,9 +185,9 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   epoxy_material:
     "Selects the potting material filling regions not occupied by washer, core, or conductor. The preset initializes relative permittivity and provisional dielectric-strength guidance and supplies the epoxy-comparison slide. At present, geometry-based thermal FEA properties are implemented only for MG Chemicals 9510; other choices remain electrical and materials-selection studies until modulus, CTE, Poisson ratio, and strength data are added.",
   plate_material:
-    "Material assigned to the bias and ground plates. The selection initializes conductivity and relative permeability for RF skin-depth diagnostics; electrostatic FEA treats all plates as ideal equipotential conductors regardless of conductivity. Thermal FEA uses the selected material's elastic modulus, Poisson ratio, and CTE. Grade 2 titanium and Mo-Cu values are engineering presets; the Mo-Cu Poisson ratio is assumed because it is absent from the cited supplier sheet.",
+    "Material assigned to the bias and ground plates. The selection initializes conductivity and relative permeability for RF skin-depth diagnostics; electrostatic FEA treats all plates as ideal equipotential conductors regardless of conductivity. Thermal FEA uses the selected material's elastic modulus, Poisson ratio, and CTE. Annealed copper also selects the documented 69 MPa ideal J2 elastic-perfectly-plastic sensitivity by default. Grade 2 titanium and Mo-Cu values are engineering presets; the Mo-Cu Poisson ratio is assumed because it is absent from the cited supplier sheet.",
   tube_material:
-    "Material assigned to the surrounding grounded tube. The selection initializes conductivity and relative permeability for RF skin-depth diagnostics; electrostatic FEA treats the tube as an ideal grounded conductor. Thermal FEA assigns this region independently from the plates, but it still assumes a perfect bond and does not infer interface strength from the selected metal name.",
+    "Material assigned to the surrounding grounded tube. The selection initializes conductivity and relative permeability for RF skin-depth diagnostics; electrostatic FEA treats the tube as an ideal grounded conductor. Thermal FEA assigns this region independently from the plates; annealed copper selects the documented 69 MPa ideal J2 elastic-perfectly-plastic sensitivity by default. The model still assumes a perfect bond and does not infer interface strength from the selected metal name.",
   ferrite_epsr:
     "Relative permittivity assigned to the resistive core material. It controls the calculated core contribution to adjacent-stage Cpar and is used when the capacitance-matrix FEA treats each inter-plate core segment as dielectric. It does not make the core an equipotential conductor in that capacitance solve, and it is not magnetic permeability.",
   ferrite_conductor_fill_factor:
@@ -780,7 +780,8 @@ const epoxyMaterialPresets = {
 };
 const conductorMaterialPresets = {
   copper: { label: "Copper", conductivity: 5.8e7, mur: 1, ctePpmPerC: 16.9 },
-  aluminum: { label: "Aluminum", conductivity: 3.5e7, mur: 1, ctePpmPerC: 23.1 },
+  annealed_copper: { label: "Annealed copper", conductivity: 5.8e7, mur: 1, ctePpmPerC: 16.9 },
+  aluminum: { label: "1050-O aluminum", conductivity: 1 / 28e-9, mur: 1, ctePpmPerC: 23.55 },
   brass: { label: "Brass", conductivity: 1.6e7, mur: 1, ctePpmPerC: 20.5 },
   stainless_316: { label: "316 stainless", conductivity: 1.35e6, mur: 1.02, ctePpmPerC: 16.0 },
   titanium_grade_2: { label: "Grade 2 titanium", conductivity: 2.2e6, mur: 1.00005, ctePpmPerC: 8.6 },
@@ -863,6 +864,27 @@ const THERMAL_ALUMINA_INSERT_STUDY = [
   { label: "0.20 mm", bondlineMm: 0.20, epoxyFraction: 0.1415, principalP99: 34.42, axialP99: 33.91, shearP99: 6.83, meshMm: 0.10 },
   { label: "0.10 mm", bondlineMm: 0.10, epoxyFraction: 0.0734, principalP99: 37.99, axialP99: 36.60, shearP99: 10.45, meshMm: 0.05 }
 ];
+
+const THERMAL_CONDUCTOR_STUDY = [
+  { key: "copper", label: "Cu", cte: 16.9, conductivity: 1.000, bulkPrincipal: 31.93, bulkShear: 12.46, fittedPrincipal: 34.18, fittedShear: 5.81 },
+  { key: "annealed_copper", label: "Annealed Cu", cte: 16.9, conductivity: 1.000, bulkPrincipal: 31.80, bulkShear: 12.50, fittedPrincipal: 34.18, fittedShear: 6.15 },
+  { key: "aluminum", label: "Al 1050-O", cte: 23.55, conductivity: 0.616, bulkPrincipal: 31.14, bulkShear: 12.21, fittedPrincipal: 34.38, fittedShear: 7.41 },
+  { key: "titanium_grade_2", label: "Ti Gr 2", cte: 8.6, conductivity: 0.038, bulkPrincipal: 32.54, bulkShear: 12.97, fittedPrincipal: 35.09, fittedShear: 5.51 },
+  { key: "mocu_65_35", label: "Mo65Cu35", cte: 8.6, conductivity: 0.466, bulkPrincipal: 33.66, bulkShear: 13.25, fittedPrincipal: 35.64, fittedShear: 5.36 },
+  { key: "mocu_70_30", label: "Mo70Cu30", cte: 8.2, conductivity: 0.448, bulkPrincipal: 33.83, bulkShear: 13.30, fittedPrincipal: 35.82, fittedShear: 5.44 },
+  { key: "mocu_80_20", label: "Mo80Cu20", cte: 6.3, conductivity: 0.345, bulkPrincipal: 34.27, bulkShear: 13.46, fittedPrincipal: 36.06, fittedShear: 5.72 }
+];
+
+const THERMAL_CONDUCTOR_ENCLOSURE_SENSITIVITY = {
+  aluminum: { bulkPrincipal: 31.01, bulkShear: 12.19, fittedPrincipal: 34.30, fittedShear: 8.27 },
+  titanium_grade_2: { bulkPrincipal: 32.69, bulkShear: 13.01, fittedPrincipal: 35.30, fittedShear: 5.14 },
+  mocu_70_30: { bulkPrincipal: 33.91, bulkShear: 13.27, fittedPrincipal: 35.63, fittedShear: 5.05 }
+};
+
+const THERMAL_ANNEALED_COPPER_SENSITIVITY = {
+  bulk: { principalChangePct: -0.41, shearChangePct: 0.35 },
+  fitted: { principalChangePct: -0.003, shearChangePct: 5.87 }
+};
 
 function thermalInterfaceEstimate(label, substrateCtePpmPerC, radiusMm, p, restraint = null) {
   const effectiveRestraint = restraint ?? p.thermal_restraint_factor;
@@ -2024,10 +2046,12 @@ function applyImportedSettings(imported, ranges = {}) {
   params = settingsWithBuiltInFallback(imported);
   lastResult = null;
   normalizeParams();
+  loadBundledDefaultFieldResult();
   syncControls();
   drawCadModel();
   drawGeometry();
-  clearField();
+  if (lastResult) drawSolvedResult(lastResult);
+  else clearField();
 }
 
 function exportSettingsToFile() {
@@ -2066,6 +2090,82 @@ async function loadInstallationDefaults() {
     replaceCustomControlRanges({});
     installationDefaultLoadError = `default.json was not loaded: ${error.message}`;
     console.warn(installationDefaultLoadError);
+  }
+}
+
+function bundledDefaultParametersMatch(saved, current) {
+  const left = backendParameters(saved);
+  const right = backendParameters(current);
+  delete left.additional_ground_capacitance_pf;
+  delete right.additional_ground_capacitance_pf;
+  for (const derivedKey of [
+    "core_volume_resistivity_ohm_cm",
+    "washer_id_matches_ground",
+    "washer_od_matches_bias"
+  ]) {
+    delete left[derivedKey];
+    delete right[derivedKey];
+  }
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    const a = left[key];
+    const b = right[key];
+    if (typeof a === "number" && typeof b === "number") {
+      if (!Number.isFinite(a) || !Number.isFinite(b)) {
+        document.documentElement.dataset.defaultFieldMismatch = key;
+        return false;
+      }
+      if (Math.abs(a - b) > 1e-9 * Math.max(1, Math.abs(a), Math.abs(b))) {
+        document.documentElement.dataset.defaultFieldMismatch = key;
+        return false;
+      }
+    } else if (a !== b) {
+      document.documentElement.dataset.defaultFieldMismatch = key;
+      return false;
+    }
+  }
+  return true;
+}
+
+function loadBundledDefaultFieldResult() {
+  const bundle = window.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT;
+  if (
+    !bundle
+    || bundle.format !== "discoidal-capacitor-bias-filter-bundled-field"
+    || bundle.version !== 2
+    || !bundle.settings
+    || !bundle.result
+  ) {
+    document.documentElement.dataset.defaultFieldResult = "unavailable";
+    return false;
+  }
+
+  const bundledParameters = settingsWithBuiltInFallback(bundle.settings);
+  if (!bundledDefaultParametersMatch(bundledParameters, params)) {
+    document.documentElement.dataset.defaultFieldResult = "geometry-mismatch";
+    return false;
+  }
+
+  try {
+    const result = backendResultFromPayload(bundle.result);
+    result.bundledDefault = true;
+    captureResultParameters(result, params);
+    lastResult = result;
+    const spiceKey = spiceLadderRequestKey();
+    if (spiceKey && Array.isArray(bundle.spiceLadder?.samples) && bundle.spiceLadder.samples.length) {
+      spiceLadderCache = { key: spiceKey, payload: bundle.spiceLadder };
+      spiceLadderPendingKey = null;
+      spiceLadderDisabled = false;
+      document.documentElement.dataset.defaultSpiceResult = "loaded";
+    } else {
+      document.documentElement.dataset.defaultSpiceResult = "unavailable";
+    }
+    document.documentElement.dataset.defaultFieldResult = "fenicsx-loaded";
+    return true;
+  } catch (error) {
+    document.documentElement.dataset.defaultFieldResult = "invalid";
+    console.warn(`Bundled default FEniCSx result was not loaded: ${error.message}`);
+    return false;
   }
 }
 
@@ -3120,10 +3220,12 @@ function setupControls() {
     params = structuredClone(installationDefaults);
     lastResult = null;
     normalizeParams();
+    loadBundledDefaultFieldResult();
     syncControls();
     drawCadModel();
     drawGeometry();
-    clearField();
+    if (lastResult) drawSolvedResult(lastResult);
+    else clearField();
     setSettingsStatus(`Reset to ${installationDefaultSource}.`);
   });
   document.getElementById("exportSettings").addEventListener("click", () => {
@@ -4870,6 +4972,501 @@ function ladderTransferMagnitude(circuit, p, frequencyHz, options = {}) {
   if (!solution) return Number.NaN;
   if (fixed.has(outputNode)) return cAbs(fixed.get(outputNode));
   return cAbs(solution[unknownIndex.get(outputNode)]);
+}
+
+function electromagneticStageInductanceH(p) {
+  const pathLengthM = (groundPlateThicknessMm(p) + 2 * p.plate_gap_mm) * 1e-3;
+  const conductorRadiusM = Math.max(0.05, p.core_od_mm / 2) * 1e-3;
+  const returnRadiusM = Math.max(conductorRadiusM * 1.05, p.tube_id_mm / 2 * 1e-3);
+  return MU_0_H_PER_M * pathLengthM / (2 * Math.PI) * Math.log(returnRadiusM / conductorRadiusM);
+}
+
+function electromagneticCircuitForCurrentDesign() {
+  const estimate = circuitEstimates(params);
+  const fea = feaCapacitanceForCurrentDesign();
+  return fea ? circuitWithFeaCapacitances(estimate, params, fea) : estimate;
+}
+
+function electromagneticTransferMagnitude(circuit, p, frequencyHz, branchResistanceOhm) {
+  const stages = biasPlateCount(p);
+  const omega = 2 * Math.PI * frequencyHz;
+  const inductanceH = electromagneticStageInductanceH(p);
+  const nodeGroundPf = Array.isArray(circuit.shuntCapPfByNode)
+    ? circuit.shuntCapPfByNode
+    : Array.from({ length: stages }, () => Math.max(0, circuit.shuntCapPf || 0));
+  const mutual = Array.isArray(circuit.mutualCapPfMatrix) ? circuit.mutualCapPfMatrix : null;
+  const matrix = Array.from({ length: stages }, () => Array.from({ length: stages }, () => c(0, 0)));
+  const rhs = Array.from({ length: stages }, () => c(0, 0));
+  const sourceVoltage = c(1, 0);
+
+  const addShunt = (node, admittance) => {
+    matrix[node][node] = cAdd(matrix[node][node], admittance);
+  };
+  const addBranch = (a, b, admittance) => {
+    matrix[a][a] = cAdd(matrix[a][a], admittance);
+    matrix[b][b] = cAdd(matrix[b][b], admittance);
+    matrix[a][b] = cSub(matrix[a][b], admittance);
+    matrix[b][a] = cSub(matrix[b][a], admittance);
+  };
+  const seriesAdmittance = (resistanceOhm) => cDiv(c(1, 0), c(Math.max(0, resistanceOhm), omega * inductanceH));
+
+  for (let node = 0; node < stages; node += 1) {
+    addShunt(node, c(0, omega * Math.max(0, Number(nodeGroundPf[node]) || 0) * 1e-12));
+  }
+  if (mutual) {
+    for (let row = 0; row < stages; row += 1) {
+      for (let col = row + 1; col < stages; col += 1) {
+        const pf = Math.max(0, Number(mutual[row]?.[col]) || 0);
+        if (pf > 0) addBranch(row, col, c(0, omega * pf * 1e-12));
+      }
+    }
+  } else {
+    for (let node = 1; node < stages; node += 1) {
+      addBranch(node - 1, node, c(0, omega * Math.max(0, circuit.parasiticPf || 0) * 1e-12));
+    }
+  }
+
+  const sourceBranch = seriesAdmittance(branchResistanceOhm);
+  addShunt(0, sourceBranch);
+  rhs[0] = cAdd(rhs[0], cMul(sourceBranch, sourceVoltage));
+  for (let node = 1; node < stages; node += 1) {
+    addBranch(node - 1, node, seriesAdmittance(branchResistanceOhm));
+  }
+
+  const solution = solveComplexLinear(matrix, rhs);
+  return solution ? cAbs(solution[stages - 1]) : Number.NaN;
+}
+
+function electromagneticResponseSamples(circuit, p, resistanceOhm) {
+  const samples = [];
+  const minimumHz = 1e6;
+  const maximumHz = 5e9;
+  const steps = 320;
+  for (let index = 0; index <= steps; index += 1) {
+    const frequencyHz = minimumHz * (maximumHz / minimumHz) ** (index / steps);
+    const magnitude = electromagneticTransferMagnitude(circuit, p, frequencyHz, resistanceOhm);
+    samples.push({
+      frequencyHz,
+      magnitudeDb: Number.isFinite(magnitude) && magnitude > 0 ? 20 * Math.log10(magnitude) : Number.NaN
+    });
+  }
+  return samples;
+}
+
+function matchedModalOscillator(circuit, resonanceFrequencyHz, resistanceOhm) {
+  const nodeGroundPf = Array.isArray(circuit.shuntCapPfByNode) && circuit.shuntCapPfByNode.length
+    ? circuit.shuntCapPfByNode
+    : [Math.max(0, circuit.shuntCapPf || 0)];
+  const effectiveCapacitanceF = Math.max(
+    1e-18,
+    nodeGroundPf.reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0) / nodeGroundPf.length * 1e-12
+  );
+  const omega0 = 2 * Math.PI * resonanceFrequencyHz;
+  const effectiveInductanceH = 1 / (omega0 ** 2 * effectiveCapacitanceF);
+  const dampingRatio = Math.max(0, resistanceOhm) / 2 * Math.sqrt(effectiveCapacitanceF / effectiveInductanceH);
+  const samples = [];
+  const minimumHz = 1e6;
+  const maximumHz = 5e9;
+  const steps = 320;
+  for (let index = 0; index <= steps; index += 1) {
+    const frequencyHz = minimumHz * (maximumHz / minimumHz) ** (index / steps);
+    const omega = 2 * Math.PI * frequencyHz;
+    const denominator = c(
+      1 - omega ** 2 * effectiveInductanceH * effectiveCapacitanceF,
+      omega * Math.max(0, resistanceOhm) * effectiveCapacitanceF
+    );
+    const magnitude = cAbs(cDiv(c(1, 0), denominator));
+    samples.push({
+      frequencyHz,
+      magnitudeDb: magnitude > 0 ? 20 * Math.log10(magnitude) : Number.NaN
+    });
+  }
+  return {
+    effectiveCapacitanceF,
+    effectiveInductanceH,
+    dampingRatio,
+    dampedNaturalFrequencyHz: dampingRatio < 1
+      ? resonanceFrequencyHz * Math.sqrt(1 - dampingRatio ** 2)
+      : Number.NaN,
+    samples
+  };
+}
+
+function drawElectromagneticSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const circuit = electromagneticCircuitForCurrentDesign();
+  const inductanceH = electromagneticStageInductanceH(params);
+  const physicalResistance = Math.max(0.01, Number(circuit.stageResistanceOhm) || 0.01);
+  const lowLossResistance = 0.35;
+  const reference = electromagneticResponseSamples(circuit, params, lowLossResistance);
+  const damped = electromagneticResponseSamples(circuit, params, physicalResistance);
+  const plot = { x0: 86, y0: 82, x1: 815, y1: 480 };
+  const yMinimum = -180;
+  const yMaximum = 40;
+  const xFor = (frequencyHz) => plot.x0 + (Math.log10(frequencyHz) - 6) / (Math.log10(5e9) - 6) * (plot.x1 - plot.x0);
+  const yFor = (db) => plot.y1 - (Math.max(yMinimum, Math.min(yMaximum, db)) - yMinimum) / (yMaximum - yMinimum) * (plot.y1 - plot.y0);
+  const peakOf = (samples) => samples.reduce((best, sample) => (
+    Number.isFinite(sample.magnitudeDb) && (!best || sample.magnitudeDb > best.magnitudeDb) ? sample : best
+  ), null);
+  const referencePeak = peakOf(reference);
+  const modal = matchedModalOscillator(
+    circuit,
+    referencePeak?.frequencyHz || 1 / (2 * Math.PI * Math.sqrt(inductanceH * Math.max(1e-18, circuit.shuntCapPf * 1e-12))),
+    physicalResistance
+  );
+  const dampedAtReference = referencePeak
+    ? damped.reduce((best, sample) => (
+        Math.abs(Math.log(sample.frequencyHz / referencePeak.frequencyHz)) < Math.abs(Math.log(best.frequencyHz / referencePeak.frequencyHz)) ? sample : best
+      ), damped[0])
+    : null;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText("Intrinsic coupled-stage electromagnetic response", plot.x0, 48);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(plot.x0, plot.y0, plot.x1 - plot.x0, plot.y1 - plot.y0);
+  ctx.strokeStyle = "#cbd4dc";
+  ctx.strokeRect(plot.x0, plot.y0, plot.x1 - plot.x0, plot.y1 - plot.y0);
+
+  [-160, -120, -80, -40, 0, 40].forEach((tick) => {
+    const y = yFor(tick);
+    ctx.strokeStyle = "#e0e6eb";
+    ctx.beginPath();
+    ctx.moveTo(plot.x0, y);
+    ctx.lineTo(plot.x1, y);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText(`${tick}`, plot.x0 - 10, y + 5);
+  });
+  [1e6, 1e7, 1e8, 1e9, 5e9].forEach((tick) => {
+    const x = xFor(tick);
+    ctx.strokeStyle = "#e0e6eb";
+    ctx.beginPath();
+    ctx.moveTo(x, plot.y0);
+    ctx.lineTo(x, plot.y1);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.textAlign = "center";
+    ctx.fillText(formatFrequency(tick), x, plot.y1 + 24);
+  });
+  ctx.save();
+  ctx.translate(24, (plot.y0 + plot.y1) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = "#5b6670";
+  ctx.textAlign = "center";
+  ctx.fillText("Vout / Vin (dB)", 0, 0);
+  ctx.restore();
+
+  const drawCurve = (samples, color, dash = []) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    let started = false;
+    samples.forEach((sample) => {
+      if (!Number.isFinite(sample.magnitudeDb)) return;
+      const x = xFor(sample.frequencyHz);
+      const y = yFor(sample.magnitudeDb);
+      if (!started) {
+        ctx.moveTo(x, y);
+        started = true;
+      } else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  };
+  drawCurve(reference, "#1f6f78");
+  drawCurve(damped, "#b73e3e", [9, 6]);
+  drawCurve(modal.samples, "#7354a3", [3, 5]);
+
+  if (referencePeak) {
+    const resonanceX = xFor(referencePeak.frequencyHz);
+    ctx.save();
+    ctx.strokeStyle = "#7354a3";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(resonanceX, plot.y0);
+    ctx.lineTo(resonanceX, plot.y1);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawSlideLegend(ctx, [
+    { label: `Low-loss reference (${formatResistance(lowLossResistance)}/stage)`, color: "#1f6f78" },
+    { label: `Coupled model + ${formatResistance(physicalResistance)}/stage`, color: "#b73e3e", dashed: [9, 6] },
+    { label: "Matched single-mode RLC + same R", color: "#7354a3", dashed: [3, 5] }
+  ], 835, 88, { maxWidth: 235 });
+
+  const cgPf = Array.isArray(circuit.shuntCapPfByNode)
+    ? circuit.shuntCapPfByNode.reduce((sum, value) => sum + value, 0) / circuit.shuntCapPfByNode.length
+    : circuit.shuntCapPf;
+  const cards = [
+    ["Partial L / stage", `${(inductanceH * 1e9).toFixed(2)} nH`],
+    ["Matched effective L", `${(modal.effectiveInductanceH * 1e9).toFixed(2)} nH`],
+    ["Zero-R natural f", referencePeak ? formatFrequency(referencePeak.frequencyHz) : "--"],
+    ["Physical damping ratio", modal.dampingRatio >= 1000 ? modal.dampingRatio.toExponential(1) : modal.dampingRatio.toFixed(2)],
+    ["Coupled suppression @ f0", referencePeak && dampedAtReference ? `${Math.max(0, referencePeak.magnitudeDb - dampedAtReference.magnitudeDb).toFixed(0)} dB` : "--"]
+  ];
+  cards.forEach(([label, value], index) => {
+    const x = 845;
+    const y = 190 + index * 59;
+    ctx.fillStyle = "#f5f2ea";
+    ctx.fillRect(x, y, 215, 50);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x + 12, y + 18);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "20px Arial";
+    ctx.fillText(value, x + 12, y + 42);
+  });
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "14px Arial";
+  ctx.textAlign = "left";
+  drawWrappedLines(ctx, [
+    "Capacitance: current exact FEniCSx matrix when available.",
+    `Modal check: mean Cg ${formatCapacitance(cgPf)}; Leff is chosen so zero-R f0 equals the first coupled peak.`,
+    "With the physical R, the matched oscillator is overdamped; agreement is damping-regime and resonance-scale validation, not an independent field solution.",
+    "The cable is excluded because a lumped cable capacitor is invalid in this frequency range."
+  ], 86, 522, 18, "#5b6670", "13px Arial", 955);
+}
+
+function drawEqsSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const sweep = window.DISCOIDAL_DEFAULT_EQS_SWEEP;
+  const samples = Array.isArray(sweep?.samples) ? sweep.samples : [];
+  const plot = { x0: 88, y0: 72, x1: 815, y1: 492 };
+  const xFor = (frequencyHz) => plot.x0 + Math.log10(Math.max(1, frequencyHz)) / 8 * (plot.x1 - plot.x0);
+  const yFor = (db) => plot.y1 - (Math.max(-90, Math.min(0, db)) + 90) / 90 * (plot.y1 - plot.y0);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("Field-derived loaded transfer", plot.x0, 42);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(plot.x0, plot.y0, plot.x1 - plot.x0, plot.y1 - plot.y0);
+  ctx.strokeStyle = "#cbd4dc";
+  ctx.strokeRect(plot.x0, plot.y0, plot.x1 - plot.x0, plot.y1 - plot.y0);
+
+  [-90, -75, -60, -45, -30, -15, 0].forEach((tick) => {
+    const y = yFor(tick);
+    ctx.strokeStyle = "#e0e6eb";
+    ctx.beginPath();
+    ctx.moveTo(plot.x0, y);
+    ctx.lineTo(plot.x1, y);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText(String(tick), plot.x0 - 10, y + 5);
+  });
+  [1, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8].forEach((tick) => {
+    const x = xFor(tick);
+    ctx.strokeStyle = "#e0e6eb";
+    ctx.beginPath();
+    ctx.moveTo(x, plot.y0);
+    ctx.lineTo(x, plot.y1);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(formatFrequency(tick), x, plot.y1 + 24);
+  });
+  ctx.save();
+  ctx.translate(26, (plot.y0 + plot.y1) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "14px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("Vout / Vin (dB)", 0, 0);
+  ctx.restore();
+
+  if (samples.length) {
+    ctx.strokeStyle = "#1f6f78";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    samples.forEach((sample, index) => {
+      const x = xFor(sample.frequencyHz);
+      const y = yFor(sample.magnitudeDb);
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    samples.forEach((sample) => {
+      ctx.fillStyle = "#b73e3e";
+      ctx.beginPath();
+      ctx.arc(xFor(sample.frequencyHz), yFor(sample.magnitudeDb), 4.5, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+  } else {
+    ctx.fillStyle = "#b73e3e";
+    ctx.font = "18px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Saved EQS sweep unavailable", (plot.x0 + plot.x1) / 2, (plot.y0 + plot.y1) / 2);
+  }
+
+  const validation = sweep?.validation || {};
+  const cards = [
+    ["FEA mesh", sweep ? `${sweep.meshMm.toFixed(2)} mm · ${sweep.cells.toLocaleString()} cells` : "--"],
+    ["1 kHz transfer", samples.length ? `${samples.find((sample) => sample.frequencyHz === 1000)?.magnitudeDb.toFixed(2)} dB` : "--"],
+    ["High-f plateau", samples.length ? `${samples.at(-1).magnitudeDb.toFixed(2)} dB` : "--"],
+    ["Mesh change @ 1 kHz", validation.mesh1kHzDb ? "0.00014 dB" : "--"],
+    ["C diagonal vs electrostatic", Number.isFinite(validation.capacitanceComparison?.diagonalDifferencePercent) ? `${validation.capacitanceComparison.diagonalDifferencePercent.toFixed(2)}%` : "--"],
+    ["C mutual vs electrostatic", Number.isFinite(validation.capacitanceComparison?.mutualDifferencePercent) ? `${validation.capacitanceComparison.mutualDifferencePercent.toFixed(2)}%` : "--"]
+  ];
+  cards.forEach(([label, value], index) => {
+    const x = 842;
+    const y = 72 + index * 66;
+    ctx.fillStyle = "#f5f2ea";
+    ctx.fillRect(x, y, 220, 56);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x + 12, y + 20);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "19px Arial";
+    ctx.fillText(value, x + 12, y + 45);
+  });
+  drawWrappedLines(ctx, [
+    "Solid line and points: saved FEniCSx full-stack EQS solutions.",
+    "The continuous MELF cylinder is calibrated to 12 MΩ per stage; the physical helix still requires 3D validation."
+  ], 88, 540, 19, "#5b6670", "14px Arial", 965);
+}
+
+function drawIntrinsicComparisonSlide(canvas, spiceOnly = false) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const sweep = window.DISCOIDAL_DEFAULT_EQS_SWEEP;
+  const samples = Array.isArray(sweep?.samples) ? sweep.samples : [];
+  const validation = sweep?.validation || {};
+  const plot = { x0: 88, y0: 72, x1: 815, y1: 492 };
+  const xFor = (frequencyHz) => plot.x0 + Math.log10(Math.max(1, frequencyHz)) / 8 * (plot.x1 - plot.x0);
+  const yFor = (db) => plot.y1 - (Math.max(-60, Math.min(0, db)) + 60) / 60 * (plot.y1 - plot.y0);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText(spiceOnly ? "Intrinsic SPICE transfer" : "Intrinsic field / SPICE comparison", plot.x0, 42);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(plot.x0, plot.y0, plot.x1 - plot.x0, plot.y1 - plot.y0);
+  ctx.strokeStyle = "#cbd4dc";
+  ctx.strokeRect(plot.x0, plot.y0, plot.x1 - plot.x0, plot.y1 - plot.y0);
+
+  [-60, -50, -40, -30, -20, -10, 0].forEach((tick) => {
+    const y = yFor(tick);
+    ctx.strokeStyle = "#e0e6eb";
+    ctx.beginPath();
+    ctx.moveTo(plot.x0, y);
+    ctx.lineTo(plot.x1, y);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText(String(tick), plot.x0 - 10, y + 5);
+  });
+  [1, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8].forEach((tick) => {
+    const x = xFor(tick);
+    ctx.strokeStyle = "#e0e6eb";
+    ctx.beginPath();
+    ctx.moveTo(x, plot.y0);
+    ctx.lineTo(x, plot.y1);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(formatFrequency(tick), x, plot.y1 + 24);
+  });
+  ctx.save();
+  ctx.translate(26, (plot.y0 + plot.y1) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = "#5b6670";
+  ctx.font = "14px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("Vout / Vin (dB)", 0, 0);
+  ctx.restore();
+
+  const drawSeries = (key, color, dash = [], points = false) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    samples.forEach((sample, index) => {
+      const x = xFor(sample.frequencyHz);
+      const y = yFor(sample[key]);
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.restore();
+    if (points) samples.forEach((sample) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(xFor(sample.frequencyHz), yFor(sample[key]), 4.5, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+  };
+  if (samples.length) {
+    if (!spiceOnly) drawSeries("intrinsicFieldDb", "#1f6f78", [], true);
+    drawSeries("intrinsicSpiceDb", "#b73e3e", [9, 6]);
+  }
+
+  const oneKhz = samples.find((sample) => sample.frequencyHz === 1000);
+  const cards = spiceOnly ? [
+    ["Input condition", "Plate 1 = 1 V"],
+    ["Output condition", "Open circuit"],
+    ["External network", "None"],
+    ["1 kHz transfer", oneKhz ? `${oneKhz.intrinsicSpiceDb.toFixed(2)} dB` : "--"],
+    ["High-f plateau", samples.length ? `${samples.at(-1).intrinsicSpiceDb.toFixed(2)} dB` : "--"],
+    ["Elements retained", "Rstage, Cg, Cpar"]
+  ] : [
+    ["FEA mesh", sweep ? `${sweep.meshMm.toFixed(2)} mm · ${sweep.cells.toLocaleString()} cells` : "--"],
+    ["1 kHz FEniCSx", oneKhz ? `${oneKhz.intrinsicFieldDb.toFixed(2)} dB` : "--"],
+    ["1 kHz SPICE", oneKhz ? `${oneKhz.intrinsicSpiceDb.toFixed(2)} dB` : "--"],
+    ["Worst curve difference", Number.isFinite(validation.maxLumpedComparisonDifferenceDb) ? `${validation.maxLumpedComparisonDifferenceDb.toFixed(2)} dB` : "--"],
+    ["Mesh change @ 1 kHz", validation.mesh1kHzDb ? "0.00014 dB" : "--"],
+    ["Output condition", "Open circuit"]
+  ];
+  cards.forEach(([label, value], index) => {
+    const x = 842;
+    const y = 72 + index * 66;
+    ctx.fillStyle = "#f5f2ea";
+    ctx.fillRect(x, y, 220, 56);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x + 12, y + 20);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "19px Arial";
+    ctx.fillText(value, x + 12, y + 45);
+  });
+  drawSlideLegend(ctx, spiceOnly ? [
+    { label: "Intrinsic SPICE: no external network", color: "#b73e3e", dashed: [9, 6] }
+  ] : [
+    { label: "FEniCSx EQS, open output", color: "#1f6f78" },
+    { label: "Intrinsic SPICE, same ports", color: "#b73e3e", dashed: [9, 6] }
+  ], 88, 520, { maxWidth: 430 });
+  drawWrappedLines(ctx, spiceOnly ? [
+    "The source is the first bias plate itself; the output is the final bias plate at infinite impedance."
+  ] : [
+    "Both curves remove the source resistor, output resistor, cable, detector, and load conductance.",
+    "The continuous MELF cylinder is calibrated to 12 MΩ per stage; the physical helix still requires 3D validation."
+  ], 88, 570, 18, "#5b6670", "13px Arial", 965);
 }
 
 function attenuationSamples(circuit, p) {
@@ -6619,7 +7216,13 @@ function drawSpiceLadderSlide(canvas) {
   const tlineSamples = backendSpiceCurve(payload.samples, "fullTline");
   const lumpedSamples = backendSpiceCurve(payload.samples, "fullLumped");
   const unloadedSamples = backendSpiceCurve(payload.samples, "fullUnloaded");
-  const allValues = [...tlineSamples, ...lumpedSamples, ...unloadedSamples]
+  const intrinsicSamples = (window.DISCOIDAL_DEFAULT_EQS_SWEEP?.samples || [])
+    .filter((sample) => Number.isFinite(sample.frequencyHz) && Number.isFinite(sample.intrinsicSpiceDb))
+    .map((sample) => ({
+      frequency: sample.frequencyHz,
+      attenuationDb: Math.max(0, -sample.intrinsicSpiceDb)
+    }));
+  const allValues = [...tlineSamples, ...lumpedSamples, ...unloadedSamples, ...intrinsicSamples]
     .map((sample) => sample.attenuationDb)
     .filter((value) => Number.isFinite(value) && value >= 0);
   const fMin = Math.min(...tlineSamples.map((sample) => sample.frequency));
@@ -6629,6 +7232,7 @@ function drawSpiceLadderSlide(canvas) {
   drawLogCurve(ctx, lumpedSamples, plot.xFor, plot.yFor, "attenuationDb", "#8a5b30", { dashed: [4, 6], lineWidth: 3 });
   drawLogCurve(ctx, unloadedSamples, plot.xFor, plot.yFor, "attenuationDb", "#1f6f78", { dashed: [10, 5, 2, 5], lineWidth: 3 });
   drawLogCurve(ctx, tlineSamples, plot.xFor, plot.yFor, "attenuationDb", "#b73e3e");
+  drawLogCurve(ctx, intrinsicSamples, plot.xFor, plot.yFor, "attenuationDb", "#7354a3", { dashed: [9, 6], lineWidth: 4 });
 
   const fiftyX = plot.xFor(50);
   if (50 >= fMin && 50 <= fMax) {
@@ -6648,7 +7252,8 @@ function drawSpiceLadderSlide(canvas) {
   drawSlideLegend(ctx, [
     { label: "Full ladder + T-line", color: "#b73e3e" },
     { label: "Full ladder + lumped C", color: "#8a5b30", dashed: [4, 6] },
-    { label: "Full ladder unloaded", color: "#1f6f78", dashed: [10, 5, 2, 5] }
+    { label: "Full ladder unloaded", color: "#1f6f78", dashed: [10, 5, 2, 5] },
+    { label: "Intrinsic filter, EM ports", color: "#7354a3", dashed: [9, 6] }
   ], 845, 126, { maxWidth: 190 });
 
   const summary50 = payload.summary?.at50Hz || {};
@@ -6680,6 +7285,7 @@ function drawSpiceLadderSlide(canvas) {
   drawWrappedLines(ctx, [
     "ngspice runs separate loaded and unloaded AC analyses.",
     "Unloaded is measured at the final filter node with no load current, cable, or detector capacitance.",
+    "Intrinsic additionally drives plate 1 directly, matching the open-output field-solve ports.",
     `Capacitances: ${circuit.capacitanceSource || "unknown source"}`
   ], 845, 278, 19, "#5b6670", "14px Arial", 230);
 }
@@ -7521,11 +8127,14 @@ function captureResultParameters(result, p) {
 function currentSolvedResultForSlides() {
   const currentKey = comparableResultParameters(params);
   if (lastResult?.parameterKey === currentKey) {
+    const bundledDefault = Boolean(lastResult.bundledDefault);
     return {
       result: lastResult,
       parameters: lastResult.parameters || params,
-      mode: "last-run",
-      blurb: `Displaying the last solved field result for this exact design: ${resultSolverLabel(lastResult)}.`
+      mode: bundledDefault ? "bundled-default" : "last-run",
+      blurb: bundledDefault
+        ? `Displaying the bundled FEniCSx field result for this exact default geometry: ${resultSolverLabel(lastResult)}.`
+        : `Displaying the last solved field result for this exact design: ${resultSolverLabel(lastResult)}.`
     };
   }
   return null;
@@ -7622,8 +8231,10 @@ function drawSimulationResultsSlide(canvas) {
   });
 
   drawWrappedLines(ctx, [
-    slideResult.mode === "last-run"
-      ? "This slide is using the field result that was actually run in the Designer tab."
+    slideResult.mode !== "preview"
+      ? slideResult.mode === "bundled-default"
+        ? "This slide is using the committed default-geometry FEniCSx result. Change an input to switch to the browser preview."
+        : "This slide is using the field result that was actually run in the Designer tab."
       : "Preview mode uses a reduced browser solve; run a field solve to replace this with the latest result.",
     "Color scale is absolute field magnitude; breakdown markers use material-specific placeholder thresholds where available."
   ], 52, 560, 23, "#5b6670", "17px Arial");
@@ -7921,6 +8532,9 @@ function drawSlideGraphics() {
   drawPrototypeGeometrySlide(document.getElementById("slidePrototypeGeometryCanvas"));
   drawPrototypePerformanceSlide(document.getElementById("slidePrototypePerformanceCanvas"));
   drawAluminaThermalStudySlide(document.getElementById("slideAluminaThermalStudyCanvas"));
+  drawThermalConductorStudySlide(document.getElementById("slideThermalConductorStudyCanvas"));
+  drawElectromagneticSlide(document.getElementById("slideElectromagneticCanvas"));
+  drawIntrinsicComparisonSlide(document.getElementById("slideEqsCanvas"), false);
   populateEpoxyChoiceTable();
 }
 
@@ -8057,6 +8671,96 @@ function drawAluminaThermalStudySlide(canvas) {
   ctx.font = "12px Arial";
   ctx.textAlign = "right";
   ctx.fillText("Checked-in FEniCSx study, generated 2026-07-31", 1055, 602);
+}
+
+function drawThermalConductorStudySlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const aluminumEnclosure = THERMAL_CONDUCTOR_ENCLOSURE_SENSITIVITY.aluminum;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("Default geometry, 70 to 20 °C; dots use a copper tube", 62, 48);
+
+  const panels = [
+    { title: "P99 principal tension", unit: "MPa", x0: 62, x1: 535, minimum: 30, maximum: 38, bulkKey: "bulkPrincipal", fittedKey: "fittedPrincipal" },
+    { title: "P99 |r-z shear|", unit: "MPa", x0: 610, x1: 1040, minimum: 4, maximum: 14, bulkKey: "bulkShear", fittedKey: "fittedShear" }
+  ];
+  const y0 = 112;
+  const y1 = 430;
+  const rowY = (index) => y0 + 47 + index * 44;
+  const colors = { bulk: "#b73e3e", fitted: "#1f6f78" };
+
+  panels.forEach((panel) => {
+    const xFor = (value) => panel.x0 + 112 + (value - panel.minimum) / (panel.maximum - panel.minimum) * (panel.x1 - panel.x0 - 128);
+    ctx.fillStyle = "#f8f6f0";
+    ctx.fillRect(panel.x0, y0, panel.x1 - panel.x0, y1 - y0);
+    ctx.strokeStyle = "#cbd4dc";
+    ctx.strokeRect(panel.x0, y0, panel.x1 - panel.x0, y1 - y0);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "bold 18px Arial";
+    ctx.fillText(panel.title, panel.x0 + 16, y0 + 30);
+    for (let tick = panel.minimum; tick <= panel.maximum; tick += 2) {
+      const x = xFor(tick);
+      ctx.strokeStyle = "#dfe5e9";
+      ctx.beginPath();
+      ctx.moveTo(x, y0 + 44);
+      ctx.lineTo(x, y1 - 30);
+      ctx.stroke();
+      ctx.fillStyle = "#5b6670";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(String(tick), x, y1 - 10);
+    }
+    THERMAL_CONDUCTOR_STUDY.forEach((row, index) => {
+      const y = rowY(index);
+      const bulkX = xFor(row[panel.bulkKey]);
+      const fittedX = xFor(row[panel.fittedKey]);
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#17202a";
+      ctx.font = "13px Arial";
+      ctx.fillText(row.label, panel.x0 + 12, y + 4);
+      ctx.strokeStyle = "#9da8b1";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(bulkX, y);
+      ctx.lineTo(fittedX, y);
+      ctx.stroke();
+      [[bulkX, colors.bulk], [fittedX, colors.fitted]].forEach(([x, color]) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    });
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText(panel.unit, panel.x1 - 12, y1 - 10);
+  });
+
+  drawSlideLegend(ctx, [
+    { label: "Bulk epoxy", color: colors.bulk },
+    { label: "0.30 mm fitted-alumina bondline", color: colors.fitted }
+  ], 650, 78, { maxWidth: 375 });
+
+  const conductivity = THERMAL_CONDUCTOR_STUDY
+    .map((row) => `${row.label} ${(100 * row.conductivity).toFixed(row.conductivity < 0.1 ? 1 : 0)}%`)
+    .join("  ·  ");
+  ctx.fillStyle = "#17202a";
+  ctx.font = "bold 16px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("Electrical conductivity relative to copper", 62, 476);
+  drawWrappedLines(ctx, [conductivity], 62, 503, 20, "#5b6670", "14px Arial", 970);
+  drawWrappedLines(ctx, [
+    `All 1050-O metalwork: ${aluminumEnclosure.bulkPrincipal.toFixed(2)} MPa bulk tension (-2.9%), but ${aluminumEnclosure.fittedPrincipal.toFixed(2)} MPa fitted tension (+0.3%) and ${aluminumEnclosure.fittedShear.toFixed(2)} MPa shear (+42%).`,
+    `Ideal 69 MPa perfect-plastic Cu changes matched-mesh tension by ${THERMAL_ANNEALED_COPPER_SENSITIVITY.bulk.principalChangePct.toFixed(1)}% bulk / ${THERMAL_ANNEALED_COPPER_SENSITIVITY.fitted.principalChangePct.toFixed(3)}% fitted; no meaningful tensile relief.`
+  ], 62, 540, 18, "#5b6670", "13px Arial", 970);
+  ctx.textAlign = "right";
+  ctx.fillText("18 elastic + 2 matched references + 2 J2 sensitivity cases, generated 2026-08-01", 1038, 604);
 }
 
 function drawPrototypeGeometrySlide(canvas) {
@@ -9564,6 +10268,148 @@ function setupTabs() {
 
 let currentSlideIndex = 0;
 
+const SLIDE_SECTION_DEFINITIONS = [
+  {
+    id: "main",
+    label: "Main presentation",
+    titles: [
+      "Discoidal Capacitor Bias Filter",
+      "SPICE Simulation of the Complete Filter",
+      "Available MELF Resistance Falls Short at 50/60 Hz",
+      "Ferrite Has the Larger Potential Payoff",
+      "Way Forward"
+    ]
+  },
+  {
+    id: "capacitance-fea",
+    label: "Models & FEA results",
+    titles: [
+      "What Is Modeled",
+      "Electrical Model for SPICE Simulation",
+      "Bias-to-Ground Capacitance from FEA",
+      "Bias-to-Bias Parasitic Capacitance from FEA",
+      "Field Solve Matches the Intrinsic SPICE Transfer",
+      "Peak Electric Field from FEA",
+      "From Damped Resonances to Field-Derived Transfer"
+    ]
+  },
+  {
+    id: "validation",
+    label: "Validation & limiting cases",
+    titles: [
+      "Verify the FEA Against Analytical and Limiting Cases",
+      "One Section Matches; Stage Multiplication Does Not",
+      "Full, Mirror, and Repeated Models Agree",
+      "Cpar Converges Toward the Axial Approximation",
+      "Cg Matrix: Two vs Three Bias Plates",
+      "Cg Matrix Treatments Agree",
+      "Cg Converges Toward Two Flat Washers",
+      "The Limiting-Case Harness Needed Correction",
+      "Total Capacitance Checks the FEA Scale",
+      "Solvable Geometries Bound the Edge Field",
+      "Radius and Gap Set a Conservative Field Bound",
+      "Field-Limited Packing Has a Simple Shape Optimum"
+    ]
+  },
+  {
+    id: "engineering",
+    label: "Engineering decisions",
+    titles: [
+      "Possible Thermal Limits of Heat-Cured Epoxy",
+      "Compare Core and Potting Approaches",
+      "Discrete HV Capacitors Stay a Backup",
+      "One Geometry Accepts Either Core",
+      "Partial Discharge Is a System Property",
+      "Thin Epoxy Reduces Volume, Not Necessarily Local Stress",
+      "Soft Metal Helps Only the Bulk-Epoxy Layout",
+      "CTE-Matched Metal Trades Tension for Lower Shear",
+      "Epoxy Choice",
+      "Measure the Ferrite Before Trusting the Model"
+    ]
+  }
+];
+
+function slideTitle(slide) {
+  return slide.querySelector("h2")?.textContent.replace(/\s+/g, " ").trim() || "Untitled slide";
+}
+
+function slideIdForTitle(title) {
+  return `slide-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
+
+function organizeSlideDeck() {
+  const deck = document.getElementById("slides");
+  const tocList = document.getElementById("slideTocList");
+  const controls = document.querySelector(".slide-deck-controls");
+  if (!deck || !tocList || !controls || deck.dataset.organized === "true") return;
+
+  const originalSlides = Array.from(deck.children).filter((element) => element.classList.contains("slide"));
+  const byTitle = new Map(originalSlides.map((slide) => [slideTitle(slide), slide]));
+  const orderedSlides = [];
+  const assigned = new Set();
+  SLIDE_SECTION_DEFINITIONS.forEach((section) => {
+    section.titles.forEach((title) => {
+      const slide = byTitle.get(title);
+      if (!slide) return;
+      slide.dataset.slideSection = section.id;
+      orderedSlides.push(slide);
+      assigned.add(slide);
+    });
+  });
+  originalSlides.forEach((slide) => {
+    if (assigned.has(slide)) return;
+    slide.dataset.slideSection = "engineering";
+    orderedSlides.push(slide);
+  });
+  orderedSlides.forEach((slide) => deck.insertBefore(slide, controls));
+
+  tocList.replaceChildren();
+  SLIDE_SECTION_DEFINITIONS.forEach((section) => {
+    const sectionSlides = orderedSlides.filter((slide) => slide.dataset.slideSection === section.id);
+    if (!sectionSlides.length) return;
+    const group = document.createElement("section");
+    group.className = "slide-toc-section";
+    const heading = document.createElement("a");
+    heading.className = "slide-toc-section-link";
+    heading.textContent = section.label;
+    group.appendChild(heading);
+    const list = document.createElement("ol");
+    sectionSlides.forEach((slide) => {
+      const index = orderedSlides.indexOf(slide);
+      const title = slideTitle(slide);
+      slide.id = slide.id || slideIdForTitle(title);
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = `#${slide.id}`;
+      link.dataset.slideIndex = String(index);
+      link.dataset.slideNumber = String(index + 1);
+      link.textContent = title;
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        showSlide(index);
+        if (window.matchMedia("(max-width: 760px)").matches) {
+          deck.classList.add("toc-collapsed");
+          document.getElementById("slideTocToggle")?.setAttribute("aria-expanded", "false");
+        }
+      });
+      item.appendChild(link);
+      list.appendChild(item);
+    });
+    heading.href = `#${sectionSlides[0].id}`;
+    heading.addEventListener("click", (event) => {
+      event.preventDefault();
+      showSlide(orderedSlides.indexOf(sectionSlides[0]));
+      if (window.matchMedia("(max-width: 760px)").matches) {
+        deck.classList.add("toc-collapsed");
+        document.getElementById("slideTocToggle")?.setAttribute("aria-expanded", "false");
+      }
+    });
+    group.appendChild(list);
+    tocList.appendChild(group);
+  });
+  deck.dataset.organized = "true";
+}
+
 function updateSlideDeckHeight() {
   const topbar = document.querySelector(".topbar");
   const height = topbar ? Math.ceil(topbar.getBoundingClientRect().height) : 82;
@@ -9611,6 +10457,16 @@ function showSlide(index) {
     : `Slide ${currentSlideIndex + 1}`;
   counter.value = `${currentSlideIndex + 1} / ${slides.length}`;
   counter.textContent = counter.value;
+  const activeSlide = slides[currentSlideIndex];
+  document.querySelectorAll("#slideTocList a[data-slide-index]").forEach((link) => {
+    const active = Number(link.dataset.slideIndex) === currentSlideIndex;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  if (activeSlide?.id && window.location.hash !== `#${activeSlide.id}`) {
+    window.history.replaceState(null, "", `#${activeSlide.id}`);
+  }
 
   if (deck.classList.contains("active")) {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -9619,6 +10475,7 @@ function showSlide(index) {
 }
 
 function setupSlideDeck() {
+  organizeSlideDeck();
   const { deck, slides, previous, next, scrubber } = getSlideDeckElements();
   if (!deck || slides.length === 0 || !previous || !next || !scrubber) return;
 
@@ -9626,6 +10483,16 @@ function setupSlideDeck() {
   previous.addEventListener("click", () => showSlide(currentSlideIndex - 1));
   next.addEventListener("click", () => showSlide(currentSlideIndex + 1));
   scrubber.addEventListener("input", () => showSlide(Number(scrubber.value) - 1));
+  const tocToggle = document.getElementById("slideTocToggle");
+  if (tocToggle && window.matchMedia("(max-width: 760px)").matches) {
+    tocToggle.setAttribute("aria-expanded", "false");
+    deck.classList.add("toc-collapsed");
+  }
+  tocToggle?.addEventListener("click", () => {
+    const expanded = tocToggle.getAttribute("aria-expanded") !== "false";
+    tocToggle.setAttribute("aria-expanded", String(!expanded));
+    deck.classList.toggle("toc-collapsed", expanded);
+  });
 
   document.addEventListener("keydown", (event) => {
     if (!deck.classList.contains("active")) return;
@@ -9652,7 +10519,13 @@ function setupSlideDeck() {
 
   updateSlideDeckHeight();
   window.addEventListener("resize", updateSlideDeckHeight);
-  showSlide(0);
+  window.addEventListener("hashchange", () => {
+    const { slides: currentSlides } = getSlideDeckElements();
+    const destination = currentSlides.findIndex((slide) => `#${slide.id}` === window.location.hash);
+    if (destination >= 0 && destination !== currentSlideIndex) showSlide(destination);
+  });
+  const hashIndex = slides.findIndex((slide) => `#${slide.id}` === window.location.hash);
+  showSlide(hashIndex >= 0 ? hashIndex : 0);
 }
 
 async function initializeApp() {
@@ -9661,8 +10534,9 @@ async function initializeApp() {
   setupLanguageSelector();
   setupThemeToggle();
   setupTabs();
-  setupSlideDeck();
   normalizeParams();
+  loadBundledDefaultFieldResult();
+  setupSlideDeck();
   installationDefaults = structuredClone(params);
   installationDefaultControlRanges = structuredClone(customControlRanges);
   setupParameterTooltips();
@@ -9675,9 +10549,13 @@ async function initializeApp() {
   updateInstallationDefaultLabels();
   drawCadModel();
   drawGeometry();
-  drawSlideGraphics();
-  clearField();
-  clearPotential();
+  if (lastResult) {
+    drawSolvedResult(lastResult);
+  } else {
+    drawSlideGraphics();
+    clearField();
+    clearPotential();
+  }
   drawThermalFeaViewer();
 }
 

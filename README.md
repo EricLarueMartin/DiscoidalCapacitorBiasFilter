@@ -4,7 +4,9 @@ This repository contains the design, simulation, prototyping, and presentation t
 
 ## Interactive Slideshow
 
-[Open the interactive design slideshow](https://ericlaruemartin.github.io/DiscoidalCapacitorBiasFilter/). It runs directly from GitHub Pages without installing the repository and opens on the Slides tab. The published static version includes the default-geometry drawings and JavaScript browser simulations; server-backed FEniCS, thermal, SPICE, and generated-artifact features require a full deployment.
+[Open the interactive design slideshow](https://ericlaruemartin.github.io/DiscoidalCapacitorBiasFilter/). It runs directly from GitHub Pages without installing the repository and opens on the Slides tab. The static version includes a committed FEniCSx field solution, an exact node-resolved FEniCSx capacitance extraction, and the matching ngspice sweep for the built-in default geometry. Changing the design switches the field slide to the clearly labeled JavaScript screening preview until a matching solve is run. New server-backed FEniCSx, thermal, SPICE, and generated-artifact features require a full deployment.
+
+The slideshow now opens with a concise main presentation and a linked contents rail. Capacitance-extraction methods, analytical and limiting-case validation, and engineering trade studies remain available as separate technical sections. A quasi-static electromagnetic network view uses the solved Maxwell capacitance matrix and geometry-derived partial inductance to show the low-loss coupled resonances and their strong damping by the physical interstage resistance. A separate committed FEniCSx electroquasistatic sweep applies a signal at the input, extracts the complete complex field admittance matrix, and reports loaded output voltage from 1 Hz to 100 MHz. Both are precursors to, not replacements for, a 3D full-wave solve.
 
 The JavaScript field solver is currently a screening model and is not yet accurate enough to serve as the reference calculation. The immediate simulation priority is to finish and validate the FEniCS model first, preserve its results as the comparison baseline, and then improve the JavaScript solver against that baseline.
 
@@ -73,7 +75,7 @@ The filter is based on a cylindrical, discoidal capacitor stack:
 - `deploy/pi/` - agent-facing Raspberry Pi installation and hosting runbooks.
 - `docs/knowledge/` - curated design knowledge, requirements, assumptions, and decisions.
 - [`docs/knowledge/validation-runbook.md`](docs/knowledge/validation-runbook.md) - required software, deployment, electrostatic, SPICE, thermal, symmetry, and browser verification.
-- [`docs/knowledge/distributed-admittance.md`](docs/knowledge/distributed-admittance.md) - planned field-derived admittance and noise-versus-frequency model.
+- [`docs/knowledge/distributed-admittance.md`](docs/knowledge/distributed-admittance.md) - implemented axisymmetric field-derived admittance and input-output frequency model, plus remaining noise/full-wave work.
 - [`docs/knowledge/axisymmetry-sensitivity.md`](docs/knowledge/axisymmetry-sensitivity.md) - staged 3D test of the rotational-axisymmetry approximation.
 - `docs/chats/raw/` - raw AI collaboration transcripts and exported chats.
 - `docs/chats/markdown/` - cleaned summaries derived from raw chats.

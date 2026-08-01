@@ -18,7 +18,9 @@
       })();
     </script>
     <link rel="stylesheet" href="style.css?v=2026-07-31-symmetric-cap-backup">
-    <script defer src="app.js?v=2026-07-31-slides-default"></script>
+    <script defer src="default-fenicsx-field.js?v=2026-08-01-default-exact-cap-spice"></script>
+    <script defer src="default-eqs-sweep.js?v=2026-08-01-intrinsic-comparison"></script>
+    <script defer src="app.js?v=2026-08-01-intrinsic-overlay"></script>
   </head>
   <body>
     <header class="topbar">
@@ -115,7 +117,8 @@
             <label>Plate material
               <select id="plate_material">
                 <option value="copper">Copper</option>
-                <option value="aluminum">Aluminum</option>
+                <option value="annealed_copper">Annealed copper</option>
+                <option value="aluminum">1050-O aluminum</option>
                 <option value="brass">Brass</option>
                 <option value="stainless_316">316 stainless</option>
                 <option value="titanium_grade_2">Grade 2 titanium</option>
@@ -128,7 +131,8 @@
             <label>Tube material
               <select id="tube_material">
                 <option value="copper">Copper</option>
-                <option value="aluminum">Aluminum</option>
+                <option value="annealed_copper">Annealed copper</option>
+                <option value="aluminum">1050-O aluminum</option>
                 <option value="brass">Brass</option>
                 <option value="stainless_316">316 stainless</option>
                 <option value="titanium_grade_2">Grade 2 titanium</option>
@@ -507,6 +511,16 @@
       </section>
 
       <section class="view slides active" id="slides" aria-label="Presentation slides" aria-roledescription="slide deck">
+        <aside class="slide-toc" aria-label="Presentation table of contents">
+          <div class="slide-toc-heading">
+            <div>
+              <p class="eyebrow">Contents</p>
+              <strong>Filter study</strong>
+            </div>
+            <button id="slideTocToggle" type="button" aria-expanded="true" aria-controls="slideTocList">Sections</button>
+          </div>
+          <div class="slide-toc-list" id="slideTocList"></div>
+        </aside>
         <article class="slide slide-visual">
           <div class="slide-copy">
             <p class="eyebrow">Detector bias filtering</p>
@@ -522,12 +536,12 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <h2>FEA Model</h2>
+            <h2>What Is Modeled</h2>
             <ul>
-              <li>The r-z model uses cylindrical symmetry about the filter axis.</li>
-              <li>FEniCSx meshes the dielectric regions and applies fixed potentials to conductor surfaces: bias/core at V and ground/tube at 0 V.</li>
-              <li>The complete idealized geometry and equal-voltage all-bias excitation have exact mirror symmetry about the axial center plane.</li>
-              <li>By default, that excitation solves one physical end region and one inner region, then copies and mirrors them; asymmetric capacitance basis fields do not use this reduction.</li>
+              <li>Electrostatics: axisymmetric FEniCSx fields, dielectric stress, and a node-resolved Maxwell capacitance matrix.</li>
+              <li>Circuit response: the complete unbuffered resistance-capacitance ladder, cable, detector, and DC load in SPICE.</li>
+              <li>Mechanical screening: a separate axisymmetric thermoelastic model for bonded epoxy, ceramic, copper, and core solids.</li>
+              <li>Symmetry and repeated cells are used only for excitations and regions that actually preserve them.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -561,12 +575,13 @@
               <li>Exact mode uses the extracted Maxwell network; repeated mode uses the explicitly approximate screening network.</li>
               <li>The loaded curve includes the cable transmission line, detector capacitance, and DC load conductance once at the final node.</li>
               <li>The unloaded curve removes the cable and detector load to show voltage-noise attenuation at the bare filter output.</li>
+              <li>The intrinsic curve also removes the source-side network, matching the direct-drive, open-output ports used by the field solve.</li>
               <li>End resistors occur only where specified; the complete solve avoids multiplying an isolated one-section response.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
-            <figcaption>Complete RC ladder with loaded and unloaded output conditions</figcaption>
+            <figcaption>Complete RC ladder, including the intrinsic matched-port transfer used for the field-solve comparison</figcaption>
           </figure>
         </article>
 
@@ -622,14 +637,76 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Default geometry · matched open-circuit ports</p>
+            <h2>Field Solve Matches the Intrinsic SPICE Transfer</h2>
+            <ul>
+              <li>The input bias plate is fixed at 1 V, all interior plates float, and the output plate is measured open-circuit.</li>
+              <li>No input resistor, output resistor, cable, detector capacitance, or load conductance appears in either curve.</li>
+              <li>The complete complex admittance matrix comes from the distributed electric field and continuous resistive-core surrogate—not from inserted capacitances.</li>
+              <li>At 1 kHz, FEniCSx gives -10.08 dB and intrinsic SPICE gives -10.03 dB; their worst saved difference is 0.62 dB.</li>
+              <li>Reciprocity is exact numerically; the real admittance is passive; 1 kHz changes by only 0.00014 dB from 0.60 to 0.30 mm mesh.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideEqsCanvas" width="1100" height="620"></canvas>
+            <figcaption>Open-circuit V<sub>out</sub>/V<sub>in</sub> from full-stack FEniCSx EQS and the matched intrinsic SPICE network</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual electromagnetic-slide">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Frequency-domain model ladder</p>
+            <h2>From Damped Resonances to Field-Derived Transfer</h2>
+            <ul>
+              <li>The frequency-domain network combines the FEniCSx Maxwell capacitance matrix with geometry-derived partial inductance for each axial current path.</li>
+              <li>A low-loss reference exposes the coupled LC modes; the physical interstage resistance strongly damps those peaks.</li>
+              <li>A single-mode RLC check chooses L<sub>eff</sub> so its zero-resistance natural frequency matches the first coupled-model peak, then applies the same physical resistance.</li>
+              <li>The matched oscillator and coupled network should agree on resonance scale and whether the physical design is underdamped or overdamped; their full transfer amplitudes need not match.</li>
+              <li>The intrinsic comparison applies 1 V directly to the input plate, leaves interior plates floating, measures the output open-circuit, and calculates V<sub>out</sub>/V<sub>in</sub> from a field-derived complex admittance matrix.</li>
+              <li>EQS includes distributed conduction and displacement current, but not magnetic induction, skin effect, radiation, or the 3D MELF helix.</li>
+              <li>After EQS-to-SPICE validation, the next check is a 3D curl-curl solution followed by a measured S-parameter or impedance sweep.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideElectromagneticCanvas" width="1100" height="620"></canvas>
+            <figcaption>Existing LC comparison; the saved FEniCSx EQS input-output sweep becomes the next overlay</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-copy-wide way-forward-slide">
+          <p class="eyebrow">Current thinking</p>
+          <h2>Way Forward</h2>
+          <div class="way-forward-grid">
+            <section>
+              <h3>Design direction</h3>
+              <ul>
+                <li>Keep the symmetric washer/core stack as the baseline.</li>
+                <li>Prefer ferrite only if measured resistance and excess noise justify it.</li>
+                <li>Keep matched discrete HV capacitors as a symmetric fallback, not the primary design.</li>
+              </ul>
+            </section>
+            <section>
+              <h3>Close the evidence gaps</h3>
+              <ol>
+                <li>Converge electrostatic peak field and capacitance.</li>
+                <li>Measure core resistance, noise, leakage, and partial discharge.</li>
+                <li>Run and validate the 3D frequency-domain electromagnetic model.</li>
+                <li>Compare the complete prototype with the SPICE and EM predictions.</li>
+              </ol>
+            </section>
+          </div>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Possible mechanical limitation</p>
             <h2>Possible Thermal Limits of Heat-Cured Epoxy</h2>
             <ul>
               <li>The closed form assumes equal radial and hoop stress with zero axial and r-z shear stress.</li>
               <li>The FEA maximum-principal result combines radial, axial, hoop, and r-z shear stress and is the most limiting trend shown.</li>
-              <li>The +4&nbsp;&deg;C marker is where the closed-form stress crosses the 20&nbsp;MPa bulk tensile strength; it is not a predicted separation temperature.</li>
+              <li>The +4&nbsp;&deg;C marker is where the closed-form stress crosses the published 20&nbsp;MPa bulk tensile strength; it is not a predicted separation temperature.</li>
               <li>FEA reports the 99th-percentile epoxy maximum-principal tensile stress; its raw material-corner peak remains mesh sensitive.</li>
-              <li>Shear-driven bond separation could open a discharge path; predicting it requires cohesive interface laws and adhesion or fracture data for the actual bonds.</li>
+              <li>9510 has no published bulk shear strength. Its substrate-specific lap-shear values cannot be used as the local FEA shear limit; the actual copper/alumina bonds need coupon data.</li>
               <li>The dashed <em>k</em> = 0.5 FEA trend is a linear stress-scaling sensitivity, not a second interface-compliance solve.</li>
             </ul>
           </div>
@@ -778,6 +855,59 @@
             <canvas id="slideAluminaThermalStudyCanvas" width="1100" height="620"></canvas>
             <figcaption>Mesh-resolved comparative insert model; final machinable alumina geometry still requires detailed CAD</figcaption>
           </figure>
+        </article>
+
+        <article class="slide slide-visual conductor-thermal-study-slide">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Backup: conductor and dielectric thermal study</p>
+            <h2>Soft Metal Helps Only the Bulk-Epoxy Layout</h2>
+            <ul>
+              <li>1050-O aluminum plates lower bulk-epoxy P99 tension 2.5%; changing the tube too reaches 2.9%.</li>
+              <li>With fitted alumina, aluminum does not lower tension and increases P99 shear; titanium and Mo-Cu still raise tension.</li>
+              <li>An idealized 69 MPa perfect-plastic annealed-copper model yields but gives essentially no matched-mesh tensile relief.</li>
+              <li>Plasticity is a sensitivity result, not qualification: the purchased copper temper needs a certified stress-strain curve.</li>
+            </ul>
+            <p><small>Properties: <a href="https://www.hydro.com/globalassets/08-about-hydro/hydro-worldwide/germany/extrusion-germany/alloy-data-sheets/hydro-en-aw-1050a.pdf">Hydro 1050A</a> &middot; <a href="https://alloys.copper.org/alloy/C11000">CDA C11000</a> &middot; <a href="https://www.hcstarcksolutions.com/wp-content/uploads/PD-7101_1-MoCu-Composites.pdf">H.C. Starck Mo-Cu</a></small></p>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideThermalConductorStudyCanvas" width="1100" height="620"></canvas>
+            <figcaption>Elastic material cases plus matched-mesh ideal J2 copper sensitivity; bonded geometry controls the trade</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-copy-wide metal-trade-slide">
+          <p class="eyebrow">Backup: what changing the metal actually changes</p>
+          <h2>CTE-Matched Metal Trades Tension for Lower Shear</h2>
+          <p class="metal-trade-hypothesis"><strong>Idea tested:</strong> replace the copper tube, ground plates, and bias plates with metal that either matches alumina CTE or deforms more readily. The hoped-for outcome was lower epoxy tension after cooling from 70 to 20&nbsp;&deg;C.</p>
+          <div class="metal-trade-grid" aria-label="Fitted-alumina conductor comparison">
+            <section class="metal-trade-card baseline">
+              <h3>Copper baseline</h3>
+              <p class="metal-trade-detail">0.30 mm fitted alumina</p>
+              <dl><div><dt>P99 tension</dt><dd>34.18 MPa</dd></div><div><dt>P99 shear</dt><dd>5.81 MPa</dd></div></dl>
+            </section>
+            <section class="metal-trade-card">
+              <h3>All Grade 2 Ti</h3>
+              <p class="metal-trade-detail">CTE close to alumina</p>
+              <dl><div><dt>P99 tension</dt><dd class="trade-worse">35.30 MPa</dd></div><div><dt>P99 shear</dt><dd class="trade-better">5.14 MPa</dd></div></dl>
+            </section>
+            <section class="metal-trade-card">
+              <h3>All Mo70Cu30</h3>
+              <p class="metal-trade-detail">CTE matches alumina preset</p>
+              <dl><div><dt>P99 tension</dt><dd class="trade-worse">35.63 MPa</dd></div><div><dt>P99 shear</dt><dd class="trade-better">5.05 MPa</dd></div></dl>
+            </section>
+            <section class="metal-trade-card">
+              <h3>All 1050-O Al</h3>
+              <p class="metal-trade-detail">Lower modulus, higher CTE</p>
+              <dl><div><dt>P99 tension</dt><dd class="trade-worse">34.30 MPa</dd></div><div><dt>P99 shear</dt><dd class="trade-worse">8.27 MPa</dd></div></dl>
+            </section>
+            <section class="metal-trade-card">
+              <h3>Annealed Cu J2</h3>
+              <p class="metal-trade-detail">Ideal 69 MPa yield sensitivity</p>
+              <dl><div><dt>P99 tension</dt><dd class="trade-neutral">34.18 MPa</dd></div><div><dt>P99 shear</dt><dd class="trade-worse">6.15 MPa</dd></div></dl>
+            </section>
+          </div>
+          <p class="metal-trade-conclusion"><strong>Result:</strong> stiff CTE-matched metals reduce fitted-layout shear, but they increase the principal tensile stress that currently looks controlling. Softer metal is not automatically better: aluminum helps tension only in bulk epoxy, while idealized yielding in annealed copper barely changes it.</p>
+          <p class="metal-trade-note">All values are fitted-alumina P99 stresses in MPa. Green is lower and red is higher than the copper baseline; the plastic case uses its matched-mesh linear-copper reference. Perfect bonding is assumed.</p>
         </article>
 
         <article class="slide slide-copy-wide epoxy-choice-slide">

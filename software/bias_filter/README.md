@@ -49,19 +49,25 @@ python software/bias_filter/field_backend.py --solver fenicsx
 
 The field backend is still electrostatic. Plate and tube conductivity/permeability parameters are passed through job inputs and summaries so a later frequency-domain admittance or RF backend can consume the same design payload, but the present `fd` solver treats conductors as equipotential boundaries.
 
-The next FEniCSx electrical model is specified as a coupled-real,
-axisymmetric electroquasistatic multiport solve. It will return a complex nodal
-admittance matrix and compare it with the existing `G_stage + j omega
-C_Maxwell` SPICE/MNA ladder before adding source transfer or internal thermal
-noise. Print the machine-readable implementation and validation contract with:
+The first frequency-domain FEniCSx electrical model is a coupled-real,
+axisymmetric electroquasistatic multiport solve. It returns a complex nodal
+admittance matrix and loaded `Vout/Vin`, and compares with the existing
+`G_stage + j omega C_Maxwell` SPICE/MNA ladder. Print the machine-readable
+implementation and validation contract with:
 
 ```powershell
 python software/bias_filter/fenicsx_solver.py --admittance-plan
 ```
 
-This command reports a plan, not a completed admittance solve. The full
-formulation and the staged 3D rotational-symmetry comparison are documented in
-`docs/knowledge/distributed-admittance.md` and
+Run an input-output field sweep with:
+
+```powershell
+python software/bias_filter/admittance_fenicsx_solver.py --frequencies 1 10 100 1000 10000 100000 1000000 10000000 100000000 --mesh-mm 0.3
+```
+
+The formulation, saved result, validation, and staged 3D rotational-symmetry
+comparison are documented in `docs/knowledge/distributed-admittance.md`,
+`simulations/electromagnetic/README.md`, and
 `docs/knowledge/axisymmetry-sensitivity.md`.
 
 The `/api/spice-ladder` endpoint is separate from the electrostatic field solve. On the deployed Pi it uses `ngspice` batch AC analysis when available, with an internal Python modified-nodal AC solve as a fallback for development machines without ngspice. The returned netlist uses ordinary SPICE concepts (`R`, `C`, and a lossless transmission-line `T` element), so the simulation can be inspected or rerun directly in ngspice.

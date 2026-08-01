@@ -1,0 +1,33 @@
+{
+  "generated_utc": "2026-08-01T06:57:47.2747349Z",
+  "purpose": "Numerical validation of the idealized copper J2 perfect-plastic cooldown sensitivity before running the full conductor campaign.",
+  "geometry": "default bulk-epoxy geometry",
+  "mesh_target_mm": 0.5,
+  "copper_yield_strength_mpa": 69.0,
+  "hardening_modulus_mpa": 0.0,
+  "four_increment": {
+    "epoxy_principal_tensile_p99_mpa": 31.536407838732817,
+    "epoxy_rz_shear_p99_abs_mpa": 12.09119432767251,
+    "maximum_equivalent_plastic_strain": 0.004860994076997138,
+    "cell_fraction_with_plastic_strain": 0.037649453065377765,
+    "newton_iterations_per_increment": [5, 6, 7, 7]
+  },
+  "eight_increment": {
+    "epoxy_principal_tensile_p99_mpa": 31.525456874879783,
+    "epoxy_rz_shear_p99_abs_mpa": 12.094513357073138,
+    "maximum_equivalent_plastic_strain": 0.005052493207792204,
+    "cell_fraction_with_plastic_strain": 0.03790384126176546,
+    "newton_iterations_per_increment": [2, 5, 6, 6, 6, 7, 7, 8],
+    "plate_von_mises_raw_max_mpa": 69.00000000000003,
+    "tube_von_mises_raw_max_mpa": 69.00000000000001
+  },
+  "checks": {
+    "p99_tension_relative_change_4_to_8": 0.000347252,
+    "p99_tension_increment_tolerance": 0.001,
+    "yield_surface_absolute_tolerance_mpa": 0.001,
+    "increment_convergence_passed": true,
+    "plate_yield_return_passed": true,
+    "tube_yield_return_passed": true
+  },
+  "scope": "This validates load-step convergence and yield-surface return for the stated ideal constitutive law. It does not validate the assumed 69 MPa yield strength, zero hardening, or the purchased copper temper."
+}

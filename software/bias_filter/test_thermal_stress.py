@@ -11,18 +11,32 @@ from software.bias_filter.thermal_stress import (
     mismatch_strain,
     uniform_triaxial_stress_mpa,
 )
-from software.bias_filter.thermal_fenicsx_solver import MATERIALS_MPA, THERMAL_CONDUCTOR_MATERIALS
+from software.bias_filter.thermal_fenicsx_solver import (
+    MATERIALS_MPA,
+    THERMAL_CONDUCTOR_MATERIALS,
+    selected_constitutive_model,
+)
 
 
 class ThermalStressTests(unittest.TestCase):
     def test_thermal_conductor_presets_include_cte_matched_options(self) -> None:
         self.assertTrue(
-            {"copper", "titanium_grade_2", "mocu_65_35", "mocu_70_30", "mocu_80_20"}
+            {"copper", "annealed_copper", "aluminum", "titanium_grade_2", "mocu_65_35", "mocu_70_30", "mocu_80_20"}
             <= THERMAL_CONDUCTOR_MATERIALS
         )
         self.assertAlmostEqual(MATERIALS_MPA["titanium_grade_2"]["cte_per_c"], 8.6e-6)
         self.assertAlmostEqual(MATERIALS_MPA["mocu_70_30"]["cte_per_c"], 8.2e-6)
+        self.assertEqual(MATERIALS_MPA["annealed_copper"], MATERIALS_MPA["copper"])
         self.assertEqual(MATERIALS_MPA["mocu_70_30"]["youngs_modulus_mpa"], 210_000.0)
+        self.assertEqual(MATERIALS_MPA["aluminum"]["youngs_modulus_mpa"], 69_000.0)
+        self.assertAlmostEqual(MATERIALS_MPA["aluminum"]["cte_per_c"], 23.55e-6)
+
+    def test_annealed_copper_selects_yielding_model_by_default(self) -> None:
+        parameters = load_parameters(DEFAULT_PARAMETERS)
+        parameters["plate_material"] = "annealed_copper"
+        self.assertEqual(selected_constitutive_model(parameters, parameters), "copper_j2_perfect_plastic")
+        parameters["_thermal_constitutive_model"] = "linear_elastic"
+        self.assertEqual(selected_constitutive_model(parameters, parameters), "linear_elastic")
 
     def test_mismatch_strain_is_zero_above_reference(self) -> None:
         self.assertEqual(mismatch_strain(74.0, 8.2, 70.0, 80.0), 0.0)
@@ -71,6 +85,32 @@ class ThermalStressTests(unittest.TestCase):
         for case in report["cases"]:
             self.assertTrue((path.parent / case["case_file"]).is_file())
         self.assertTrue((path.parent / "thermal-alumina-insert-comparison.png").is_file())
+
+    def test_checked_in_conductor_layout_study_is_complete(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        path = root / "simulations" / "thermal" / "conductor-study" / "thermal-conductor-study.json"
+        report = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(report["solver"], "axisymmetric-linear-thermoelastic-fenicsx")
+        self.assertEqual(len(report["cases"]), 18)
+        self.assertEqual(len(report["plastic_cases"]), 2)
+        self.assertEqual(len(report["plastic_reference_cases"]), 2)
+        self.assertEqual(report["method"]["mesh_target_mm"], 0.10)
+        copper_bulk = next(case for case in report["cases"] if case["name"] == "bulk_copper_copper_baseline")
+        titanium_bulk = next(case for case in report["cases"] if case["name"] == "bulk_titanium_grade_2_plates_only")
+        copper_fitted = next(case for case in report["cases"] if case["name"] == "fitted_0p30mm_copper_copper_baseline")
+        aluminum_bulk = next(case for case in report["cases"] if case["name"] == "bulk_aluminum_plates_only")
+        aluminum_all_bulk = next(case for case in report["cases"] if case["name"] == "bulk_aluminum_plates_and_tube")
+        self.assertGreater(titanium_bulk["epoxy_principal_tensile_p99_mpa"], copper_bulk["epoxy_principal_tensile_p99_mpa"])
+        self.assertGreater(aluminum_bulk["epoxy_principal_tensile_p99_mpa"], 0.0)
+        self.assertGreater(aluminum_all_bulk["epoxy_principal_tensile_p99_mpa"], 0.0)
+        self.assertTrue(all(case["plasticity_summary"] for case in report["plastic_cases"]))
+        validation = json.loads((path.parent / "plasticity-validation.json").read_text(encoding="utf-8"))
+        self.assertTrue(validation["checks"]["increment_convergence_passed"])
+        self.assertLess(validation["checks"]["p99_tension_relative_change_4_to_8"], 0.001)
+        self.assertLessEqual(validation["eight_increment"]["plate_von_mises_raw_max_mpa"], 69.001)
+        self.assertLessEqual(validation["eight_increment"]["tube_von_mises_raw_max_mpa"], 69.001)
+        self.assertLess(copper_fitted["epoxy_rz_shear_p99_abs_mpa"], copper_bulk["epoxy_rz_shear_p99_abs_mpa"])
+        self.assertGreater(copper_fitted["epoxy_principal_tensile_p99_mpa"], copper_bulk["epoxy_principal_tensile_p99_mpa"])
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import field_backend
 import fenicsx_solver
 import axisymmetric_model
+import admittance_fenicsx_solver
 import spice_ladder
 
 
@@ -30,13 +31,77 @@ class FieldBackendTests(unittest.TestCase):
     def test_distributed_admittance_plan_is_not_the_old_capacitance_readout(self) -> None:
         plan = fenicsx_solver.distributed_admittance_plan()
 
-        self.assertEqual(plan["status"], "planned-not-implemented")
+        self.assertEqual(plan["status"], "axisymmetric-eqs-implemented")
+        self.assertTrue(plan["implementation"].endswith("admittance_fenicsx_solver.py"))
         self.assertEqual(plan["model"], "axisymmetric-electroquasistatic-multiport")
         self.assertTrue(plan["real_scalar_formulation"]["required"])
         self.assertIn("full_complex_nodal_admittance_matrix", plan["required_outputs"])
         self.assertIn("single_resistor_johnson_noise", plan["validation_gates"])
         self.assertIn("SPICE/MNA", plan["primary_comparison"])
         self.assertIn("requires 3D", plan["material_cautions"]["melf"])
+
+    def test_eqs_loaded_transfer_matches_two_node_resistor(self) -> None:
+        conductance = 2.0e-6
+        load = 3.0e-6
+        result = admittance_fenicsx_solver.loaded_transfer(
+            [[conductance, -conductance], [-conductance, conductance]],
+            complex(load, 0.0),
+        )
+        self.assertAlmostEqual(result["magnitude"], conductance / (conductance + load))
+        self.assertAlmostEqual(result["phase_deg"], 0.0)
+
+    def test_eqs_core_conductivity_calibration_matches_stage_resistance(self) -> None:
+        parameters = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        conductivity, basis = admittance_fenicsx_solver.calibrated_core_conductivity_s_per_m(parameters)
+        length_m = (
+            axisymmetric_model.ground_plate_thickness_mm(parameters)
+            + 2.0 * parameters["plate_gap_mm"]
+        ) * 1e-3
+        area_m2 = math.pi * (parameters["core_od_mm"] * 0.5e-3) ** 2
+        recovered_resistance = length_m / (conductivity * area_m2)
+        self.assertAlmostEqual(recovered_resistance, parameters["melf_stage_resistance_mohm"] * 1e6)
+        self.assertIn("calibrated", basis)
+
+    def test_checked_in_eqs_sweep_and_validation_are_finite(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        result = json.loads(
+            (root / "simulations" / "electromagnetic" / "default-eqs-sweep.json").read_text(encoding="utf-8")
+        )
+        validation = json.loads(
+            (root / "simulations" / "electromagnetic" / "validation" / "validation-summary.json").read_text(encoding="utf-8")
+        )
+        intrinsic = json.loads(
+            (root / "simulations" / "electromagnetic" / "intrinsic-spice-eqs-comparison.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(result["solver"], "axisymmetric-electroquasistatic-multiport-fenicsx")
+        self.assertEqual(len(result["samples"]), 9)
+        self.assertEqual(result["ports"], ["bias_plate_1", "bias_plate_2"])
+        for sample in result["samples"]:
+            self.assertTrue(math.isfinite(sample["transfer"]["magnitude_db"]))
+            self.assertTrue(math.isfinite(sample["transfer"]["phase_deg"]))
+            self.assertLessEqual(sample["reciprocity_max_abs_s"], 1e-15)
+            self.assertEqual(len(sample["y_real_s"]), 2)
+            self.assertEqual(len(sample["y_imag_s"]), 2)
+        self.assertTrue(validation["all_implemented_checks_passed"])
+        self.assertTrue(all(check["passed"] for check in validation["checks"].values()))
+        self.assertEqual(intrinsic["output"], "final bias plate measured at infinite impedance")
+        self.assertEqual(len(intrinsic["samples"]), 9)
+        self.assertLess(intrinsic["maximum_absolute_difference_db"], 0.7)
+
+    def test_static_page_bundles_eqs_result_and_requested_materials(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        index = (root / "presentations" / "web" / "index.html").read_text(encoding="utf-8")
+        app = (root / "presentations" / "web" / "app.js").read_text(encoding="utf-8")
+        eqs = (root / "presentations" / "web" / "default-eqs-sweep.js").read_text(encoding="utf-8")
+        self.assertIn('src="default-eqs-sweep.js', index)
+        self.assertIn('value="annealed_copper"', index)
+        self.assertIn('value="titanium_grade_2"', index)
+        self.assertIn('value="mocu_70_30"', index)
+        self.assertIn("function drawEqsSlide", app)
+        self.assertIn("function drawIntrinsicComparisonSlide", app)
+        self.assertNotIn('id="slideIntrinsicSpiceCanvas"', index)
+        self.assertIn("Intrinsic filter, EM ports", app)
+        self.assertIn("DISCOIDAL_DEFAULT_EQS_SWEEP", eqs)
 
     def test_two_washer_cg_uses_shared_overlap_and_both_sides(self) -> None:
         params = {
@@ -748,10 +813,55 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn('id="slideConfigurationSource"', index)
                 self.assertIn('<button class="tab active" type="button" data-view="slides">Slides</button>', index)
                 self.assertIn('<section class="view slides active" id="slides"', index)
+                self.assertIn('src="default-fenicsx-field.js?', index)
+                self.assertIn('id="slideTocList"', index)
+                self.assertNotIn('SPICE Transfer Without Cable or Output Load', index)
+                self.assertIn('Field Solve Matches the Intrinsic SPICE Transfer', index)
+                self.assertIn('From Damped Resonances to Field-Derived Transfer', index)
+                self.assertIn('src="default-eqs-sweep.js?', index)
+                self.assertIn('id="slideEqsCanvas"', index)
+                self.assertIn('id="slideElectromagneticCanvas"', index)
+                self.assertIn('<h2>Way Forward</h2>', index)
+                self.assertIn('id="slideThermalConductorStudyCanvas"', index)
+                self.assertIn('Soft Metal Helps Only the Bulk-Epoxy Layout', index)
+                self.assertIn('CTE-Matched Metal Trades Tension for Lower Shear', index)
 
                 app = urllib.request.urlopen(base_url + "/app.js", timeout=5).read().decode("utf-8")
                 self.assertIn('fetch("default.json", { cache: "no-store" })', app)
                 self.assertIn('downloadTextFile("default.json"', app)
+                self.assertIn("function loadBundledDefaultFieldResult()", app)
+                self.assertIn("const SLIDE_SECTION_DEFINITIONS", app)
+                self.assertIn('label: "Main presentation"', app)
+                self.assertIn('label: "Models & FEA results"', app)
+                self.assertIn('label: "Validation & limiting cases"', app)
+                self.assertIn("function electromagneticStageInductanceH", app)
+                self.assertIn("function electromagneticTransferMagnitude", app)
+                self.assertIn("function drawThermalConductorStudySlide", app)
+                self.assertIn("function matchedModalOscillator", app)
+                self.assertIn("zero-R f0 equals the first coupled peak", app)
+                self.assertIn('window.addEventListener("hashchange"', app)
+
+                bundled = urllib.request.urlopen(base_url + "/default-fenicsx-field.js", timeout=5).read().decode("utf-8")
+                prefix = "window.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT = "
+                self.assertTrue(bundled.startswith(prefix))
+                payload = json.loads(bundled[len(prefix):].strip().removesuffix(";"))
+                self.assertEqual(payload["format"], "discoidal-capacitor-bias-filter-bundled-field")
+                self.assertEqual(payload["version"], 2)
+                self.assertEqual(payload["settings"]["plate_pairs"], 2)
+                self.assertEqual(payload["result"]["source"], "fea-backend-fenicsx")
+                self.assertEqual(payload["result"]["solverStatus"]["effective"], "fenicsx")
+                self.assertEqual(payload["result"]["grid"]["mesh"]["type"], "gmsh-dolfinx-conforming")
+                capacitance = payload["result"]["capacitance"]
+                self.assertEqual(capacitance["capacitance_network"]["method"], "fenicsx-maxwell-matrix-basis-cross-energy")
+                self.assertIn("visualization_model", capacitance["capacitance_network"])
+                self.assertIn("bias_to_ground_comparison", capacitance)
+                self.assertFalse(payload["exactCapacitanceParameters"]["use_repeating_cell_approximation"])
+                self.assertEqual(payload["exactCapacitanceParameters"]["solve_strategy"], "mirror_half")
+                self.assertEqual(payload["spiceLadder"]["method"], "ngspice-batch-ac")
+                self.assertEqual(len(payload["spiceLadder"]["samples"]), 161)
+
+                eqs_bundle = urllib.request.urlopen(base_url + "/default-eqs-sweep.js", timeout=5).read().decode("utf-8")
+                self.assertIn("DISCOIDAL_DEFAULT_EQS_SWEEP", eqs_bundle)
 
                 with self.assertRaises(urllib.error.HTTPError) as raised:
                     urllib.request.urlopen(base_url + "/../hardware/geometry/default-parameters.json", timeout=5)

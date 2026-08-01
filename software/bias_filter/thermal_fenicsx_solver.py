@@ -8,9 +8,11 @@ idealized stack is solved from one physical end to its exact axial mirror
 plane. Exposed surfaces are traction-free and every material interface is
 perfectly bonded.
 
-This is a comparative elastic model, not an adhesive-fracture or cure model.
-It excludes cure shrinkage, viscoelastic relaxation, plasticity, cohesive
-interfaces, voids, and debonding.
+This is a comparative thermoelastic model, not an adhesive-fracture or cure
+model. The default constitutive law is linear elastic; an explicitly selected
+ideal J2 perfect-plastic copper sensitivity is also available. Both exclude
+cure shrinkage, viscoelastic relaxation, cohesive interfaces, voids, and
+debonding.
 """
 
 from __future__ import annotations
@@ -40,6 +42,8 @@ MATERIAL_TAGS = {
 MATERIALS_MPA = {
     "alumina": {"youngs_modulus_mpa": 303_000.0, "poisson_ratio": 0.21, "cte_per_c": 8.2e-6},
     "copper": {"youngs_modulus_mpa": 117_000.0, "poisson_ratio": 0.34, "cte_per_c": 16.9e-6},
+    "annealed_copper": {"youngs_modulus_mpa": 117_000.0, "poisson_ratio": 0.34, "cte_per_c": 16.9e-6},
+    "aluminum": {"youngs_modulus_mpa": 69_000.0, "poisson_ratio": 0.33, "cte_per_c": 23.55e-6},
     "titanium_grade_2": {"youngs_modulus_mpa": 105_000.0, "poisson_ratio": 0.34, "cte_per_c": 8.6e-6},
     "mocu_65_35": {"youngs_modulus_mpa": 200_000.0, "poisson_ratio": 0.30, "cte_per_c": 8.6e-6},
     "mocu_70_30": {"youngs_modulus_mpa": 210_000.0, "poisson_ratio": 0.30, "cte_per_c": 8.2e-6},
@@ -47,7 +51,7 @@ MATERIALS_MPA = {
     "ferrite_core": {"youngs_modulus_mpa": 150_000.0, "poisson_ratio": 0.29, "cte_per_c": 10.0e-6},
 }
 THERMAL_CONDUCTOR_MATERIALS = frozenset({
-    "copper", "titanium_grade_2", "mocu_65_35", "mocu_70_30", "mocu_80_20"
+    "copper", "annealed_copper", "aluminum", "titanium_grade_2", "mocu_65_35", "mocu_70_30", "mocu_80_20"
 })
 VALIDATION_SOLVE_STRATEGIES = {"mirror_half", "full_stack"}
 VALIDATION_BOUNDARY_MODES = {"physical", "fully_restrained"}
@@ -64,6 +68,18 @@ def dependency_status() -> dict[str, Any]:
     }
 
 
+def selected_constitutive_model(raw_parameters: dict[str, Any], normalized: dict[str, Any]) -> str:
+    explicit = raw_parameters.get("_thermal_constitutive_model")
+    if explicit is not None:
+        return str(explicit)
+    if "annealed_copper" in {
+        str(normalized.get("plate_material", "copper")),
+        str(normalized.get("tube_material", "copper")),
+    }:
+        return "copper_j2_perfect_plastic"
+    return "linear_elastic"
+
+
 def _import_modules() -> dict[str, Any]:
     status = dependency_status()
     if not status["ready"]:
@@ -74,6 +90,7 @@ def _import_modules() -> dict[str, Any]:
     import ufl  # type: ignore
     from dolfinx import fem, io, mesh as dmesh  # type: ignore
     from dolfinx.fem import petsc as fem_petsc  # type: ignore
+    from dolfinx.nls import petsc as nls_petsc  # type: ignore
     from mpi4py import MPI  # type: ignore
     from petsc4py import PETSc  # type: ignore
 
@@ -84,6 +101,7 @@ def _import_modules() -> dict[str, Any]:
         "fem": fem,
         "fem_petsc": fem_petsc,
         "dmesh": dmesh,
+        "nls_petsc": nls_petsc,
         "gmshio": io.gmshio,
         "MPI": MPI,
         "PETSc": PETSc,
@@ -362,6 +380,14 @@ def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
     fem = modules["fem"]
     MPI = modules["MPI"]
     PETSc = modules["PETSc"]
+    constitutive_model = selected_constitutive_model(raw_parameters, p)
+    if constitutive_model not in {"linear_elastic", "copper_j2_perfect_plastic"}:
+        raise ValueError(f"Unsupported thermal constitutive model: {constitutive_model}")
+    if constitutive_model == "copper_j2_perfect_plastic" and not (
+        str(p.get("plate_material", "copper")) in {"copper", "annealed_copper"}
+        or str(p.get("tube_material", "copper")) in {"copper", "annealed_copper"}
+    ):
+        raise ValueError("The copper plasticity sensitivity requires copper plates or tube.")
 
     domain, cell_tags, mesh_summary = _build_mesh(p, modules)
     V = _function_space(fem, domain, ("Lagrange", 2, (2,)))
@@ -447,28 +473,155 @@ def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
                 fem.dirichletbc(zero_axial, end_axial_dofs, V.sub(1)),
             ]
         )
-    problem = modules["fem_petsc"].LinearProblem(
-        a_form,
-        l_form,
-        bcs=bcs,
-        petsc_options={"ksp_type": "preonly", "pc_type": "lu"},
-    )
-    displacement = problem.solve()
-    displacement.x.scatter_forward()
+    plasticity_summary: dict[str, Any] | None = None
+    if constitutive_model == "linear_elastic":
+        problem = modules["fem_petsc"].LinearProblem(
+            a_form,
+            l_form,
+            bcs=bcs,
+            petsc_options={"ksp_type": "preonly", "pc_type": "lu"},
+        )
+        displacement = problem.solve()
+        displacement.x.scatter_forward()
+        err, ett, ezz, erz = strain_components(displacement)
+        mechanical_trace = err + ett + ezz - 3.0 * cte * delta_temperature
+        thermal_strain = cte * delta_temperature
+        stress_expressions = {
+            "rr": 2.0 * mu * (err - thermal_strain) + lam * mechanical_trace,
+            "tt": 2.0 * mu * (ett - thermal_strain) + lam * mechanical_trace,
+            "zz": 2.0 * mu * (ezz - thermal_strain) + lam * mechanical_trace,
+            "rz": 2.0 * mu * erz,
+        }
+    else:
+        # Small-strain associative J2 sensitivity with ideal elastic-perfectly-
+        # plastic copper. Internal variables are cell-centered and the cooldown
+        # is applied incrementally. The 69 MPa yield value represents the
+        # published 10 ksi 0.5%-extension yield for soft C11000 grain-size
+        # tempers; a purchased product's certified curve should replace it.
+        displacement = fem.Function(V)
+        Q = _function_space(fem, domain, ("DG", 0))
+        Qp = _function_space(fem, domain, ("DG", 0, (4,)))
+        plastic_strain = fem.Function(Qp)
+        equivalent_plastic_strain = fem.Function(Q)
+        yield_strength = fem.Function(Q)
+        yield_strength.x.array[:] = 1.0e12
+        copper_yield_mpa = float(raw_parameters.get("_thermal_copper_yield_strength_mpa", 69.0))
+        if str(p.get("plate_material", "copper")) in {"copper", "annealed_copper"}:
+            yield_strength.x.array[material_assignment["cells"]["plate"]] = copper_yield_mpa
+        if str(p.get("tube_material", "copper")) in {"copper", "annealed_copper"}:
+            yield_strength.x.array[material_assignment["cells"]["tube"]] = copper_yield_mpa
+        yield_strength.x.scatter_forward()
 
-    err, ett, ezz, erz = strain_components(displacement)
-    mechanical_trace = err + ett + ezz - 3.0 * cte * delta_temperature
-    thermal_strain = cte * delta_temperature
+        def strain_tensor(field: Any) -> Any:
+            rr_value, tt_value, zz_value, rz_value = strain_components(field)
+            return ufl.as_tensor(((rr_value, 0.0, rz_value), (0.0, tt_value, 0.0), (rz_value, 0.0, zz_value)))
+
+        def plastic_tensor(field: Any) -> Any:
+            return ufl.as_tensor(((field[0], 0.0, field[3]), (0.0, field[1], 0.0), (field[3], 0.0, field[2])))
+
+        identity = ufl.Identity(3)
+        temperature_step = fem.Constant(domain, PETSc.ScalarType(0.0))
+        total_strain = strain_tensor(displacement)
+        elastic_trial_strain = total_strain - plastic_tensor(plastic_strain) - cte * temperature_step * identity
+        trial_stress = 2.0 * mu * elastic_trial_strain + lam * ufl.tr(elastic_trial_strain) * identity
+        trial_deviator = trial_stress - ufl.tr(trial_stress) * identity / 3.0
+        trial_q = ufl.sqrt(1.5 * ufl.inner(trial_deviator, trial_deviator) + 1.0e-18)
+        yield_excess = trial_q - yield_strength
+        plastic_multiplier = ufl.conditional(ufl.gt(yield_excess, 0.0), yield_excess / (3.0 * mu), 0.0)
+        flow_direction = 1.5 * trial_deviator / trial_q
+        returned_stress = trial_stress - 2.0 * mu * plastic_multiplier * flow_direction
+        test_strain = strain_tensor(v)
+        residual = ufl.inner(returned_stress, test_strain) * axisymmetric_weight * ufl.dx
+        jacobian = ufl.derivative(residual, displacement, ufl.TrialFunction(V))
+        nonlinear_problem = modules["fem_petsc"].NonlinearProblem(residual, displacement, bcs=bcs, J=jacobian)
+        newton = modules["nls_petsc"].NewtonSolver(domain.comm, nonlinear_problem)
+        newton.rtol = 1.0e-8
+        newton.atol = 1.0e-9
+        newton.max_it = 40
+        newton.convergence_criterion = "incremental"
+        increment_count = max(2, int(raw_parameters.get("_thermal_plastic_load_steps", 20)))
+        iteration_counts: list[int] = []
+        for increment in range(1, increment_count + 1):
+            temperature_step.value = PETSc.ScalarType(delta_temperature_value * increment / increment_count)
+            iterations, converged = newton.solve(displacement)
+            if not converged:
+                raise RuntimeError(f"Copper J2 solve failed at cooldown increment {increment}/{increment_count}.")
+            displacement.x.scatter_forward()
+            iteration_counts.append(int(iterations))
+            updated_plastic = fem.Function(Qp)
+            updated_equivalent = fem.Function(Q)
+            plastic_update_vector = ufl.as_vector((
+                plastic_strain[0] + plastic_multiplier * flow_direction[0, 0],
+                plastic_strain[1] + plastic_multiplier * flow_direction[1, 1],
+                plastic_strain[2] + plastic_multiplier * flow_direction[2, 2],
+                plastic_strain[3] + plastic_multiplier * flow_direction[0, 2],
+            ))
+            updated_plastic.interpolate(fem.Expression(plastic_update_vector, Qp.element.interpolation_points()))
+            updated_equivalent.interpolate(fem.Expression(
+                equivalent_plastic_strain + plastic_multiplier, Q.element.interpolation_points()
+            ))
+            plastic_strain.x.array[:] = updated_plastic.x.array
+            equivalent_plastic_strain.x.array[:] = updated_equivalent.x.array
+            plastic_strain.x.scatter_forward()
+            equivalent_plastic_strain.x.scatter_forward()
+
+        # Re-evaluate stress from the final converged total and plastic strains.
+        final_elastic_strain = strain_tensor(displacement) - plastic_tensor(plastic_strain) - cte * temperature_step * identity
+        final_stress = 2.0 * mu * final_elastic_strain + lam * ufl.tr(final_elastic_strain) * identity
+        stress_expressions = {
+            "rr": final_stress[0, 0], "tt": final_stress[1, 1],
+            "zz": final_stress[2, 2], "rz": final_stress[0, 2],
+        }
+        local_eqp = equivalent_plastic_strain.x.array[:domain.topology.index_map(domain.topology.dim).size_local]
+        gathered_eqp = domain.comm.allgather(local_eqp.tolist())
+        all_eqp = np.asarray([value for part in gathered_eqp for value in part], dtype=float)
+        plasticity_summary = {
+            "model": "associative-J2-elastic-perfectly-plastic-copper",
+            "copper_yield_strength_mpa": copper_yield_mpa,
+            "hardening_modulus_mpa": 0.0,
+            "cooldown_increments": increment_count,
+            "newton_iterations_per_increment": iteration_counts,
+            "maximum_equivalent_plastic_strain": float(np.max(all_eqp)),
+            "cell_fraction_with_plastic_strain": float(np.mean(all_eqp > 1.0e-10)),
+        }
+
     stress_functions = {
-        "rr": _interpolate_dg0(2.0 * mu * (err - thermal_strain) + lam * mechanical_trace, domain, modules),
-        "tt": _interpolate_dg0(2.0 * mu * (ett - thermal_strain) + lam * mechanical_trace, domain, modules),
-        "zz": _interpolate_dg0(2.0 * mu * (ezz - thermal_strain) + lam * mechanical_trace, domain, modules),
-        "rz": _interpolate_dg0(2.0 * mu * erz, domain, modules),
+        key: _interpolate_dg0(expression, domain, modules)
+        for key, expression in stress_expressions.items()
     }
 
     local_cell_count = domain.topology.index_map(domain.topology.dim).size_local
     local_cells = np.arange(local_cell_count, dtype=np.int32)
     midpoints = modules["dmesh"].compute_midpoints(domain, domain.topology.dim, local_cells)
+    local_material_von_mises: dict[str, list[float]] = {name: [] for name in MATERIAL_TAGS}
+    for material, cells in material_assignment["cells"].items():
+        for cell in np.asarray(cells, dtype=np.int32):
+            if cell >= local_cell_count:
+                continue
+            tensor = np.array(
+                [
+                    [stress_functions["rr"].x.array[cell], 0.0, stress_functions["rz"].x.array[cell]],
+                    [0.0, stress_functions["tt"].x.array[cell], 0.0],
+                    [stress_functions["rz"].x.array[cell], 0.0, stress_functions["zz"].x.array[cell]],
+                ],
+                dtype=float,
+            )
+            deviator = tensor - np.trace(tensor) * np.eye(3) / 3.0
+            local_material_von_mises[material].append(float(math.sqrt(1.5 * np.sum(deviator * deviator))))
+    gathered_material_stress = domain.comm.allgather(local_material_von_mises)
+    material_von_mises_summary: dict[str, dict[str, float] | None] = {}
+    for material in MATERIAL_TAGS:
+        values = np.asarray(
+            [value for part in gathered_material_stress for value in part[material]], dtype=float
+        )
+        material_von_mises_summary[material] = (
+            {
+                "p95": float(np.percentile(values, 95.0)),
+                "p99": float(np.percentile(values, 99.0)),
+                "raw_max": float(np.max(values)),
+            }
+            if values.size else None
+        )
     epoxy_cells = np.asarray(material_assignment["cells"]["epoxy"], dtype=np.int32)
     epoxy_cells = epoxy_cells[epoxy_cells < local_cell_count]
     principal_tensile: list[float] = []
@@ -552,6 +705,7 @@ def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
             "p99": float(np.percentile(all_axial_tensile, 99.0)),
             "raw_max": float(np.max(all_axial_tensile)),
         },
+        "material_von_mises_stress_mpa": material_von_mises_summary,
         "epoxy_principal_tensile_field": {
             "point_order": ["r_mm", "z_mm", "stress_mpa"],
             "points": display_points,
@@ -564,7 +718,8 @@ def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         "material_cell_counts": material_assignment["global_counts"],
         "materials": properties,
         "assumptions": {
-            "kinematics": "small-strain axisymmetric linear elasticity",
+            "kinematics": "small-strain axisymmetric thermoelasticity",
+            "constitutive_model": constitutive_model,
             "interfaces": "perfectly bonded",
             "external_surfaces": (
                 "traction-free"
@@ -581,6 +736,8 @@ def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
             "stress_free_temperature_c": REFERENCE_TEMPERATURE_C,
             "cure_shrinkage_included": False,
             "viscoelasticity_included": False,
+            "plasticity_included": constitutive_model == "copper_j2_perfect_plastic",
+            "plasticity_summary": plasticity_summary,
             "cohesive_or_debond_model_included": False,
             "voids_included": False,
             "material_layout": str(p.get("_thermal_material_layout", "bulk_epoxy")),

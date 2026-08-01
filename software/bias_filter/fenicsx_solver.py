@@ -591,9 +591,10 @@ def _capacitance_from_energy(
 
 
 def distributed_admittance_plan() -> dict[str, Any]:
-    """Machine-readable contract for the next frequency-domain field solver."""
+    """Machine-readable contract for the frequency-domain field solver."""
     return {
-        "status": "planned-not-implemented",
+        "status": "axisymmetric-eqs-implemented",
+        "implementation": "software/bias_filter/admittance_fenicsx_solver.py",
         "model": "axisymmetric-electroquasistatic-multiport",
         "strong_form": "div((sigma + j*omega*epsilon) grad(V)) = 0",
         "real_scalar_formulation": {
@@ -603,7 +604,7 @@ def distributed_admittance_plan() -> dict[str, Any]:
             "imaginary_equation": "div(sigma grad(Vi) + omega epsilon grad(Vr)) = 0",
         },
         "ports": "one equipotential port per bias plate; all ground conductors are the reference",
-        "matrix_extraction": "unit port basis fields plus integrated complex normal current",
+        "matrix_extraction": "unit port basis fields plus the reciprocal complex-energy bilinear form",
         "required_outputs": [
             "full_complex_nodal_admittance_matrix",
             "schur_reduced_input_output_two_port",

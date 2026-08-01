@@ -51,8 +51,21 @@ The 9510 datasheet does not publish elastic modulus, copper/alumina pull-off
 strength, or interface fracture toughness, and the FEA enforces perfect bonds.
 
 The interactive solver also supports independent plate and tube assignments
-for copper, Grade 2 titanium, Mo65Cu35, Mo70Cu30, and Mo80Cu20. Mo-Cu modulus,
+for copper, 1050-O aluminum, Grade 2 titanium, Mo65Cu35, Mo70Cu30, and
+Mo80Cu20. Aluminum properties come from the cited Hydro 1050A sheet. Mo-Cu modulus,
 CTE, and conductivity come from the cited supplier data; Poisson ratio is an
 explicit 0.30 engineering assumption. Vacuum degassing is a fabrication
 variable for reducing initial voids and is not represented by this linear
 thermoelastic model.
+
+`conductor-study/thermal-conductor-study.json` contains 18 primary linear
+elastic cases, two matched-mesh linear copper references, and two idealized
+J2 elastic-perfectly-plastic annealed-copper sensitivities. The plastic cases
+use a 69 MPa yield strength and zero hardening because no certified
+purchased-product curve is available. `plasticity-validation.json` records
+the separate four-versus-eight increment check and the 69 MPa yield-return
+check. Reproduce the complete campaign with:
+
+```bash
+/usr/bin/python3 software/bias_filter/thermal_conductor_study.py
+```

@@ -266,7 +266,33 @@ a mutual capacitance extracted from repeated all-bias FEA.
 
 When symmetry is questionable, run `full_stack` and treat it as authoritative.
 
-## 6. Run thermal verification
+## 6. Run distributed EQS verification
+
+Run the field sweep while all other FEniCSx jobs are idle:
+
+```bash
+python3 software/bias_filter/admittance_fenicsx_solver.py \
+  --parameters hardware/geometry/default-parameters.json \
+  --frequencies 1 10 100 1000 10000 100000 1000000 10000000 100000000 \
+  --mesh-mm 0.3 \
+  --output simulations/electromagnetic/default-eqs-sweep.json
+```
+
+Repeat at least one representative frequency on two coarser meshes. Require a
+finite full complex matrix and transfer at every frequency, reciprocity,
+positive-semidefinite `Re(Y)`, convergence of transfer and matrix entries, and
+`Im(Y)/omega` agreement with the independent electrostatic Maxwell matrix.
+For the default result, the diagonal and mutual capacitance differences are
+0.11% and 0.83%, and the 1 kHz transfer changes by 0.00014 dB from 0.60 to
+0.30 mm mesh. Also compare loaded transfer with the `G + j omega C_Maxwell`
+ladder; preserve both curves when distributed material behavior separates
+them.
+
+This verifies the EQS implementation only. Do not interpret it as validation
+of 3D MELF geometry, magnetic resonance, skin effect, cable propagation, or
+frequency-dependent material loss.
+
+## 7. Run thermal verification
 
 Run only after electrostatic work is idle:
 
@@ -297,7 +323,7 @@ These checks verify linear thermoelastic implementation under perfect bonds.
 They do not validate adhesion, debonding, plasticity, cure shrinkage,
 viscoelastic relaxation, cracking, or void growth.
 
-## 7. Manual browser checklist
+## 8. Manual browser checklist
 
 Open the deployed page in a fresh tab and verify:
 
@@ -327,7 +353,7 @@ For a release or presentation, capture the default geometry, material map,
 potential, field, capacitance network, SPICE response, thermal result, and
 solver provenance.
 
-## 8. Failure handling
+## 9. Failure handling
 
 If any check fails:
 
