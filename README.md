@@ -66,6 +66,7 @@ The filter is based on a cylindrical, discoidal capacitor stack:
 - `docs/getting-started/` - short human guides for opening the project with an AI agent.
 - `deploy/pi/` - agent-facing Raspberry Pi installation and hosting runbooks.
 - `docs/knowledge/` - curated design knowledge, requirements, assumptions, and decisions.
+- [`docs/knowledge/validation-runbook.md`](docs/knowledge/validation-runbook.md) - required software, deployment, electrostatic, SPICE, thermal, symmetry, and browser verification.
 - `docs/chats/raw/` - raw AI collaboration transcripts and exported chats.
 - `docs/chats/markdown/` - cleaned summaries derived from raw chats.
 - `hardware/` - geometry, materials, connector, and prototype design notes.
@@ -83,9 +84,9 @@ python software/bias_filter/axisymmetric_model.py solve
 python software/bias_filter/axisymmetric_model.py cad
 ```
 
-The browser page at `presentations/web/index.html` provides interactive design changes and peak-field screening. For backend solves, its CAD, material-region, potential, and field review views are generated from the normalized model returned by the solver, so they check the geometry and boundary conditions actually used rather than independently redrawing the original control values. CAD and mesh exports are generated under `hardware/geometry/generated/`.
+The browser page at `presentations/web/index.html` provides interactive design changes and peak-field screening. Its slide deck renders from the same startup geometry as the Designer. A deployment may place a gitignored `presentations/web/default.json` beside `index.html`; when present, it is loaded before the Designer and slides render, and the Files panel can download the current settings under that filename. For backend solves, its CAD, material-region, potential, and field review views are generated from the normalized model returned by the solver, so they check the geometry and boundary conditions actually used rather than independently redrawing the original control values. CAD and mesh exports are generated under `hardware/geometry/generated/`.
 
-The JavaScript and Python finite-difference solvers are structured-grid screening tools. The optional FEniCSx/DOLFINx backend uses a conforming Gmsh r-z dielectric domain and reports field and capacitance checks, including an adjacent-bias parasitic-capacitance estimate from a separate three-bias-plate solve. Peak-field results still require mesh-convergence work before they should be treated as validated breakdown limits.
+The JavaScript and Python finite-difference solvers are structured-grid screening tools. The optional FEniCSx/DOLFINx backend uses a conforming Gmsh r-z dielectric domain and reports field and capacitance checks. The deployed solver has passed the recorded analytical-limit, exact-symmetry, flat-gap, and default rounded-edge mesh-convergence gates. These are numerical code-verification results, not dielectric-breakdown or manufactured-hardware qualification. Re-run the design-specific mesh sweep whenever geometry, materials, or the selected peak edge changes.
 
 The backend also provides RC-ladder and SPICE-style response calculations using `ngspice` when available, with an internal modified-nodal fallback.
 

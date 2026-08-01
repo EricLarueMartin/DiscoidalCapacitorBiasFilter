@@ -80,7 +80,7 @@ The current FEniCSx worker builds a conforming Gmsh/OpenCASCADE r-z dielectric d
 
 The FEniCSx worker also reports a complete node-resolved capacitance network. It solves one full-stack unit basis field per bias plate and directly assembles the Maxwell matrix from cross-energy integrals. Physical `Cpar,i,j` values are the negatives of the off-diagonal coefficients, while each `Cg,i` is the corresponding row sum. An independent all-bias solve checks total ground capacitance. This avoids subtracting nearly equal single-node and pair-node energies.
 
-For MELF 0204/0207 presets, the capacitance basis solves include the inter-plate core as dielectric with an effective permittivity `eps_eff = eps_substrate / (1 - film_fill_factor)`. The default 0207 values are `eps_substrate = 9.8` and `film_fill_factor = 0.50`. In the capacitance-only geometry, each bias plate extends across the core cross-section as a stage-node electrode, but the core between plates remains dielectric. This remains an initial FEA backend, not yet a production acceptance calculation, because the peak-field convergence loop, mesh-refinement records, interface-charge validation, and lossy complex-permittivity FEM admittance solve still need to be added.
+For MELF 0204/0207 presets, the capacitance basis solves include the inter-plate core as dielectric with an effective permittivity `eps_eff = eps_substrate / (1 - film_fill_factor)`. The default 0207 values are `eps_substrate = 9.8` and `film_fill_factor = 0.50`. In the capacitance-only geometry, each bias plate extends across the core cross-section as a stage-node electrode, but the core between plates remains dielectric. This remains a numerical FEA backend rather than a production hardware-acceptance calculation. The recorded default geometry now has analytical-limit, exact-symmetry, flat-gap, and five-level rounded-edge mesh checks. Interface-charge validation, lossy complex-permittivity FEM admittance, material qualification, partial-discharge testing, and manufactured-unit validation remain outside the present solver.
 
 The analytic core-plus-epoxy Cpar estimate is intentionally a parallel-plate upper-level sanity check. It does not model field intercepted by the intervening ground-plate inner edge. When the ground-hole radius is comparable to or smaller than the adjacent-bias separation, FEA can therefore report materially less epoxy-mediated adjacent-stage coupling even after the core dielectric treatment is correct.
 
@@ -90,10 +90,12 @@ geometries avoid combining a large plate-count memory test with a wide-disc
 analytical-limit test:
 
 ```bash
+python3 software/bias_filter/fenicsx_solver.py --validate-cpar-gap-sweep
 python3 software/bias_filter/fenicsx_solver.py --validate-capacitance-strategies
 python3 software/bias_filter/fenicsx_solver.py --validate-cpar-wide-disc-limit
 python3 software/bias_filter/fenicsx_solver.py --validate-cg-strategies
 python3 software/bias_filter/fenicsx_solver.py --validate-cg-wide-disc-limit
+python3 software/bias_filter/fenicsx_solver.py --validate-field-suite
 ```
 
 The `Cg` limiting case uses one bias disc between two ground plates, exact
@@ -105,6 +107,9 @@ in subprocesses so Gmsh/PETSc memory is released between cases. Detailed
 geometry, failed-attempt history, and tables are in
 `docs/knowledge/fenicsx-fea.md`; machine-readable results are under
 `simulations/axisymmetric/outputs/`.
+
+The complete end-to-end procedure and acceptance criteria are in
+`docs/knowledge/validation-runbook.md`.
 
 FEniCSx conductor boundary tagging uses a small geometric tolerance. This is required because Gmsh/DOLFINx boundary coordinates can land infinitesimally outside ideal plate intervals; exact classification previously missed one side of some conductor faces and produced washer-gap fields far below `V / gap`.
 

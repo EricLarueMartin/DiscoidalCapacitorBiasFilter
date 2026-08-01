@@ -17,8 +17,8 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=2026-07-30-cad-fill-2">
-    <script defer src="app.js?v=2026-07-31-added-cg"></script>
+    <link rel="stylesheet" href="style.css?v=2026-07-31-symmetric-cap-backup">
+    <script defer src="app.js?v=2026-07-31-installation-default"></script>
   </head>
   <body>
     <header class="topbar">
@@ -74,7 +74,7 @@
             <label title="Characteristic impedance used to infer lumped cable capacitance from length and velocity factor."><span>Load cable Z<sub>0</sub></span><output id="load_cable_impedance_ohm_out"></output><input id="load_cable_impedance_ohm" type="range" min="25" max="125" step="1"></label>
             <label title="Coax velocity factor used for C = length / (Z0 vf c)."><span>Load cable VF</span><output id="load_cable_velocity_factor_out"></output><input id="load_cable_velocity_factor" type="range" min="0.3" max="0.95" step="0.01"></label>
             <label title="Detector capacitance connected at the filter output."><span>Detector C</span><output id="detector_capacitance_pf_out"></output><input id="detector_capacitance_pf" type="range" min="0" max="100" step="0.001"></label>
-            <label title="Additional discrete capacitance connected from every bias plate to ground, in parallel with the geometry-derived capacitance. This changes the circuit and SPICE models only; it does not change the electrostatic FEA geometry or its reported Cg and Cpar."><span>Additional C<sub>g</sub> per bias plate</span><output id="additional_ground_capacitance_pf_out"></output><input id="additional_ground_capacitance_pf" type="range" min="0" max="10000" step="1"></label>
+            <label title="Optional circuit-only sensitivity for a matched set of discrete high-voltage capacitors. The entered value is connected from every bias plate to ground, preserving symmetry when the model has at least two bias nodes. It does not change the electrostatic FEA geometry or its reported Cg and Cpar. Zero is the baseline design."><span>Optional added C<sub>g</sub> per bias plate</span><output id="additional_ground_capacitance_pf_out"></output><input id="additional_ground_capacitance_pf" type="range" min="0" max="10000" step="1"></label>
             <label>Core material
               <select id="core_material">
                 <option value="type61">Fair-Rite 61 NiZn</option>
@@ -191,7 +191,7 @@
             <label title="Minimum is nominal 1/2 oz copper foil: 0.0175 mm.">Ground plate thickness <output id="ground_plate_thickness_mm_out"></output><input id="ground_plate_thickness_mm" type="range" min="0.0175" max="4" step="0.0005"></label>
             <label class="check"><input id="ground_matches_bias_thickness" type="checkbox"> Ground thickness = bias thickness</label>
             <label>Edge diameter <output id="edge_diameter_percent_out"></output><input id="edge_diameter_percent" type="range" min="0" max="100" step="5"></label>
-            <label>Plate pairs <output id="plate_pairs_out"></output><input id="plate_pairs" type="range" min="1" max="6" step="1"></label>
+            <label>Bias plates <output id="plate_pairs_out"></output><input id="plate_pairs" type="range" min="1" max="12" step="1"></label>
             <label class="check"><input id="include_ground_tube" type="checkbox"> Ground tube</label>
             <div class="derived-dimensions" aria-label="Derived diameters">
               <span>Core-ground gap <strong id="core_to_ground_gap_mm_out">--</strong></span>
@@ -216,7 +216,7 @@
               <output id="mesh_edge_radius_ratio_out"></output>
               <input id="mesh_edge_radius_ratio" type="range" min="0.05" max="0.5" step="0.01">
             </label>
-            <label class="check" title="Default: reuse the unique end and interior regions for the equal-voltage field solve. Capacitance extraction solves every single-node basis field on the full stack, forms the Maxwell matrix from cross-energy integrals, then applies exact mirror averaging and shares only fully interior couplings having the same axial separation. End-involving couplings remain distinct."><input id="use_repeating_cell_approximation" type="checkbox"> Repeat interior FEA cell</label>
+            <label class="check" title="Default: for the reflection-symmetric all-bias excitation only, solve one physical end region and one representative interior half-cell, then reconstruct the field and total capacitance. The fast SPICE network allocates that total to end/interior nodes and uses an analytical adjacent-Cpar screen; it is not a Maxwell-matrix extraction. Clear this option for exact node-resolved capacitances."><input id="use_repeating_cell_approximation" type="checkbox"> Repeat interior FEA cell</label>
             <div class="actions solver-actions">
               <button id="solve" type="button">Solve field</button>
             </div>
@@ -237,8 +237,8 @@
                 <li><b>Interior half-cell:</b> the center of that first bias plate through the center of the next interior ground plate—the second ground plate when the end cap is counted.</li>
               </ol>
               <p>The far end is an exact mirror of the solved end region. Between the two ends, the interior half-cell is copied and alternately mirrored about successive bias-plate and ground-plate center planes until the reconstructed stack reaches the far-end region.</p>
-              <p>Capacitance extraction uses a conservative version of the repeating-interior assumption. It solves every single-node basis field on the full stack, mirror-averages exactly reflected Maxwell entries, assigns one C<sub>g</sub> class to the two ends and another to interior nodes, and shares only fully interior C<sub>par</sub> terms with the same axial separation.</p>
-              <p>This option affects FEniCSx only. When unchecked, the equal-voltage peak-field solve uses the exact half-stack mirror model and the capacitance matrix uses exact reflection averaging without the repeating-interior constraint. The validation CLI can also disable all matrix symmetry for an independent full-model reference.</p>
+              <p>The two-region FEA is valid for the equal-voltage all-bias field and total-capacitance screen. Its fast SPICE network allocates regional energy to end/interior nodes and uses an analytical adjacent C<sub>par</sub>; those entries are not Maxwell row sums or differential FEA extractions.</p>
+              <p>This reduction is never applied to asymmetric single-node basis fields. When unchecked, those capacitance fields use the full stack; only an exactly reflected partner excitation may be reused. The validation CLI can also disable reflection averaging for an independent full-model reference.</p>
             </div>
           </div>
 
@@ -289,6 +289,7 @@
           <div class="actions control-panel" data-control-panel="files" hidden>
             <button id="reset" type="button">Reset</button>
             <button id="exportSettings" type="button">Export JSON</button>
+            <button id="downloadInstallationDefault" type="button" title="Download the current settings as the installation-local default.json file.">Download default.json</button>
             <button id="importSettings" type="button">Import JSON</button>
             <input id="settingsFile" type="file" accept="application/json,.json" hidden>
             <p id="settingsStatus" class="settings-status" aria-live="polite"></p>
@@ -340,7 +341,7 @@
               <strong id="washerGain">--</strong>
             </div>
             <div>
-              <span title="FEniCSx capacitance from each individual bias node to ground, extracted from the full capacitance matrix. Values are listed in axial node order.">FEA C<sub>g</sub> by bias node</span>
+              <span title="Capacitance used at each bias node. Exact mode reports Maxwell row sums from full-stack basis fields. Repeated screening mode reports an end/interior allocation of the symmetric all-bias FEA total; it is not a node-basis extraction.">Model C<sub>g</sub> by bias node</span>
               <strong id="shuntCapacitance">--</strong>
               <small>axial node order</small>
             </div>
@@ -511,6 +512,7 @@
             <p class="eyebrow">Detector bias filtering</p>
             <h2>Discoidal Capacitor Bias Filter</h2>
             <p>A compact, axisymmetric high-voltage, low-current filter with a resistive core.</p>
+            <p id="slideConfigurationSource">Simulation geometry: built-in defaults.</p>
           </div>
           <figure class="slide-figure">
             <canvas id="slideCadCanvas" width="1100" height="620"></canvas>
@@ -524,8 +526,8 @@
             <ul>
               <li>The r-z model uses cylindrical symmetry about the filter axis.</li>
               <li>FEniCSx meshes the dielectric regions and applies fixed potentials to conductor surfaces: bias/core at V and ground/tube at 0 V.</li>
-              <li>The complete idealized stack has exact mirror symmetry about its axial center plane.</li>
-              <li>By default, FEA solves one physical end region and one inner region, then copies and mirrors them to reconstruct the stack; reuse of the inner region is the finite-stack approximation.</li>
+              <li>The complete idealized geometry and equal-voltage all-bias excitation have exact mirror symmetry about the axial center plane.</li>
+              <li>By default, that excitation solves one physical end region and one inner region, then copies and mirrors them; asymmetric capacitance basis fields do not use this reduction.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -539,10 +541,10 @@
             <h2>Electrical Model for SPICE Simulation</h2>
             <ul>
               <li>R<sub>stage</sub> connects bias nodes and remains entered directly or calculated from resistive-core geometry.</li>
-              <li>Each C<sub>g,i</sub> is the FEA capacitance from one bias plate to ground.</li>
-              <li>Each C<sub>par,i,j</sub> is the FEA mutual capacitance between a pair of bias plates.</li>
+              <li>Exact mode extracts each C<sub>g,i</sub> and C<sub>par,i,j</sub> from full-stack Maxwell basis fields.</li>
+              <li>Fast repeated-cell mode uses a regional C<sub>g</sub> allocation and analytical adjacent C<sub>par</sub> for screening.</li>
               <li>End resistances occur once. Cable, detector, and load conductance appear only at the final node.</li>
-              <li>The single-stage curve uses average FEA C<sub>g</sub> and average adjacent FEA C<sub>par</sub>; SPICE uses the complete node-resolved capacitance network.</li>
+              <li>SPICE uses the selected exact or screening network without treating the two as equivalent evidence.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -553,12 +555,29 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
+            <h2>SPICE Simulation of the Complete Filter</h2>
+            <ul>
+              <li>The backend solves every R, C<sub>g</sub>, and C<sub>par</sub> element in the unbuffered ladder.</li>
+              <li>Exact mode uses the extracted Maxwell network; repeated mode uses the explicitly approximate screening network.</li>
+              <li>The loaded curve includes the cable transmission line, detector capacitance, and DC load conductance once at the final node.</li>
+              <li>The unloaded curve removes the cable and detector load to show voltage-noise attenuation at the bare filter output.</li>
+              <li>End resistors occur only where specified; the complete solve avoids multiplying an isolated one-section response.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
+            <figcaption>Complete RC ladder with loaded and unloaded output conditions</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
             <h2>Bias-to-Ground Capacitance from FEA</h2>
             <ul>
               <li>A one-bias geometry gives C<sub>g</sub> directly because no bias-to-bias capacitance exists.</li>
               <li>In the three-bias geometry, the middle-only result C<sub>m</sub> includes capacitance to both grounded neighboring bias plates and therefore overcounts C<sub>g</sub>.</li>
               <li>The neighbors-only and all-bias states remove that mutual contribution: C<sub>g,m</sub> = (C<sub>m</sub> &minus; C<sub>n</sub> + C<sub>a</sub>)/2.</li>
-              <li>The full design uses the equivalent Maxwell row sum C<sub>g,i</sub> = &Sigma;<sub>j</sub>C<sub>ij</sub>.</li>
+              <li>Exact full-design values use the Maxwell row sum C<sub>g,i</sub> = &Sigma;<sub>j</sub>C<sub>ij</sub>; repeated screening values do not claim this extraction.</li>
               <li>The resistive core remains dielectric during capacitance extraction and is not treated as an electrode.</li>
             </ul>
           </div>
@@ -598,23 +617,6 @@
           <figure class="slide-figure">
             <canvas id="slideResultsCanvas" width="1100" height="620"></canvas>
             <figcaption>Current peak-field result and dielectric-margin summary</figcaption>
-          </figure>
-        </article>
-
-        <article class="slide slide-visual">
-          <div class="slide-copy slide-copy-compact">
-            <h2>SPICE Simulation of the Complete Filter</h2>
-            <ul>
-              <li>The backend solves every R, C<sub>g</sub>, and C<sub>par</sub> element in the unbuffered ladder.</li>
-              <li>Each bias node uses its own FEA C<sub>g,i</sub>; every FEA mutual C<sub>par,i,j</sub> is included.</li>
-              <li>The loaded curve includes the cable transmission line, detector capacitance, and DC load conductance once at the final node.</li>
-              <li>The unloaded curve removes the cable and detector load to show voltage-noise attenuation at the bare filter output.</li>
-              <li>End resistors occur only where specified; the complete solve avoids multiplying an isolated one-section response.</li>
-            </ul>
-          </div>
-          <figure class="slide-figure">
-            <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
-            <figcaption>Complete RC ladder with loaded and unloaded output conditions</figcaption>
           </figure>
         </article>
 
@@ -673,34 +675,32 @@
           <p class="prototype-hybrid"><strong>Potting comparison:</strong> build representative coupons and, if practical, cross the core comparison with a vacuum-degassed heat-cured epoxy and a compliant two-part epoxy. Compare voiding, thermal cycling, adhesion, leakage, partial discharge, attenuation, drift, and low-frequency noise before selecting the construction.</p>
         </article>
 
-        <article class="slide prototype-slide">
-          <p class="eyebrow">Prototype extension</p>
-          <h2>Discrete Capacitors Can Supply the Missing C<sub>g</sub></h2>
-          <div class="prototype-comparison">
-            <section class="prototype-path ferrite-path">
-              <h3>Electrical opportunity</h3>
-              <ul>
-                <li>Add one high-voltage capacitor from each bias plate to ground.</li>
-                <li>The Designer's Additional C<sub>g</sub> input adds it per bias node while retaining FEA C<sub>g</sub> and adjacent C<sub>par</sub> separately.</li>
-                <li>This directly improves 50/60 Hz attenuation without requiring extreme washer permittivity.</li>
-              </ul>
-            </section>
-            <section class="prototype-path melf-path">
-              <h3>Qualification burden</h3>
-              <ul>
-                <li>Select on rated DC voltage, leakage, voltage coefficient, loss, noise, and partial-discharge data.</li>
-                <li>Package voids and terminations can dominate PD even when the bulk dielectric is strong.</li>
-                <li>Real placement can add C<sub>par</sub> and lead inductance absent from the ideal entered capacitance.</li>
-              </ul>
-            </section>
-          </div>
-          <p class="prototype-hybrid"><strong>Mechanical option:</strong> use fitted alumina around the capacitor and conductor stack, with only thin vacuum-wetted epoxy joints. This reduces bulk polymer volume but adds interfaces, so PD coupons and the thin-bondline thermal study remain part of the decision.</p>
-        </article>
-
         <article class="slide backup-divider">
           <p class="eyebrow">Backup slides</p>
           <h2>Verify the FEA Against Analytical and Limiting Cases</h2>
           <p>Supporting slides preserve the prototype assumptions, circuit checks, capacitance comparisons, mesh-aware field checks, and geometries with known analytical behavior.</p>
+        </article>
+
+        <article class="slide prototype-slide capacitor-backup-slide">
+          <p class="eyebrow">Backup: optional symmetric shunt</p>
+          <h2>Discrete HV Capacitors Stay a Backup</h2>
+          <div class="prototype-comparison">
+            <section class="prototype-path ferrite-path">
+              <h3>Model the fallback</h3>
+              <ul>
+                <li>If extra C<sub>g</sub> becomes necessary, use at least two matched HV capacitors placed symmetrically&mdash;never one asymmetric part.</li>
+                <li>Additional C<sub>g</sub> applies the same ideal shunt at every bias node. Zero is the baseline; one node is sensitivity-only.</li>
+              </ul>
+            </section>
+            <section class="prototype-path melf-path">
+              <h3>Why it is disfavored</h3>
+              <ul>
+                <li>Previous dry-encapsulated HV-capacitor assemblies suffered discharges; liquid potting is unavailable.</li>
+                <li>Only pursue this branch if the washer/core design cannot meet attenuation without it.</li>
+              </ul>
+            </section>
+          </div>
+          <p class="prototype-hybrid"><strong>Qualification gate:</strong> test the symmetric assembly for partial discharge, leakage, loss, noise, and thermal cycling. The ideal input omits package voids, placement C<sub>par</sub>, and lead inductance.</p>
         </article>
 
         <article class="slide slide-visual prototype-geometry-slide">

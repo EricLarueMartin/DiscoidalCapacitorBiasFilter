@@ -197,6 +197,31 @@ class FieldBackendTests(unittest.TestCase):
             [0, 2, 2, 2, 2, 0],
         )
 
+    def test_repeating_network_reconstructs_two_solved_regions_at_constant_cost(self) -> None:
+        params = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        params["plate_pairs"] = 6
+        network = fenicsx_solver._repeating_capacitance_network(
+            params,
+            end_region_pf=4.0,
+            interior_half_cell_pf=5.0,
+        )
+
+        self.assertEqual(network["node_ground_pf"], [9.0, 10.0, 10.0, 10.0, 10.0, 9.0])
+        self.assertEqual(network["total_ground_pf"], 58.0)
+        self.assertEqual(network["energy_solve_count"], 2)
+        self.assertEqual(network["energy_solve_count_without_symmetry"], 7)
+        self.assertTrue(network["repeating_interior_approximation"])
+        self.assertFalse(network["exact_full_stack"])
+        self.assertFalse(network["node_ground_values_are_maxwell_row_sums"])
+        self.assertFalse(network["mutual_values_are_fea_extracted"])
+        self.assertFalse(network["capacitance_validity"]["node_ground_values"]["basis_fields_solved"])
+        self.assertEqual(
+            network["capacitance_validity"]["mutual_values"]["source"],
+            "analytic-local-parallel-plate-screen",
+        )
+        self.assertEqual(len(network["mutual_pf_matrix"]), 6)
+        self.assertGreaterEqual(network["average_adjacent_mutual_pf"], 0.0)
+
     def test_two_bias_nodes_share_one_symmetric_ground_excitation(self) -> None:
         for use_repeating_interior in (False, True):
             with self.subTest(use_repeating_interior=use_repeating_interior):
@@ -247,6 +272,81 @@ class FieldBackendTests(unittest.TestCase):
             fenicsx_solver._analytic_parallel_plate_cpar_pf(params),
             0.2691060599222756,
         )
+
+    def test_cpar_gap_validation_geometry_survives_normalization(self) -> None:
+        params = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        params.update({"core_od_mm": 2.0, "plate_pairs": 3})
+
+        small = fenicsx_solver._cpar_gap_case_parameters(params, 2.0, 1.0)
+        large = fenicsx_solver._cpar_gap_case_parameters(params, 50.0, 1.0)
+
+        for case, expected_gap in ((small, 2.0), (large, 50.0)):
+            self.assertAlmostEqual(case["core_to_ground_gap_mm"], expected_gap)
+            self.assertAlmostEqual(
+                case["ground_plate_inner_diameter_mm"],
+                case["core_od_mm"] + 2.0 * expected_gap,
+            )
+            # Small validation discs are expanded by the model's 12 mm
+            # manufacturability floor; the requested ground-hole gap must
+            # still survive and the actual overlap must remain positive.
+            self.assertGreaterEqual(
+                case["hv_plate_od_mm"],
+                case["ground_plate_inner_diameter_mm"] + 2.0,
+            )
+            self.assertGreater(case["tube_id_mm"], case["hv_plate_od_mm"])
+
+        self.assertGreater(
+            large["ground_plate_inner_diameter_mm"],
+            small["ground_plate_inner_diameter_mm"],
+        )
+
+    def test_field_map_validation_compares_only_shared_dielectric_samples(self) -> None:
+        grid = {
+            "r_coords": [0.0, 1.0],
+            "z_coords": [0.0, 1.0],
+            "labels": [["dielectric", "hv"], ["dielectric", "dielectric"]],
+        }
+        reference = {
+            "grid": grid,
+            "field": [[100.0, 0.0], [50.0, 25.0]],
+            "max_field_v_per_mm": 100.0,
+            "max_location_mm": {"r": 0.0, "z": 0.0},
+        }
+        candidate = {
+            "grid": grid,
+            "field": [[101.0, 9999.0], [49.0, 25.0]],
+            "max_field_v_per_mm": 101.0,
+            "max_location_mm": {"r": 0.0, "z": 0.0},
+        }
+
+        comparison = fenicsx_solver._field_map_comparison(reference, candidate)
+
+        self.assertEqual(comparison["dielectric_sample_count"], 3)
+        self.assertAlmostEqual(comparison["peak_relative_difference"], 0.01)
+        self.assertAlmostEqual(comparison["maximum_absolute_map_difference_v_per_mm"], 1.0)
+        self.assertAlmostEqual(comparison["peak_location_distance_mm"], 0.0)
+
+    def test_central_washer_validation_excludes_edges_and_conductors(self) -> None:
+        grid = {
+            "r_coords": [1.0, 2.0, 3.0, 4.0],
+            "z_coords": [0.0, 1.0],
+            "labels": [["dielectric", "dielectric"], ["dielectric", "hv"], ["dielectric", "dielectric"], ["dielectric", "dielectric"]],
+            "materials": [["washer", "washer"] for _ in range(4)],
+        }
+        reference = {
+            "parameters": {"washer_id_mm": 2.0, "washer_od_mm": 8.0},
+            "grid": grid,
+            "field": [[100.0, 100.0], [100.0, 9999.0], [100.0, 100.0], [100.0, 100.0]],
+        }
+        candidate = {
+            "grid": grid,
+            "field": [[500.0, 500.0], [101.0, 0.0], [99.0, 100.0], [500.0, 500.0]],
+        }
+
+        comparison = fenicsx_solver._central_washer_field_comparison(reference, candidate)
+
+        self.assertEqual(comparison["sample_count"], 3)
+        self.assertAlmostEqual(comparison["maximum_relative_difference"], 0.01)
 
     def test_direct_stage_resistance_and_capacitance_modes_are_independent(self) -> None:
         params = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
@@ -631,6 +731,14 @@ class FieldBackendTests(unittest.TestCase):
             try:
                 index = urllib.request.urlopen(base_url + "/index.html", timeout=5).read().decode("utf-8")
                 self.assertIn("Discoidal Capacitor Bias Filter", index)
+                self.assertIn('>Bias plates <output id="plate_pairs_out"', index)
+                self.assertIn('id="plate_pairs" type="range" min="1" max="12" step="1"', index)
+                self.assertIn('id="downloadInstallationDefault"', index)
+                self.assertIn('id="slideConfigurationSource"', index)
+
+                app = urllib.request.urlopen(base_url + "/app.js", timeout=5).read().decode("utf-8")
+                self.assertIn('fetch("default.json", { cache: "no-store" })', app)
+                self.assertIn('downloadTextFile("default.json"', app)
 
                 with self.assertRaises(urllib.error.HTTPError) as raised:
                     urllib.request.urlopen(base_url + "/../hardware/geometry/default-parameters.json", timeout=5)
@@ -828,6 +936,14 @@ class FieldBackendTests(unittest.TestCase):
         self.assertIn(field_backend.SOLVE_STRATEGY_FULL_STACK, strategies)
         self.assertIn(field_backend.SOLVE_STRATEGY_MIRROR_HALF, strategies)
         self.assertTrue(strategies[field_backend.SOLVE_STRATEGY_MIRROR_HALF]["is_exact_for_this_idealized_stack"])
+        self.assertIn(
+            "single-node",
+            strategies[field_backend.SOLVE_STRATEGY_MIRROR_HALF]["invalid_excitation"],
+        )
+        self.assertIn(
+            "Maxwell basis",
+            strategies[field_backend.SOLVE_STRATEGY_END_REPEAT_APPROX]["invalid_excitation"],
+        )
 
     def test_symmetry_validation_plan_requires_full_stack_reference(self) -> None:
         params = field_backend.sanitized_parameters(self._small_parameters())

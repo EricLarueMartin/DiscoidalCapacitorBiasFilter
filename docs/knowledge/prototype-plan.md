@@ -55,7 +55,7 @@ Use the current parameterized copper envelope:
 | MELF core OD | 2.2 mm |
 | Ferrite comparison OD | 2.0 mm |
 | Bias voltage | 6 kV |
-| Plate pairs in first simulation | 2 |
+| Bias plates in first simulation | 2 |
 
 The 2.0 and 2.2 mm inserts both clear the 5.1 mm minimum ground-plate ID. The
 nominal minimum core-to-ground radial gaps are 1.55 mm for the 2.0 mm ferrite
@@ -138,10 +138,14 @@ describes voltage-noise attenuation at the filter output before the cable.
 
 ## Discrete-capacitor branch
 
-The prototype should leave a credible path to add a high-voltage capacitor
-from each bias plate to ground. The Designer's `Additional Cg` value adds that
-capacitance to every bias node in the circuit model while preserving the FEA
-washer capacitance and adjacent-plate Cpar as separately reported quantities.
+Discrete high-voltage capacitors are a backup branch, not part of the baseline
+prototype. If added capacitance becomes necessary, use a matched symmetric set
+of at least two capacitors rather than a single asymmetric part. The Designer's
+`Additional Cg` value adds the same capacitance to every bias node in the
+circuit model while preserving the FEA washer capacitance and adjacent-plate
+Cpar as separately reported quantities. Zero remains the baseline setting; a
+one-node model can be used for sensitivity analysis but does not represent the
+intended physical construction.
 
 This can recover low-frequency attenuation without requiring the washer itself
 to provide all of the capacitance. The capacitor must be evaluated as a
@@ -150,6 +154,13 @@ voltage coefficient, leakage, dissipation, piezoelectric/microphonic behavior,
 and partial-discharge data matter. Physical placement can also add adjacent
 stage coupling and lead inductance that the ideal `Additional Cg` entry does
 not model.
+
+This branch is disfavored because previous HV-capacitor assemblies experienced
+discharges when liquid potting could not be used. Dry encapsulation makes it
+difficult to eliminate voids around packages and terminations. Do not promote
+the branch unless the washer/core design cannot meet the required attenuation;
+if it is needed, qualify the complete symmetric assembly for partial discharge,
+leakage, voltage coefficient, loss, noise, and thermal cycling.
 
 An alumina-rich mechanical variant is also under study. Machined alumina would
 occupy most of the present bulk-epoxy volume, leaving thin epoxy bondlines to

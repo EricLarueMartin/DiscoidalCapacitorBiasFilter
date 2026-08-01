@@ -51,10 +51,12 @@ C_fea = 2 U / V^2
 U = 1/2 integral 2 pi r epsilon0 epsilonr |grad V|^2 dr dz
 ```
 
-An optional entered capacitor can be added from every bias plate to ground.
-This is a circuit-only quantity intended for discrete high-voltage capacitors
-or another shunt-capacitance structure not represented by the axisymmetric
-geometry:
+An optional entered capacitor can be added equally from every bias plate to
+ground. This circuit-only quantity is intended to test a matched symmetric set
+of at least two discrete high-voltage capacitors, or another symmetric
+shunt-capacitance structure not represented by the axisymmetric geometry. Zero
+is the baseline design. A one-node result remains available as sensitivity
+analysis, but it is not the intended physical construction:
 
 ```text
 Cg,circuit,i = Cg,geometry,i + Cg,additional
@@ -69,6 +71,11 @@ its package-to-package coupling, lead inductance, dielectric loss, leakage,
 voltage coefficient, and voltage rating are not modeled. Those parasitics may
 matter greatly for a real high-voltage implementation and should eventually be
 added as separate elements when a part and layout are selected.
+
+This remains a disfavored backup because dry encapsulation of HV capacitor
+packages and terminations has previously produced discharge problems when
+liquid potting was unavailable. Any physical implementation therefore requires
+partial-discharge qualification of the complete symmetric assembly.
 
 Adjacent bias-to-bias parasitic capacitance:
 
@@ -287,7 +294,7 @@ C_gain_vs_FR4 ~= epsr_washer / 4.4
 
 This is only valid for the simple parallel-plate washer-overlap estimate, but it is useful for estimating how much capacitance a better dielectric buys before sourcing or machining ceramic washers.
 
-With the current browser defaults (`epsr_washer = 10` alumina-like, MELF 0207 direct-stage resistance, `epsr_core = 19.6` effective MELF core, 2.2 mm core OD, two plate pairs, 6.6 mm washer ID, 20 mm washer OD, 1.5 mm washer thickness, and 26 mm tube ID), the estimate is roughly:
+With the current browser defaults (`epsr_washer = 10` alumina-like, MELF 0207 direct-stage resistance, `epsr_core = 19.6` effective MELF core, 2.2 mm core OD, two bias plates and three ground plates, 6.6 mm washer ID, 20 mm washer OD, 1.5 mm washer thickness, and 26 mm tube ID), the estimate is roughly:
 
 - `C_washer`: about 16.5 pF for one washer between one bias plate and one ground plate.
 - `C_g_stage`: about 33.1 pF per bias plate.

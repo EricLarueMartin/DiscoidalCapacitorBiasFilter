@@ -2,7 +2,7 @@
 
 ## Recommendation
 
-Use FEniCSx/DOLFINx as an optional backend, but keep the finite-difference worker available as the fast screening path until the FEniCSx peak-field convergence workflow is benchmarked.
+Use FEniCSx/DOLFINx as the conforming numerical reference backend, while keeping the finite-difference worker as the fast interactive screening path. The recorded default FEniCSx geometry has passed analytical-limit, exact-symmetry, flat-gap, and five-level rounded-edge convergence checks; selected design geometries still require their own convergence record.
 
 FEniCSx is a good fit for the electrostatic solve because the problem is a scalar elliptic PDE with cylindrical symmetry:
 
@@ -11,9 +11,9 @@ div(epsilon_r grad(V)) = 0
 integral 2*pi*r*epsilon_r*grad(V).grad(w) dr dz = 0
 ```
 
-The important caution is meshing. The maximum field depends on small rounded conductor edges and dielectric interfaces. A FEniCSx solve on a rectangle with conductor nodes merely sampled onto it would not be enough better than the current structured finite-difference screen. The current FEniCSx worker uses a conforming Gmsh/OpenCASCADE r-z dielectric domain with conductor regions removed as holes, so conductor surfaces and rounded edges are actual mesh boundaries. It still needs a peak-convergence loop before its supported or raw maximum should be treated as an acceptance value.
+The important caution is meshing. The maximum field depends on small rounded conductor edges and dielectric interfaces. A FEniCSx solve on a rectangle with conductor nodes merely sampled onto it would not be enough better than the current structured finite-difference screen. The current FEniCSx worker uses a conforming Gmsh/OpenCASCADE r-z dielectric domain with conductor regions removed as holes, so conductor surfaces and rounded edges are actual mesh boundaries. Its validation suite now performs a five-level convergence check using supported peak, field-energy capacitance, and physical peak edge class. That verifies the tested numerical model, not material breakdown or a manufactured assembly.
 
-The remaining main simulation blocker is convergence, not package availability. The JavaScript/Python finite-difference solvers use the correct cylindrical r-z operator and give the expected `V / gap` field through the flat washer gap, but rounded-edge maxima remain sensitive to discretization. The FEniCSx path provides the conforming mesh needed for comparison; next it needs explicit local refinement and a stop rule based on peak-field and peak-location convergence.
+The JavaScript/Python finite-difference solvers use the correct cylindrical r-z operator and give the expected `V / gap` field through the flat washer gap, but their rounded-edge maxima remain screening values. The FEniCSx validation path provides explicit local refinement and a stop rule based on supported peak, capacitance, and peak edge class. Re-run that path whenever geometry, materials, boundaries, or the selected peak feature changes. The operational procedure is in `validation-runbook.md`.
 
 ## Current Implementation
 
@@ -28,23 +28,24 @@ The remaining main simulation blocker is convergence, not package availability. 
 - Every solve returns the normalized parameter set, serialized r-z component profiles, and imposed conductor boundary potentials as an authoritative model record. The CAD, FEA-region, potential, and electric-field review views draw from that returned record rather than rebuilding geometry independently from the browser controls.
 - The material map is z-dependent: flat washer slabs occupy only the axial gaps between adjacent plate faces, while epoxy fills the rounded-edge pockets, core-side gap, tube-side gap, and other non-washer voids.
 - Result payloads include a neighborhood-supported peak field, a raw point maximum, dielectric-region peaks, and peak-quality diagnostics.
-- Result payloads also include a node-resolved capacitance matrix. The ordinary field solve reports a two-terminal HV-to-ground comparison from `C = 2U/V^2`; separate full-domain unit basis fields and their cross-energy integrals recover `Cg,i` and `Cpar,i,j`.
-- The exact `mirror_half` reference strategy meshes one physical end through the center of the middle plate. The center cut uses the weak form's natural zero-normal-flux boundary condition, energy is doubled, and sampled fields are mirrored back to the full-stack browser grid. `full_stack` remains available for regression comparisons.
-- This is exact mirror symmetry for the idealized uniform finite stack. It is not a periodic-cell assumption; arbitrary interior cells retain small global end effects.
+- Result payloads also include a circuit capacitance network. In repeated-cell screening mode, the two solved regions provide the all-bias total; end/interior `Cg` entries are a regional allocation and adjacent `Cpar` uses the local analytical screen. Exact reference mode uses separate full-domain unit basis fields and cross-energy integrals to recover node-resolved `Cg,i` and `Cpar,i,j`.
+- For the equal-voltage all-bias excitation, the exact `mirror_half` reference strategy meshes one physical end through the center of the middle plate. The center cut uses the weak form's natural zero-normal-flux boundary condition, energy is doubled, and sampled fields are mirrored back to the full-stack browser grid. `full_stack` remains available for regression comparisons.
+- This is exact mirror symmetry only for an excitation that is itself even under reflection. It is not a periodic-cell assumption; arbitrary single-node basis excitations require the full domain, and arbitrary interior cells retain small global end effects.
 
 The first deployed same-geometry field regression on 2026-07-13 used the 13.5 mm default stack and a 50 by 80 browser sampling grid. The then-current `mirror_half` workflow meshed 6.75 mm and completed in 2.433 s versus 5.167 s for `full_stack`, a 2.12x speedup. Total two-terminal capacitance was 79.0094 pF versus 79.0101 pF, a relative difference of 0.00083%. The neighborhood-supported peak was 5.998 kV/mm versus 5.982 kV/mm, a relative difference of 0.267%. These satisfy the initial symmetry-regression tolerances; mesh convergence remains a separate requirement for breakdown acceptance. The node-resolved capacitance algorithm has since been replaced by the basis-field method below, so those timings should not be used for its solve-count estimate.
 
 The `Repeat interior FEA cell` checkbox is enabled by default and selects `end_repeat_approx`. It solves two axial regions: the physical end through the center of the first bias plate, and the first bias-plate center through the center of the second ground plate. The far end is the exact global mirror of the first region. The interior half-cell is copied and mirror-copied across alternating bias and ground center planes until the far-end region begins. The reconstructed ordinary field/capacitance result is marked approximate. Clear the checkbox to use exact `mirror_half` instead.
 
-The ordinary peak-field excitation is mirror-symmetric because all bias
-conductors have the same imposed voltage, so its exact reference solve can mesh
-only half of the stack. A single-node capacitance excitation is different: one
-bias plate is at 1 V while its mirror partner is at 0 V. The excitation itself
-is not mirror-symmetric and therefore uses the full geometric domain. The
-capacitance extraction solves all node basis fields on that domain, then can
-average exactly reflected Maxwell-matrix entries. This distinction is why a
-two-bias-plate model must report identical `Cg` values without claiming that
-either single-node solve used a half-domain mesh.
+Repeated-cell screening does not launch single-node basis excitations. The
+equal-voltage excitation is reflection-symmetric, so it may assign each end
+node one end-region contribution plus one interior-half-cell contribution and
+each interior node two half-cell contributions while preserving total all-bias
+energy. These per-node entries are a SPICE screening allocation, not extracted
+Maxwell row sums. Adjacent `Cpar` is the local analytical core-plus-epoxy
+screen; nonadjacent mutual terms are neglected. Clearing the checkbox selects
+the exact-reference path, where asymmetric single-node excitations use the full
+geometric domain. Only the full-domain solution for an exactly reflected
+partner excitation may be reused.
 
 The returned capacitance-network record carries normalized geometry, dielectric
 core treatment, representative potential states, full-domain bounds, and the
@@ -54,8 +55,9 @@ rather than rebuilding a schematic from the main designer controls.
 The first six-pair Pi comparison used a 37.5 mm stack and a 50 by 120 browser sampling grid. `full_stack` took 14.079 s, exact `mirror_half` took 7.029 s, and `end_repeat_approx` took 4.049 s. The approximation therefore gave a 3.48x speedup over the full stack while solving 6.75 mm of combined unique axial extent. Its total capacitance was 236.369 pF versus 236.257 pF for the full stack, a 0.047% difference. Its neighborhood-supported peak was 5.966 kV/mm versus 6.009 kV/mm, a 0.728% difference. These results support the approximation as a fast screening option for the tested uniform geometry; they do not replace mesh convergence or full-stack checks for final acceptance.
 
 An older local three-bias polarization solve gave about `0.128 pF` on the
-default geometry. It remains only a historical cross-check; the SPICE network
-now comes from the full Maxwell-matrix extraction below.
+default geometry. It remains a historical cross-check for the analytical
+adjacent-`Cpar` screen used by repeated-cell mode. Exact-reference SPICE
+networks come from the full Maxwell-matrix extraction below.
 
 ## Capacitance Extraction
 
@@ -67,8 +69,9 @@ all ground conductors = 0
 C_total = 2 U / V^2
 ```
 
-The capacitance solve extracts a full physical capacitor network for the bias
-nodes and treats the resistive core as dielectric. For each node `i`, FEniCSx
+In exact-reference mode, the capacitance solve extracts a full physical
+capacitor network for the bias nodes and treats the resistive core as
+dielectric. For each node `i`, FEniCSx
 solves a unit basis field `phi_i`: node `i` is at 1 V and every other bias and
 ground conductor is at 0 V. The Maxwell coefficients are then assembled
 directly from the basis fields:
@@ -89,10 +92,12 @@ independently checks `sum(Cg,i)`. The complete extraction therefore requires
 check. At the current six-node UI limit that is seven solves on one conforming
 full-stack mesh.
 
-The browser passes this network to the SPICE endpoint; the generated netlist
-uses distinct node-to-ground capacitors and every nonzero mutual capacitor. If
-no matching FEniCSx solve exists, the presentation SPICE slide waits rather
-than silently substituting analytical capacitances.
+The browser passes either reconstructed screening network or exact-reference
+network to the SPICE endpoint. The repeated network has distinct end/interior
+ground capacitors and a repeated adjacent mutual capacitor. The exact network
+uses every nonzero extracted mutual capacitor. If no matching FEniCSx solve
+exists, the presentation SPICE slide waits rather than silently substituting a
+different field result.
 
 Three matrix treatments are available for validation:
 
@@ -347,6 +352,26 @@ python3 software/bias_filter/fenicsx_solver.py --validate-cg-wide-disc-limit
 ```
 
 ## Regression Checks
+
+### Full deployed validation campaign, 2026-07-31
+
+A fresh deployed-Pi campaign reran all capacitance-strategy and analytical-limit
+checks and added one reproducible field validation entry point:
+
+```bash
+python3 software/bias_filter/fenicsx_solver.py --validate-field-suite
+```
+
+That suite checks the flat-gap `E = V/g` result, full-stack versus exact-mirror
+peak and smooth-interior field samples, the operational repeat-cell
+approximation error, physical peak edge class, and rounded-edge mesh
+convergence. All final gates passed. The campaign also caught and fixed a gap
+sweep normalization defect before accepting any result; requested gap values
+had previously been overwritten by derived washer geometry.
+
+The complete provenance, acceptance metrics, raw JSON, timing files, and
+defect/fix history are in
+`simulations/axisymmetric/outputs/validation-2026-07-31/README.md`.
 
 On 2026-06-25, the first deployed FEniCSx solve failed a simple flat-gap sanity check: with 6 kV across a 1 mm washer gap, sampled fields in the washer overlap were only a few to a few tens of V/mm in alternating gaps. The issue was not the cylindrical weak form or unit conversion. Gmsh/DOLFINx boundary coordinates on one side of several conductor faces landed infinitesimally outside the ideal plate interval, so exact coordinate classification missed those Dirichlet conductor tags.
 

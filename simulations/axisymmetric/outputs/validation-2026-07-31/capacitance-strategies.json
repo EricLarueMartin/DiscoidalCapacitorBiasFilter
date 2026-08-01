@@ -1,0 +1,949 @@
+{
+  "method": "fenicsx-capacitance-strategy-consistency",
+  "expectation": "Full and exact-mirror results agree to numerical precision. For two through five nodes, repeating mode preserves adjacent Cpar; it may collapse interior Cg values by design.",
+  "geometry": {
+    "units": "mm",
+    "length_mm": 13.5,
+    "components": [
+      {
+        "name": "epoxy_fill_envelope",
+        "material": "epoxy",
+        "profile_mm": [
+          {
+            "r": 1.1,
+            "z": 0.0
+          },
+          {
+            "r": 13.0,
+            "z": 0.0
+          },
+          {
+            "r": 13.0,
+            "z": 13.5
+          },
+          {
+            "r": 1.1,
+            "z": 13.5
+          }
+        ]
+      },
+      {
+        "name": "core_segment_00",
+        "material": "core",
+        "profile_mm": [
+          {
+            "r": 0.0,
+            "z": 0.0
+          },
+          {
+            "r": 1.1,
+            "z": 0.0
+          },
+          {
+            "r": 1.1,
+            "z": 3.0
+          },
+          {
+            "r": 0.0,
+            "z": 3.0
+          }
+        ]
+      },
+      {
+        "name": "core_segment_01",
+        "material": "core",
+        "profile_mm": [
+          {
+            "r": 0.0,
+            "z": 4.5
+          },
+          {
+            "r": 1.1,
+            "z": 4.5
+          },
+          {
+            "r": 1.1,
+            "z": 9.0
+          },
+          {
+            "r": 0.0,
+            "z": 9.0
+          }
+        ]
+      },
+      {
+        "name": "core_segment_02",
+        "material": "core",
+        "profile_mm": [
+          {
+            "r": 0.0,
+            "z": 10.5
+          },
+          {
+            "r": 1.1,
+            "z": 10.5
+          },
+          {
+            "r": 1.1,
+            "z": 13.5
+          },
+          {
+            "r": 0.0,
+            "z": 13.5
+          }
+        ]
+      },
+      {
+        "name": "washer_dielectric_region_00",
+        "material": "washer",
+        "profile_mm": [
+          {
+            "r": 3.3,
+            "z": 1.5
+          },
+          {
+            "r": 10.0,
+            "z": 1.5
+          },
+          {
+            "r": 10.0,
+            "z": 3.0
+          },
+          {
+            "r": 3.3,
+            "z": 3.0
+          }
+        ]
+      },
+      {
+        "name": "washer_dielectric_region_01",
+        "material": "washer",
+        "profile_mm": [
+          {
+            "r": 3.3,
+            "z": 4.5
+          },
+          {
+            "r": 10.0,
+            "z": 4.5
+          },
+          {
+            "r": 10.0,
+            "z": 6.0
+          },
+          {
+            "r": 3.3,
+            "z": 6.0
+          }
+        ]
+      },
+      {
+        "name": "washer_dielectric_region_02",
+        "material": "washer",
+        "profile_mm": [
+          {
+            "r": 3.3,
+            "z": 7.5
+          },
+          {
+            "r": 10.0,
+            "z": 7.5
+          },
+          {
+            "r": 10.0,
+            "z": 9.0
+          },
+          {
+            "r": 3.3,
+            "z": 9.0
+          }
+        ]
+      },
+      {
+        "name": "washer_dielectric_region_03",
+        "material": "washer",
+        "profile_mm": [
+          {
+            "r": 3.3,
+            "z": 10.5
+          },
+          {
+            "r": 10.0,
+            "z": 10.5
+          },
+          {
+            "r": 10.0,
+            "z": 12.0
+          },
+          {
+            "r": 3.3,
+            "z": 12.0
+          }
+        ]
+      },
+      {
+        "name": "ground_tube",
+        "material": "ground",
+        "profile_mm": [
+          {
+            "r": 13.0,
+            "z": 0.0
+          },
+          {
+            "r": 14.0,
+            "z": 0.0
+          },
+          {
+            "r": 14.0,
+            "z": 13.5
+          },
+          {
+            "r": 13.0,
+            "z": 13.5
+          }
+        ]
+      },
+      {
+        "name": "ground_plate_00",
+        "material": "ground",
+        "profile_mm": [
+          {
+            "r": 3.3,
+            "z": 0.0
+          },
+          {
+            "r": 13.0,
+            "z": 0.0
+          },
+          {
+            "r": 13.0,
+            "z": 1.5
+          },
+          {
+            "r": 3.3,
+            "z": 1.5
+          },
+          {
+            "r": 3.153682258487904,
+            "z": 1.4855889603024228
+          },
+          {
+            "r": 3.0129874257261826,
+            "z": 1.442909649383465
+          },
+          {
+            "r": 2.8833223252352984,
+            "z": 1.3736022092269091
+          },
+          {
+            "r": 2.7696699141100893,
+            "z": 1.2803300858899107
+          },
+          {
+            "r": 2.6763977907730907,
+            "z": 1.1666776747647016
+          },
+          {
+            "r": 2.607090350616535,
+            "z": 1.0370125742738174
+          },
+          {
+            "r": 2.564411039697577,
+            "z": 0.8963177415120964
+          },
+          {
+            "r": 2.55,
+            "z": 0.7500000000000001
+          },
+          {
+            "r": 2.55,
+            "z": 0.75
+          },
+          {
+            "r": 2.564411039697577,
+            "z": 0.6036822584879038
+          },
+          {
+            "r": 2.607090350616535,
+            "z": 0.46298742572618273
+          },
+          {
+            "r": 2.6763977907730907,
+            "z": 0.33332232523529853
+          },
+          {
+            "r": 2.7696699141100893,
+            "z": 0.2196699141100894
+          },
+          {
+            "r": 2.883322325235298,
+            "z": 0.1263977907730911
+          },
+          {
+            "r": 3.012987425726182,
+            "z": 0.05709035061653511
+          },
+          {
+            "r": 3.1536822584879034,
+            "z": 0.014411039697577288
+          },
+          {
+            "r": 3.3,
+            "z": 0.0
+          }
+        ]
+      },
+      {
+        "name": "hv_plate_01",
+        "material": "hv",
+        "profile_mm": [
+          {
+            "r": 0.0,
+            "z": 3.0
+          },
+          {
+            "r": 10.0,
+            "z": 3.0
+          },
+          {
+            "r": 10.146317741512096,
+            "z": 3.014411039697577
+          },
+          {
+            "r": 10.287012574273817,
+            "z": 3.057090350616535
+          },
+          {
+            "r": 10.416677674764701,
+            "z": 3.1263977907730913
+          },
+          {
+            "r": 10.530330085889911,
+            "z": 3.2196699141100895
+          },
+          {
+            "r": 10.62360220922691,
+            "z": 3.333322325235298
+          },
+          {
+            "r": 10.692909649383465,
+            "z": 3.462987425726183
+          },
+          {
+            "r": 10.735588960302422,
+            "z": 3.603682258487904
+          },
+          {
+            "r": 10.75,
+            "z": 3.75
+          },
+          {
+            "r": 10.75,
+            "z": 3.75
+          },
+          {
+            "r": 10.735588960302422,
+            "z": 3.896317741512096
+          },
+          {
+            "r": 10.692909649383465,
+            "z": 4.037012574273818
+          },
+          {
+            "r": 10.62360220922691,
+            "z": 4.166677674764702
+          },
+          {
+            "r": 10.530330085889911,
+            "z": 4.2803300858899105
+          },
+          {
+            "r": 10.416677674764701,
+            "z": 4.373602209226909
+          },
+          {
+            "r": 10.287012574273817,
+            "z": 4.4429096493834646
+          },
+          {
+            "r": 10.146317741512096,
+            "z": 4.485588960302422
+          },
+          {
+            "r": 10.0,
+            "z": 4.5
+          },
+          {
+            "r": 0.0,
+            "z": 4.5
+          }
+        ]
+      },
+      {
+        "name": "ground_plate_02",
+        "material": "ground",
+        "profile_mm": [
+          {
+            "r": 3.3,
+            "z": 6.0
+          },
+          {
+            "r": 13.0,
+            "z": 6.0
+          },
+          {
+            "r": 13.0,
+            "z": 7.5
+          },
+          {
+            "r": 3.3,
+            "z": 7.5
+          },
+          {
+            "r": 3.153682258487904,
+            "z": 7.485588960302422
+          },
+          {
+            "r": 3.0129874257261826,
+            "z": 7.4429096493834646
+          },
+          {
+            "r": 2.8833223252352984,
+            "z": 7.37360220922691
+          },
+          {
+            "r": 2.7696699141100893,
+            "z": 7.2803300858899105
+          },
+          {
+            "r": 2.6763977907730907,
+            "z": 7.166677674764702
+          },
+          {
+            "r": 2.607090350616535,
+            "z": 7.037012574273818
+          },
+          {
+            "r": 2.564411039697577,
+            "z": 6.896317741512097
+          },
+          {
+            "r": 2.55,
+            "z": 6.75
+          },
+          {
+            "r": 2.55,
+            "z": 6.75
+          },
+          {
+            "r": 2.564411039697577,
+            "z": 6.603682258487904
+          },
+          {
+            "r": 2.607090350616535,
+            "z": 6.462987425726182
+          },
+          {
+            "r": 2.6763977907730907,
+            "z": 6.333322325235298
+          },
+          {
+            "r": 2.7696699141100893,
+            "z": 6.2196699141100895
+          },
+          {
+            "r": 2.883322325235298,
+            "z": 6.126397790773091
+          },
+          {
+            "r": 3.012987425726182,
+            "z": 6.0570903506165354
+          },
+          {
+            "r": 3.1536822584879034,
+            "z": 6.014411039697578
+          },
+          {
+            "r": 3.3,
+            "z": 6.0
+          }
+        ]
+      },
+      {
+        "name": "hv_plate_03",
+        "material": "hv",
+        "profile_mm": [
+          {
+            "r": 0.0,
+            "z": 9.0
+          },
+          {
+            "r": 10.0,
+            "z": 9.0
+          },
+          {
+            "r": 10.146317741512096,
+            "z": 9.014411039697578
+          },
+          {
+            "r": 10.287012574273817,
+            "z": 9.057090350616535
+          },
+          {
+            "r": 10.416677674764701,
+            "z": 9.12639779077309
+          },
+          {
+            "r": 10.530330085889911,
+            "z": 9.219669914110089
+          },
+          {
+            "r": 10.62360220922691,
+            "z": 9.333322325235299
+          },
+          {
+            "r": 10.692909649383465,
+            "z": 9.462987425726183
+          },
+          {
+            "r": 10.735588960302422,
+            "z": 9.603682258487904
+          },
+          {
+            "r": 10.75,
+            "z": 9.75
+          },
+          {
+            "r": 10.75,
+            "z": 9.75
+          },
+          {
+            "r": 10.735588960302422,
+            "z": 9.896317741512096
+          },
+          {
+            "r": 10.692909649383465,
+            "z": 10.037012574273817
+          },
+          {
+            "r": 10.62360220922691,
+            "z": 10.166677674764701
+          },
+          {
+            "r": 10.530330085889911,
+            "z": 10.280330085889911
+          },
+          {
+            "r": 10.416677674764701,
+            "z": 10.37360220922691
+          },
+          {
+            "r": 10.287012574273817,
+            "z": 10.442909649383465
+          },
+          {
+            "r": 10.146317741512096,
+            "z": 10.485588960302422
+          },
+          {
+            "r": 10.0,
+            "z": 10.5
+          },
+          {
+            "r": 0.0,
+            "z": 10.5
+          }
+        ]
+      },
+      {
+        "name": "ground_plate_04",
+        "material": "ground",
+        "profile_mm": [
+          {
+            "r": 3.3,
+            "z": 12.0
+          },
+          {
+            "r": 13.0,
+            "z": 12.0
+          },
+          {
+            "r": 13.0,
+            "z": 13.5
+          },
+          {
+            "r": 3.3,
+            "z": 13.5
+          },
+          {
+            "r": 3.153682258487904,
+            "z": 13.485588960302422
+          },
+          {
+            "r": 3.0129874257261826,
+            "z": 13.442909649383465
+          },
+          {
+            "r": 2.8833223252352984,
+            "z": 13.37360220922691
+          },
+          {
+            "r": 2.7696699141100893,
+            "z": 13.280330085889911
+          },
+          {
+            "r": 2.6763977907730907,
+            "z": 13.166677674764701
+          },
+          {
+            "r": 2.607090350616535,
+            "z": 13.037012574273817
+          },
+          {
+            "r": 2.564411039697577,
+            "z": 12.896317741512096
+          },
+          {
+            "r": 2.55,
+            "z": 12.75
+          },
+          {
+            "r": 2.55,
+            "z": 12.75
+          },
+          {
+            "r": 2.564411039697577,
+            "z": 12.603682258487904
+          },
+          {
+            "r": 2.607090350616535,
+            "z": 12.462987425726183
+          },
+          {
+            "r": 2.6763977907730907,
+            "z": 12.333322325235299
+          },
+          {
+            "r": 2.7696699141100893,
+            "z": 12.219669914110089
+          },
+          {
+            "r": 2.883322325235298,
+            "z": 12.12639779077309
+          },
+          {
+            "r": 3.012987425726182,
+            "z": 12.057090350616535
+          },
+          {
+            "r": 3.1536822584879034,
+            "z": 12.014411039697578
+          },
+          {
+            "r": 3.3,
+            "z": 12.0
+          }
+        ]
+      }
+    ],
+    "plates": [
+      {
+        "kind": "ground",
+        "z_center_mm": 0.75
+      },
+      {
+        "kind": "hv",
+        "z_center_mm": 3.75
+      },
+      {
+        "kind": "ground",
+        "z_center_mm": 6.75
+      },
+      {
+        "kind": "hv",
+        "z_center_mm": 9.75
+      },
+      {
+        "kind": "ground",
+        "z_center_mm": 12.75
+      }
+    ],
+    "radii_mm": {
+      "core": 1.1,
+      "ground_inner": 2.55,
+      "hv_outer": 10.75,
+      "ground_outer": 13.0,
+      "tube_inner": 13.0,
+      "tube_outer": 14.0
+    },
+    "dielectrics": {
+      "conductive_core_epsr_parameter": 6.0,
+      "core_adjacent_epoxy_epsr": 3.7,
+      "washer_overlap_epsr": 10.0,
+      "epoxy_fill_epsr": 3.7
+    },
+    "conductors": {
+      "plate_material": "copper",
+      "plate_conductivity_log10_s_per_m": 7.763427993562937,
+      "plate_relative_permeability": 1.0,
+      "tube_material": "copper",
+      "tube_conductivity_log10_s_per_m": 7.763427993562937,
+      "tube_relative_permeability": 1.0,
+      "ground_tube_included": true,
+      "ground_tube_boundary": "0 V Dirichlet conductor when included",
+      "rf_compare_frequency_log10_mhz": 0.0
+    },
+    "notes": [
+      "Axisymmetric r-z model.",
+      "HV flow holes are omitted from this first-order field model.",
+      "Bias plates are solid discs extending to the axis; they have no center ID.",
+      "The core is represented as separate axial pieces divided by the solid bias plates.",
+      "All HV conductors are held at the full bias voltage for local field screening.",
+      "Current electrostatic solver treats conductors as equipotential boundaries; conductivity and permeability fields are carried for future RF/quasi-static backends.",
+      "Ground plate OD is intended to contact the ground tube ID when the tube is included.",
+      "HV plate rounding applies to the outer radial edge; ground plate rounding applies to the inner radial edge."
+    ]
+  },
+  "cases": [
+    {
+      "plate_count": 2,
+      "strategy": "full_excitations",
+      "adjacent_cpar_pf": [
+        0.12796921775429204
+      ],
+      "average_adjacent_cpar_pf": 0.12796921775429204,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.47813340037699564,
+      "node_ground_pf": [
+        39.81279886792579,
+        39.84243580229217
+      ],
+      "energy_solve_count": 3,
+      "energy_solve_count_without_symmetry": 3,
+      "elapsed_s": 1.4602062769699842
+    },
+    {
+      "plate_count": 2,
+      "strategy": "mirror_excitations",
+      "adjacent_cpar_pf": [
+        0.12796921775429146
+      ],
+      "average_adjacent_cpar_pf": 0.12796921775429146,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.4781334003769935,
+      "node_ground_pf": [
+        39.82761733510898,
+        39.82761733510898
+      ],
+      "energy_solve_count": 2,
+      "energy_solve_count_without_symmetry": 3,
+      "elapsed_s": 1.7453421398531646
+    },
+    {
+      "plate_count": 2,
+      "strategy": "repeat_interior",
+      "adjacent_cpar_pf": [
+        0.12796921775429146
+      ],
+      "average_adjacent_cpar_pf": 0.12796921775429146,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.4781334003769935,
+      "node_ground_pf": [
+        39.82761733510898,
+        39.82761733510898
+      ],
+      "energy_solve_count": 2,
+      "energy_solve_count_without_symmetry": 3,
+      "elapsed_s": 1.7694565071724355
+    },
+    {
+      "plate_count": 3,
+      "strategy": "full_excitations",
+      "adjacent_cpar_pf": [
+        0.12789303456847248,
+        0.1279753604262103
+      ],
+      "average_adjacent_cpar_pf": 0.1279341974973414,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.4780025536403215,
+      "node_ground_pf": [
+        39.86122280112149,
+        39.7787954854746,
+        39.84898350626285
+      ],
+      "energy_solve_count": 4,
+      "energy_solve_count_without_symmetry": 4,
+      "elapsed_s": 3.661721498006955
+    },
+    {
+      "plate_count": 3,
+      "strategy": "mirror_excitations",
+      "adjacent_cpar_pf": [
+        0.1279341975051499,
+        0.1279341975051499
+      ],
+      "average_adjacent_cpar_pf": 0.1279341975051499,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.47800255366949657,
+      "node_ground_pf": [
+        39.85743415228561,
+        39.774133488287724,
+        39.85743415228561
+      ],
+      "energy_solve_count": 3,
+      "energy_solve_count_without_symmetry": 4,
+      "elapsed_s": 4.521339118015021
+    },
+    {
+      "plate_count": 3,
+      "strategy": "repeat_interior",
+      "adjacent_cpar_pf": [
+        0.1279341975051499,
+        0.1279341975051499
+      ],
+      "average_adjacent_cpar_pf": 0.1279341975051499,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.47800255366949657,
+      "node_ground_pf": [
+        39.85743415228561,
+        39.774133488287724,
+        39.85743415228561
+      ],
+      "energy_solve_count": 3,
+      "energy_solve_count_without_symmetry": 4,
+      "elapsed_s": 4.574691286077723
+    },
+    {
+      "plate_count": 4,
+      "strategy": "full_excitations",
+      "adjacent_cpar_pf": [
+        0.12835400595924965,
+        0.1280604845052956,
+        0.12797615050226283
+      ],
+      "average_adjacent_cpar_pf": 0.1281302136556027,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.47873493189442845,
+      "node_ground_pf": [
+        39.79651977232653,
+        39.77792983480121,
+        39.779459460939414,
+        39.848916795137185
+      ],
+      "energy_solve_count": 5,
+      "energy_solve_count_without_symmetry": 5,
+      "elapsed_s": 7.385289997095242
+    },
+    {
+      "plate_count": 4,
+      "strategy": "mirror_excitations",
+      "adjacent_cpar_pf": [
+        0.12816507823075624,
+        0.1280604845052956,
+        0.12816507823075624
+      ],
+      "average_adjacent_cpar_pf": 0.1281302136556027,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.47873493189442845,
+      "node_ground_pf": [
+        39.82271828373185,
+        39.77869464787031,
+        39.77869464787031,
+        39.82271828373185
+      ],
+      "energy_solve_count": 5,
+      "energy_solve_count_without_symmetry": 5,
+      "elapsed_s": 7.385850738035515
+    },
+    {
+      "plate_count": 4,
+      "strategy": "repeat_interior",
+      "adjacent_cpar_pf": [
+        0.12816507823075624,
+        0.1280604845052956,
+        0.12816507823075624
+      ],
+      "average_adjacent_cpar_pf": 0.1281302136556027,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.47873493189442845,
+      "node_ground_pf": [
+        39.82271828373185,
+        39.77869464787031,
+        39.77869464787031,
+        39.82271828373185
+      ],
+      "energy_solve_count": 5,
+      "energy_solve_count_without_symmetry": 5,
+      "elapsed_s": 7.392119250958785
+    },
+    {
+      "plate_count": 5,
+      "strategy": "full_excitations",
+      "adjacent_cpar_pf": [
+        0.12759639857205005,
+        0.1279217936291677,
+        0.1281419365711543,
+        0.1279665639593736
+      ],
+      "average_adjacent_cpar_pf": 0.12790667318293641,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.4778997141116408,
+      "node_ground_pf": [
+        39.83984946694783,
+        39.746735412642714,
+        39.78779743354932,
+        39.767833355481386,
+        39.84747555973365
+      ],
+      "energy_solve_count": 6,
+      "energy_solve_count_without_symmetry": 6,
+      "elapsed_s": 13.117132287006825
+    },
+    {
+      "plate_count": 5,
+      "strategy": "mirror_excitations",
+      "adjacent_cpar_pf": [
+        0.12778148126571182,
+        0.128031865100161,
+        0.128031865100161,
+        0.12778148126571182
+      ],
+      "average_adjacent_cpar_pf": 0.12790667318293641,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.4778997141116408,
+      "node_ground_pf": [
+        39.843662513340746,
+        39.75728438406205,
+        39.78779743354932,
+        39.75728438406205,
+        39.843662513340746
+      ],
+      "energy_solve_count": 6,
+      "energy_solve_count_without_symmetry": 6,
+      "elapsed_s": 13.12434124504216
+    },
+    {
+      "plate_count": 5,
+      "strategy": "repeat_interior",
+      "adjacent_cpar_pf": [
+        0.12778148126571182,
+        0.128031865100161,
+        0.128031865100161,
+        0.12778148126571182
+      ],
+      "average_adjacent_cpar_pf": 0.12790667318293641,
+      "analytic_cpar_pf": 0.2676433347960876,
+      "fea_over_analytic": 0.4778997141116408,
+      "node_ground_pf": [
+        39.831447017085836,
+        39.775599064727736,
+        39.775599064727736,
+        39.775599064727736,
+        39.831447017085836
+      ],
+      "energy_solve_count": 6,
+      "energy_solve_count_without_symmetry": 6,
+      "elapsed_s": 13.111000386998057
+    }
+  ]
+}

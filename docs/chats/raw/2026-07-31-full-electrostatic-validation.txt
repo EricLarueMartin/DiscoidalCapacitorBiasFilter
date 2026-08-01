@@ -1,0 +1,54 @@
+RECONSTRUCTED RAW COLLABORATION RECORD
+
+This record was reconstructed from the visible chat context after the work.
+Intermediate tool calls and progress polling are omitted. Some earlier user
+turns were part of the same longer project session.
+
+USER:
+be careful only to use that repeat interior cells and mirroring when the symmetry is valid, for some of those capacitance calcualtions it won't be. verify these.
+
+USER:
+so you redid all the validation tests like limiting geometry convergance with analytical approximation and all that?
+
+USER:
+do a full validation
+
+ASSISTANT (reconstructed summary of work):
+Inventoried the deployed Pi solver and validation commands, recorded solver and
+dependency provenance, and ran the complete local regression suite. Ran fresh,
+serial Pi FEniCSx campaigns for the Cpar gap limit, full/mirror/repeat
+capacitance strategies, Cg strategies, the Cpar wide-disc limit, the Cg
+wide-disc limit, and a new field suite covering E=V/g, full/mirror/repeat field
+comparison, and rounded-edge mesh convergence.
+
+The first fresh Cpar gap sweep exposed a validation-harness bug: parameter
+normalization collapsed every requested gap to the same geometry. The harness
+was corrected to use consistent custom diameters and tube size, to report both
+requested and normalized geometry, and to regression-test the behavior. The
+corrected sweep then converged monotonically toward the analytical limit.
+
+The first field suite showed that a global pointwise DG0-gradient comparison
+between independent meshes was not the specified smooth-interior sample check,
+and that the four-level rounded-edge peak sequence missed its gate by 0.106
+percentage points. The final suite preserves the global DG0 comparison as a
+diagnostic, gates central-washer interior samples separately, checks physical
+peak edge class, and adds a finer mesh without relaxing the tolerance.
+
+ASSISTANT (final result):
+All final acceptance gates passed. Fresh artifacts, timing files, hashes, exact
+metrics, and the defect/fix history were preserved under
+simulations/axisymmetric/outputs/validation-2026-07-31/.
+
+USER:
+make sure this is all well documented, and have a validation document about what to do to verify everything is working right
+
+ASSISTANT (reconstructed summary of documentation work):
+Created docs/knowledge/validation-runbook.md as the project-level operational
+guide. It covers test selection by change type, provenance, local regressions,
+deployment and API smoke tests, all six electrostatic campaigns and numerical
+gates, valid/invalid symmetry use, thermal verification, browser QA, resource
+monitoring, failure handling, and the required final record. Updated the main
+README and stable FEniCSx/backend/thermal notes to link the runbook and replace
+stale statements that mesh convergence and exact-mirror verification were still
+entirely unimplemented. Preserved the distinction between numerical code
+verification and hardware/high-voltage qualification.

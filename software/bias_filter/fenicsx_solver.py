@@ -11,6 +11,7 @@ solution is sampled back onto the browser's r-z grid for comparison.
 from __future__ import annotations
 
 import argparse
+import bisect
 import importlib.metadata
 import importlib.util
 import json
@@ -868,6 +869,120 @@ def _apply_ground_capacitance_classes(
     network["ground_normalization_factor"] = scale
 
 
+def _repeating_capacitance_network(
+    p: dict[str, Any],
+    end_region_pf: float,
+    interior_half_cell_pf: float,
+) -> dict[str, Any]:
+    """Build a constant-cost screening network from the all-bias FEA regions.
+
+    ``end_region_pf`` and ``interior_half_cell_pf`` are the capacitances
+    corresponding to one physical end region and one repeating interior
+    half-cell. Because those solves drive every bias plate together, they
+    determine total all-bias capacitance but not individual Maxwell rows.
+    Regional energy is allocated to end/interior nodes only as a screening
+    equivalent. The adjacent mutual term likewise cannot be separated from an
+    all-bias field solve, so use the local parallel-plate screen rather than
+    applying invalid symmetry to asymmetric basis excitations.
+    """
+    local_p = axisymmetric_model.normalize_parameters(dict(p))
+    count = int(local_p["plate_pairs"])
+    node_names = [f"hv_plate_{index}" for index in range(count)]
+    end_pf = max(0.0, float(end_region_pf))
+    half_cell_pf = max(0.0, float(interior_half_cell_pf))
+    if count == 1:
+        ground_pf = [2.0 * end_pf]
+    else:
+        ground_pf = [end_pf + half_cell_pf]
+        ground_pf.extend([2.0 * half_cell_pf] * max(0, count - 2))
+        ground_pf.append(end_pf + half_cell_pf)
+
+    total_ground_pf = sum(ground_pf)
+    adjacent_mutual_pf = (
+        max(0.0, _analytic_parallel_plate_cpar_pf(local_p))
+        if count > 1
+        else 0.0
+    )
+    mutual_pf = [[0.0 for _ in range(count)] for _ in range(count)]
+    for index in range(count - 1):
+        mutual_pf[index][index + 1] = adjacent_mutual_pf
+        mutual_pf[index + 1][index] = adjacent_mutual_pf
+
+    maxwell_pf = [[0.0 for _ in range(count)] for _ in range(count)]
+    for i in range(count):
+        maxwell_pf[i][i] = ground_pf[i] + sum(mutual_pf[i])
+        for j in range(count):
+            if i != j:
+                maxwell_pf[i][j] = -mutual_pf[i][j]
+
+    pair_node_pf = {
+        f"{i},{j}": maxwell_pf[i][i] + maxwell_pf[j][j] - 2.0 * mutual_pf[i][j]
+        for i in range(count)
+        for j in range(i + 1, count)
+    }
+    return {
+        "method": "fenicsx-end-repeat-screening-equivalent-network",
+        "node_count": count,
+        "node_names": node_names,
+        "node_ground_pf": ground_pf,
+        "raw_node_ground_pf": ground_pf[:],
+        "mutual_pf_matrix": mutual_pf,
+        "raw_mutual_pf_matrix": [row[:] for row in mutual_pf],
+        "maxwell_pf_matrix": maxwell_pf,
+        "raw_maxwell_pf_matrix": [row[:] for row in maxwell_pf],
+        "single_node_equivalent_pf": [maxwell_pf[i][i] for i in range(count)],
+        "pair_node_equivalent_pf": pair_node_pf,
+        "adjacent_mutual_pf": [adjacent_mutual_pf] * max(0, count - 1),
+        "average_adjacent_mutual_pf": adjacent_mutual_pf,
+        "all_bias_equivalent_pf": total_ground_pf,
+        "total_ground_pf": total_ground_pf,
+        "ground_normalization_factor": 1.0,
+        "core_treatment": "dielectric-with-effective-permittivity",
+        "electrode_treatment": "solid-bias-plate-cross-sections",
+        "energy_solve_count_without_symmetry": count + 1,
+        "energy_solve_count": 2,
+        "energy_solves_saved": max(0, count - 1),
+        "all_bias_solve_reused": True,
+        "symmetry_strategy": "two-region-end-and-repeating-interior-reconstruction",
+        "geometry_domain": "one-end-region-plus-one-interior-half-cell",
+        "geometric_mirror_half_used": False,
+        "mirror_equivalent_excitations_reused": True,
+        "matrix_extraction": "not performed; screening allocation from symmetric all-bias energy",
+        "excitation_strategy": CAPACITANCE_STRATEGY_REPEAT,
+        "repeating_interior_approximation": True,
+        "single_excitation_representatives": [0 if i in {0, count - 1} else 1 for i in range(count)],
+        "ground_capacitance_representatives": [0 if i in {0, count - 1} else 1 for i in range(count)],
+        "pair_excitation_representatives": {
+            f"{i},{j}": ("adjacent-interior" if j == i + 1 else "neglected-nonadjacent")
+            for i in range(count)
+            for j in range(i + 1, count)
+        },
+        "parasitic_method": "analytic-core-plus-epoxy-adjacent-parallel-plate-screen",
+        "node_ground_values_are_maxwell_row_sums": False,
+        "mutual_values_are_fea_extracted": False,
+        "capacitance_validity": {
+            "all_bias_total": {
+                "source": "two-region-fenicsx-all-bias-energy",
+                "excitation_is_reflection_symmetric": True,
+                "repeating_interior_is_finite_stack_approximation": True,
+            },
+            "node_ground_values": {
+                "source": "end-and-interior-regional-energy-allocation",
+                "basis_fields_solved": False,
+                "maxwell_row_sums": False,
+                "purpose": "fast-spice-screening-only",
+            },
+            "mutual_values": {
+                "source": "analytic-local-parallel-plate-screen",
+                "basis_fields_solved": False,
+                "fea_extracted": False,
+                "nonadjacent_terms": "neglected",
+            },
+        },
+        "exact_full_stack": False,
+    }
+
+
 def _full_capacitance_network(
     p: dict[str, Any],
     modules: dict[str, Any],
@@ -1144,6 +1259,29 @@ def _full_capacitance_network(
             for (i, j), representative in pair_representatives.items()
         },
         "exact_full_stack": not use_repeating_interior,
+        "node_ground_values_are_maxwell_row_sums": True,
+        "mutual_values_are_fea_extracted": True,
+        "capacitance_validity": {
+            "all_bias_total": {
+                "source": "full-stack-fenicsx-all-bias-energy",
+                "excitation_is_reflection_symmetric": True,
+            },
+            "node_ground_values": {
+                "source": "full-stack-basis-cross-energy-maxwell-row-sums",
+                "basis_fields_solved": True,
+                "maxwell_row_sums": True,
+                "reflection_reuse": (
+                    "exact-reflected-partner-excitation"
+                    if reuse_small_mirror
+                    else "none; reflected coefficients averaged after full-stack solves"
+                ),
+            },
+            "mutual_values": {
+                "source": "full-stack-basis-cross-energy",
+                "basis_fields_solved": True,
+                "fea_extracted": True,
+            },
+        },
     })
     if len(node_names) >= 2:
         pair_i = max(0, (len(node_names) - 1) // 2)
@@ -1544,6 +1682,29 @@ def _admittance_from_capacitance(p: dict[str, Any], capacitance_pf: float) -> di
     }
 
 
+def _cpar_gap_case_parameters(
+    parameters: dict[str, Any],
+    gap_mm: float,
+    radial_overlap_mm: float,
+) -> dict[str, Any]:
+    """Return a normalized large-ground-hole Cpar validation geometry."""
+    base = axisymmetric_model.normalize_parameters(dict(parameters))
+    core_od = float(base["core_od_mm"])
+    ground_id = core_od + 2.0 * float(gap_mm)
+    hv_od = ground_id + 2.0 * float(radial_overlap_mm)
+    tube_id = hv_od + 4.0
+    return axisymmetric_model.normalize_parameters({
+        **base,
+        "washer_id_mode": "custom",
+        "washer_od_mode": "custom",
+        "ground_plate_inner_diameter_mm": ground_id,
+        "washer_id_mm": ground_id,
+        "hv_plate_od_mm": hv_od,
+        "washer_od_mm": hv_od,
+        "tube_id_mm": tube_id,
+    })
+
+
 def cpar_gap_sweep(
     parameters: dict[str, Any],
     gaps_mm: tuple[float, ...] = (2.0, 5.0, 10.0, 20.0, 25.0, 40.0, 50.0),
@@ -1554,14 +1715,11 @@ def cpar_gap_sweep(
     modules = _import_fenicsx_modules()
     cases: list[dict[str, Any]] = []
     for gap_mm in gaps_mm:
-        case = dict(base)
-        case["core_to_ground_gap_mm"] = float(gap_mm)
-        case["hv_plate_od_mm"] = (
-            float(case["core_od_mm"])
-            + 2.0 * float(gap_mm)
-            + 2.0 * float(radial_overlap_mm)
+        case = _cpar_gap_case_parameters(
+            base,
+            float(gap_mm),
+            float(radial_overlap_mm),
         )
-        case = axisymmetric_model.normalize_parameters(case)
         fea = _representative_adjacent_bias_parasitic_capacitance(case, modules)
         if fea is None:
             continue
@@ -1575,6 +1733,12 @@ def cpar_gap_sweep(
             "core_ground_gap_mm": float(gap_mm),
             "ground_id_mm": float(case["ground_plate_inner_diameter_mm"]),
             "hv_od_mm": float(case["hv_plate_od_mm"]),
+            "tube_id_mm": float(case["tube_id_mm"]),
+            "normalized_core_ground_gap_mm": float(case["core_to_ground_gap_mm"]),
+            "actual_radial_overlap_mm": (
+                float(case["hv_plate_od_mm"])
+                - float(case["ground_plate_inner_diameter_mm"])
+            ) / 2.0,
             "hole_radius_to_stage_spacing": ground_hole_radius / stage_spacing,
             "analytic_cpar_pf": analytic_pf,
             "fea_cpar_pf": float(fea["parasitic_pf"]),
@@ -2306,6 +2470,24 @@ def _sample_to_browser_grid(
     sample_points: list[tuple[int, int, float, float, str, int]] = []
     main_eval_points: list[tuple[float, float]] = []
     repeat_eval_points: list[tuple[float, float]] = []
+    main_point_indices: dict[tuple[float, float], int] = {}
+    repeat_point_indices: dict[tuple[float, float], int] = {}
+
+    def unique_point_index(
+        points: list[tuple[float, float]],
+        indices: dict[tuple[float, float], int],
+        r: float,
+        z: float,
+    ) -> int:
+        # Reconstructed cells map onto the same local FEA coordinates.  Round
+        # away accumulated copy/mirror arithmetic noise so each local point is
+        # evaluated once, then reused for every physical cell copy.
+        key = (round(float(r), 12), round(float(z), 12))
+        if key not in indices:
+            indices[key] = len(points)
+            points.append((float(r), float(z)))
+        return indices[key]
+
     use_end_repeat = (
         repeat_mesh is not None
         and repeat_field_fn is not None
@@ -2313,6 +2495,32 @@ def _sample_to_browser_grid(
         and repeat_z_bounds_mm is not None
         and end_z_max_mm is not None
     )
+    canonical_end_z: list[float] = []
+    canonical_repeat_z: list[float] = []
+    if use_end_repeat:
+        repeat_z_min, repeat_z_max = repeat_z_bounds_mm
+        half_cell_length = repeat_z_max - repeat_z_min
+        canonical_end_z = [
+            float(z) for z in z_coords if 0.0 <= z <= end_z_max_mm
+        ]
+        canonical_repeat_z = [
+            repeat_z_min + (float(z) - end_z_max_mm)
+            for z in z_coords
+            if end_z_max_mm <= z <= end_z_max_mm + half_cell_length
+        ]
+
+    def nearest_coordinate(value: float, coordinates: list[float]) -> float:
+        if not coordinates:
+            return float(value)
+        position = bisect.bisect_left(coordinates, value)
+        if position <= 0:
+            return coordinates[0]
+        if position >= len(coordinates):
+            return coordinates[-1]
+        below = coordinates[position - 1]
+        above = coordinates[position]
+        return below if value - below <= above - value else above
+
     for i, r in enumerate(r_coords):
         for j, z in enumerate(z_coords):
             if labels[i][j] != "dielectric":
@@ -2323,13 +2531,15 @@ def _sample_to_browser_grid(
                 if z <= end_z_max_mm:
                     source = "end"
                     solve_z = z
-                    source_index = len(main_eval_points)
-                    main_eval_points.append((r, solve_z))
+                    source_index = unique_point_index(
+                        main_eval_points, main_point_indices, r, solve_z
+                    )
                 elif z >= length - end_z_max_mm:
                     source = "end"
-                    solve_z = length - z
-                    source_index = len(main_eval_points)
-                    main_eval_points.append((r, solve_z))
+                    solve_z = nearest_coordinate(length - z, canonical_end_z)
+                    source_index = unique_point_index(
+                        main_eval_points, main_point_indices, r, solve_z
+                    )
                 else:
                     source = "repeat"
                     repeat_z_min, repeat_z_max = repeat_z_bounds_mm
@@ -2342,13 +2552,16 @@ def _sample_to_browser_grid(
                         if half_cell_index % 2 == 0
                         else repeat_z_max - local_z
                     )
-                    source_index = len(repeat_eval_points)
-                    repeat_eval_points.append((r, solve_z))
+                    solve_z = nearest_coordinate(solve_z, canonical_repeat_z)
+                    source_index = unique_point_index(
+                        repeat_eval_points, repeat_point_indices, r, solve_z
+                    )
             else:
                 source = "end"
                 solve_z = min(z, 2.0 * mirror_z_mm - z) if mirror_z_mm is not None and z > mirror_z_mm else z
-                source_index = len(main_eval_points)
-                main_eval_points.append((r, solve_z))
+                source_index = unique_point_index(
+                    main_eval_points, main_point_indices, r, solve_z
+                )
             sample_points.append((i, j, r, z, source, source_index))
 
     main_values = _eval_function_at_points(field_fn, mesh, main_eval_points, modules)
@@ -2423,6 +2636,9 @@ def _sample_to_browser_grid(
         ),
         "reconstructed_full_stack": mirror_z_mm is not None or use_end_repeat,
         "approximation": "two-equivalent-ends-plus-mirrored-repeating-interior-half-cell" if use_end_repeat else None,
+        "unique_main_sample_points": len(main_eval_points),
+        "unique_repeat_sample_points": len(repeat_eval_points),
+        "reconstructed_dielectric_sample_points": len(sample_points),
     }
     return {
         "grid": grid,
@@ -2511,7 +2727,14 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         capacitance = _capacitance_from_energy(mesh, uh, p, modules, energy_scale=2.0 if use_mirror_half else 1.0)
         capacitance["symmetry_strategy"] = SOLVE_STRATEGY_MIRROR_HALF if use_mirror_half else "full_stack"
         capacitance["solved_z_extent_mm"] = mirror_z_mm or axisymmetric_model.stack_length_mm(p)
-    capacitance_network = _full_capacitance_network(p, modules)
+    if use_end_repeat:
+        capacitance_network = _repeating_capacitance_network(
+            p,
+            end_capacitance["total_pf"],
+            repeat_capacitance["total_pf"],
+        )
+    else:
+        capacitance_network = _full_capacitance_network(p, modules)
     capacitance["field_model_total_pf"] = capacitance["total_pf"]
     capacitance["field_model_energy_pj"] = capacitance["energy_pj"]
     capacitance["total_pf"] = capacitance_network["total_ground_pf"]
@@ -2519,6 +2742,12 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
     capacitance["network_all_bias_equivalent_pf"] = capacitance_network["all_bias_equivalent_pf"]
     capacitance["capacitance_network"] = capacitance_network
     capacitance["description"] = (
+        "Fast SPICE screening network: total all-bias capacitance comes from "
+        "the symmetric end/repeating-region FEA; per-node Cg is a regional "
+        "energy allocation rather than a Maxwell row sum, and adjacent Cpar "
+        "uses the local analytical estimate."
+        if use_end_repeat
+        else
         "Node-resolved FEniCSx capacitance matrix from single-node basis-field "
         "cross energies plus an all-bias energy check, with the core treated "
         "as dielectric."
@@ -2535,34 +2764,35 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         )
         else CAPACITANCE_STRATEGY_MIRROR
     )
-    comparison_networks: dict[int, dict[str, Any]] = {}
-    current_count = int(capacitance_network["node_count"])
-    if current_count in {1, 2, 3}:
-        comparison_networks[current_count] = capacitance_network
-    for comparison_count in (1, 2, 3):
-        if comparison_count in comparison_networks:
-            continue
-        comparison_parameters = axisymmetric_model.normalize_parameters({
-            **p,
-            "plate_pairs": comparison_count,
-            "bias_voltage_v": 1.0,
-        })
-        comparison_networks[comparison_count] = _full_capacitance_network(
-            comparison_parameters,
+    if not use_end_repeat:
+        comparison_networks: dict[int, dict[str, Any]] = {}
+        current_count = int(capacitance_network["node_count"])
+        if current_count in {1, 2, 3}:
+            comparison_networks[current_count] = capacitance_network
+        for comparison_count in (1, 2, 3):
+            if comparison_count in comparison_networks:
+                continue
+            comparison_parameters = axisymmetric_model.normalize_parameters({
+                **p,
+                "plate_pairs": comparison_count,
+                "bias_voltage_v": 1.0,
+            })
+            comparison_networks[comparison_count] = _full_capacitance_network(
+                comparison_parameters,
+                modules,
+                excitation_strategy=comparison_strategy,
+            )
+        capacitance["bias_to_ground_comparison"] = _bias_to_ground_method_comparison(
+            p,
             modules,
+            single_network=comparison_networks[1],
+            three_network=comparison_networks[3],
             excitation_strategy=comparison_strategy,
         )
-    capacitance["bias_to_ground_comparison"] = _bias_to_ground_method_comparison(
-        p,
-        modules,
-        single_network=comparison_networks[1],
-        three_network=comparison_networks[3],
-        excitation_strategy=comparison_strategy,
-    )
-    capacitance["cg_matrix_plate_count_comparison"] = _cg_matrix_plate_count_comparison(
-        comparison_networks[2],
-        comparison_networks[3],
-    )
+        capacitance["cg_matrix_plate_count_comparison"] = _cg_matrix_plate_count_comparison(
+            comparison_networks[2],
+            comparison_networks[3],
+        )
     admittance = _admittance_from_capacitance(p, capacitance["total_pf"])
     field_fn = _project_field_magnitude(mesh, uh, modules)
     if use_end_repeat:
@@ -2623,6 +2853,270 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _percentile(values: list[float], fraction: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    index = max(0, min(len(ordered) - 1, round(fraction * (len(ordered) - 1))))
+    return float(ordered[index])
+
+
+def _field_map_comparison(
+    reference: dict[str, Any],
+    candidate: dict[str, Any],
+) -> dict[str, Any]:
+    """Compare two sampled dielectric field maps on their shared browser grid."""
+    reference_grid = reference["grid"]
+    candidate_grid = candidate["grid"]
+    if reference_grid["r_coords"] != candidate_grid["r_coords"] or reference_grid["z_coords"] != candidate_grid["z_coords"]:
+        raise ValueError("Field validation requires identical sampled r-z coordinates")
+
+    differences: list[float] = []
+    reference_values: list[float] = []
+    pointwise_relative: list[float] = []
+    reference_peak = max(float(reference["max_field_v_per_mm"]), 1e-30)
+    for i, row in enumerate(reference["field"]):
+        for j, reference_value in enumerate(row):
+            if reference_grid["labels"][i][j] != "dielectric":
+                continue
+            candidate_value = float(candidate["field"][i][j])
+            reference_value = float(reference_value)
+            difference = abs(candidate_value - reference_value)
+            differences.append(difference)
+            reference_values.append(reference_value)
+            if reference_value >= 0.01 * reference_peak:
+                pointwise_relative.append(difference / reference_value)
+
+    rms_difference = math.sqrt(
+        sum(value * value for value in differences) / max(1, len(differences))
+    )
+    peak_difference = abs(
+        float(candidate["max_field_v_per_mm"])
+        - float(reference["max_field_v_per_mm"])
+    )
+    reference_location = reference["max_location_mm"]
+    candidate_location = candidate["max_location_mm"]
+    location_distance = math.hypot(
+        float(candidate_location["r"]) - float(reference_location["r"]),
+        float(candidate_location["z"]) - float(reference_location["z"]),
+    )
+    return {
+        "dielectric_sample_count": len(differences),
+        "reference_peak_v_per_mm": float(reference["max_field_v_per_mm"]),
+        "candidate_peak_v_per_mm": float(candidate["max_field_v_per_mm"]),
+        "peak_absolute_difference_v_per_mm": peak_difference,
+        "peak_relative_difference": peak_difference / reference_peak,
+        "peak_location_distance_mm": location_distance,
+        "maximum_absolute_map_difference_v_per_mm": max(differences, default=0.0),
+        "maximum_map_difference_over_reference_peak": max(differences, default=0.0) / reference_peak,
+        "rms_map_difference_v_per_mm": rms_difference,
+        "rms_map_difference_over_reference_peak": rms_difference / reference_peak,
+        "p99_pointwise_relative_difference_above_1pct_peak": _percentile(pointwise_relative, 0.99),
+        "maximum_pointwise_relative_difference_above_1pct_peak": max(pointwise_relative, default=0.0),
+    }
+
+
+def _central_washer_field_comparison(
+    reference: dict[str, Any],
+    candidate: dict[str, Any],
+) -> dict[str, Any]:
+    """Compare smooth interior washer samples away from conductor edges."""
+    p = reference["parameters"]
+    grid = reference["grid"]
+    washer_inner = float(p["washer_id_mm"]) / 2.0
+    washer_outer = float(p["washer_od_mm"]) / 2.0
+    radial_min = washer_inner + 0.3 * (washer_outer - washer_inner)
+    radial_max = washer_outer - 0.3 * (washer_outer - washer_inner)
+    relative_differences: list[float] = []
+    absolute_differences: list[float] = []
+    for i, r in enumerate(grid["r_coords"]):
+        if not radial_min <= float(r) <= radial_max:
+            continue
+        for j, _z in enumerate(grid["z_coords"]):
+            if grid["labels"][i][j] != "dielectric" or grid["materials"][i][j] != "washer":
+                continue
+            reference_value = float(reference["field"][i][j])
+            candidate_value = float(candidate["field"][i][j])
+            if reference_value <= 0.0:
+                continue
+            difference = abs(candidate_value - reference_value)
+            absolute_differences.append(difference)
+            relative_differences.append(difference / reference_value)
+    return {
+        "sample_count": len(relative_differences),
+        "median_relative_difference": _percentile(relative_differences, 0.5),
+        "p95_relative_difference": _percentile(relative_differences, 0.95),
+        "p99_relative_difference": _percentile(relative_differences, 0.99),
+        "maximum_relative_difference": max(relative_differences, default=0.0),
+        "maximum_absolute_difference_v_per_mm": max(absolute_differences, default=0.0),
+    }
+
+
+def _peak_radial_edge_class(result: dict[str, Any]) -> str:
+    p = result["parameters"]
+    radius = float(result["max_location_mm"]["r"])
+    candidates = {
+        "core_outer": float(p["core_od_mm"]) / 2.0,
+        "ground_inner": float(p["ground_plate_inner_diameter_mm"]) / 2.0,
+        "hv_outer": float(p["hv_plate_od_mm"]) / 2.0,
+        "tube_inner": float(p["tube_id_mm"]) / 2.0,
+    }
+    return min(candidates, key=lambda name: abs(radius - candidates[name]))
+
+
+def _flat_gap_field_benchmark(result: dict[str, Any]) -> dict[str, Any]:
+    """Measure the interior washer field against the parallel-plate result."""
+    p = result["parameters"]
+    grid = result["grid"]
+    washer_inner = float(p["washer_id_mm"]) / 2.0
+    washer_outer = float(p["washer_od_mm"]) / 2.0
+    radial_min = washer_inner + 0.3 * (washer_outer - washer_inner)
+    radial_max = washer_outer - 0.3 * (washer_outer - washer_inner)
+    values: list[float] = []
+    for i, r in enumerate(grid["r_coords"]):
+        if not radial_min <= float(r) <= radial_max:
+            continue
+        for j, _z in enumerate(grid["z_coords"]):
+            if grid["labels"][i][j] == "dielectric" and grid["materials"][i][j] == "washer":
+                values.append(float(result["field"][i][j]))
+    expected = abs(float(p["bias_voltage_v"])) / float(p["plate_gap_mm"])
+    median = _percentile(values, 0.5)
+    return {
+        "formula": "E = V / gap",
+        "bias_voltage_v": float(p["bias_voltage_v"]),
+        "plate_gap_mm": float(p["plate_gap_mm"]),
+        "expected_v_per_mm": expected,
+        "central_washer_sample_count": len(values),
+        "sample_median_v_per_mm": median,
+        "sample_p10_v_per_mm": _percentile(values, 0.1),
+        "sample_p90_v_per_mm": _percentile(values, 0.9),
+        "median_over_analytic": median / expected if expected > 0.0 else None,
+        "relative_error": abs(median - expected) / expected if expected > 0.0 else None,
+        "acceptance_relative_error": 0.03,
+        "passes": bool(values) and abs(median - expected) <= 0.03 * expected,
+    }
+
+
+def field_validation_suite(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Run field symmetry, flat-gap, and rounded-edge mesh checks."""
+    base = axisymmetric_model.normalize_parameters({
+        **parameters,
+        "plate_pairs": 5,
+        "bias_voltage_v": 1000.0,
+        "use_repeating_cell_approximation": False,
+    })
+    strategy_results: dict[str, dict[str, Any]] = {}
+    strategy_summaries: dict[str, dict[str, Any]] = {}
+    for strategy in ("full_stack", SOLVE_STRATEGY_MIRROR_HALF, SOLVE_STRATEGY_END_REPEAT_APPROX):
+        started = time.perf_counter()
+        result = solve({**base, "solve_strategy": strategy})
+        strategy_results[strategy] = result
+        strategy_summaries[strategy] = {
+            "elapsed_s": time.perf_counter() - started,
+            "max_field_v_per_mm": float(result["max_field_v_per_mm"]),
+            "raw_max_field_v_per_mm": float(result["raw_max_field_v_per_mm"]),
+            "max_location_mm": result["max_location_mm"],
+            "raw_max_location_mm": result["raw_max_location_mm"],
+            "field_model_total_pf": float(result["capacitance"]["field_model_total_pf"]),
+            "mesh": result["grid"]["mesh"],
+        }
+
+    reference = strategy_results["full_stack"]
+    mirror_comparison = _field_map_comparison(
+        reference,
+        strategy_results[SOLVE_STRATEGY_MIRROR_HALF],
+    )
+    repeat_comparison = _field_map_comparison(
+        reference,
+        strategy_results[SOLVE_STRATEGY_END_REPEAT_APPROX],
+    )
+    mirror_interior = _central_washer_field_comparison(
+        reference,
+        strategy_results[SOLVE_STRATEGY_MIRROR_HALF],
+    )
+    repeat_interior = _central_washer_field_comparison(
+        reference,
+        strategy_results[SOLVE_STRATEGY_END_REPEAT_APPROX],
+    )
+    reference_edge_class = _peak_radial_edge_class(reference)
+    mirror_edge_class = _peak_radial_edge_class(
+        strategy_results[SOLVE_STRATEGY_MIRROR_HALF]
+    )
+    repeat_edge_class = _peak_radial_edge_class(
+        strategy_results[SOLVE_STRATEGY_END_REPEAT_APPROX]
+    )
+    mirror_peak_passes = (
+        mirror_comparison["peak_relative_difference"] <= 0.005
+        or mirror_comparison["peak_absolute_difference_v_per_mm"] <= 10.0
+    )
+    mirror_map_passes = mirror_interior["p99_relative_difference"] <= 0.01
+
+    mesh_cases: list[dict[str, Any]] = []
+    for ratio in (0.4, 0.3, 0.2, 0.15, 0.1):
+        started = time.perf_counter()
+        result = solve({
+            **base,
+            "plate_pairs": 1,
+            "solve_strategy": SOLVE_STRATEGY_MIRROR_HALF,
+            "mesh_edge_radius_ratio": ratio,
+        })
+        mesh_cases.append({
+            "mesh_edge_radius_ratio": ratio,
+            "target_fine_mm": result["grid"]["mesh"]["target_fine_mm"],
+            "target_coarse_mm": result["grid"]["mesh"]["target_coarse_mm"],
+            "supported_peak_v_per_mm": float(result["max_field_v_per_mm"]),
+            "raw_peak_v_per_mm": float(result["raw_max_field_v_per_mm"]),
+            "field_model_total_pf": float(result["capacitance"]["field_model_total_pf"]),
+            "elapsed_s": time.perf_counter() - started,
+        })
+    previous = mesh_cases[-2]
+    finest = mesh_cases[-1]
+    peak_delta = abs(finest["supported_peak_v_per_mm"] - previous["supported_peak_v_per_mm"])
+    capacitance_delta = abs(finest["field_model_total_pf"] - previous["field_model_total_pf"])
+    peak_fraction = peak_delta / max(abs(finest["supported_peak_v_per_mm"]), 1e-30)
+    capacitance_fraction = capacitance_delta / max(abs(finest["field_model_total_pf"]), 1e-30)
+
+    flat_gap = _flat_gap_field_benchmark(strategy_results[SOLVE_STRATEGY_MIRROR_HALF])
+    return {
+        "method": "fenicsx-field-validation-suite",
+        "plate_count_for_strategy_comparison": 5,
+        "strategy_cases": strategy_summaries,
+        "flat_parallel_plate_benchmark": flat_gap,
+        "exact_mirror_vs_full": {
+            **mirror_comparison,
+            "global_dg0_map_is_diagnostic_only": True,
+            "central_washer_interior": mirror_interior,
+            "reference_peak_radial_edge_class": reference_edge_class,
+            "candidate_peak_radial_edge_class": mirror_edge_class,
+            "peak_edge_class_matches": reference_edge_class == mirror_edge_class,
+            "peak_acceptance": "within 0.5% or 10 V/mm",
+            "map_acceptance": "central-washer interior 99th-percentile pointwise field error <= 1%",
+            "peak_passes": mirror_peak_passes,
+            "map_passes": mirror_map_passes,
+            "passes": mirror_peak_passes and mirror_map_passes and reference_edge_class == mirror_edge_class,
+        },
+        "repeat_approximation_vs_full": {
+            **repeat_comparison,
+            "global_dg0_map_is_diagnostic_only": True,
+            "central_washer_interior": repeat_interior,
+            "reference_peak_radial_edge_class": reference_edge_class,
+            "candidate_peak_radial_edge_class": repeat_edge_class,
+            "peak_edge_class_matches": reference_edge_class == repeat_edge_class,
+            "acceptance": "reported as finite-stack approximation error; no exact-symmetry gate",
+        },
+        "rounded_edge_mesh_convergence": {
+            "cases": mesh_cases,
+            "finest_two_supported_peak_relative_difference": peak_fraction,
+            "finest_two_capacitance_relative_difference": capacitance_fraction,
+            "supported_peak_acceptance": "within 2% or 10 V/mm",
+            "capacitance_acceptance": "within 1%",
+            "peak_passes": peak_fraction <= 0.02 or peak_delta <= 10.0,
+            "capacitance_passes": capacitance_fraction <= 0.01,
+            "passes": (peak_fraction <= 0.02 or peak_delta <= 10.0) and capacitance_fraction <= 0.01,
+        },
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Inspect optional FEniCSx backend readiness.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable status.")
@@ -2651,6 +3145,11 @@ def main() -> None:
         "--validate-cg-wide-disc-limit",
         action="store_true",
         help="Verify Cg convergence toward the two-washer parallel-plate limit.",
+    )
+    parser.add_argument(
+        "--validate-field-suite",
+        action="store_true",
+        help="Validate flat-gap field, solve symmetries, and rounded-edge mesh convergence.",
     )
     parser.add_argument(
         "--validate-cg-wide-disc-case",
@@ -2701,6 +3200,10 @@ def main() -> None:
     if args.validate_cg_wide_disc_limit:
         parameters = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
         print(json.dumps(cg_limiting_geometry_sweep(parameters), indent=2))
+        return
+    if args.validate_field_suite:
+        parameters = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        print(json.dumps(field_validation_suite(parameters), indent=2))
         return
     status = dependency_status()
     if args.json:

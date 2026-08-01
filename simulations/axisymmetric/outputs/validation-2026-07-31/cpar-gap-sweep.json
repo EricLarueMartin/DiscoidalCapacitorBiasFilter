@@ -1,0 +1,94 @@
+{
+  "method": "fenicsx-cpar-large-gap-consistency-sweep",
+  "expectation": "FEA/analytic approaches 1 as the ground-hole radius becomes large relative to stage spacing.",
+  "core_material": "type61",
+  "core_epsr": 12.0,
+  "epoxy_epsr": 3.7,
+  "radial_overlap_mm": 1.0,
+  "cases": [
+    {
+      "core_ground_gap_mm": 2.0,
+      "ground_id_mm": 6.0,
+      "hv_od_mm": 12.0,
+      "tube_id_mm": 12.02,
+      "normalized_core_ground_gap_mm": 2.0,
+      "actual_radial_overlap_mm": 3.0,
+      "hole_radius_to_stage_spacing": 0.6666666666666666,
+      "analytic_cpar_pf": 0.2571457905923967,
+      "fea_cpar_pf": 0.1041245646454847,
+      "fea_over_analytic": 0.4049242431914165
+    },
+    {
+      "core_ground_gap_mm": 5.0,
+      "ground_id_mm": 12.0,
+      "hv_od_mm": 14.0,
+      "tube_id_mm": 18.0,
+      "normalized_core_ground_gap_mm": 5.0,
+      "actual_radial_overlap_mm": 1.0,
+      "hole_radius_to_stage_spacing": 1.3333333333333333,
+      "analytic_cpar_pf": 0.8746665713659648,
+      "fea_cpar_pf": 0.50935930114764,
+      "fea_over_analytic": 0.5823468254333475
+    },
+    {
+      "core_ground_gap_mm": 10.0,
+      "ground_id_mm": 22.0,
+      "hv_od_mm": 24.0,
+      "tube_id_mm": 28.0,
+      "normalized_core_ground_gap_mm": 10.0,
+      "actual_radial_overlap_mm": 1.0,
+      "hole_radius_to_stage_spacing": 2.4444444444444446,
+      "analytic_cpar_pf": 2.8187134738012714,
+      "fea_cpar_pf": 2.1058087641035517,
+      "fea_over_analytic": 0.7470815262622958
+    },
+    {
+      "core_ground_gap_mm": 20.0,
+      "ground_id_mm": 42.0,
+      "hv_od_mm": 44.0,
+      "tube_id_mm": 48.0,
+      "normalized_core_ground_gap_mm": 20.0,
+      "actual_radial_overlap_mm": 1.0,
+      "hole_radius_to_stage_spacing": 4.666666666666667,
+      "analytic_cpar_pf": 10.137478282969486,
+      "fea_cpar_pf": 8.727434010467922,
+      "fea_over_analytic": 0.8609077885897546
+    },
+    {
+      "core_ground_gap_mm": 25.0,
+      "ground_id_mm": 52.0,
+      "hv_od_mm": 54.0,
+      "tube_id_mm": 58.0,
+      "normalized_core_ground_gap_mm": 25.0,
+      "actual_radial_overlap_mm": 1.0,
+      "hole_radius_to_stage_spacing": 5.777777777777778,
+      "analytic_cpar_pf": 15.512196189702394,
+      "fea_cpar_pf": 13.761347403856234,
+      "fea_over_analytic": 0.8871308250337601
+    },
+    {
+      "core_ground_gap_mm": 40.0,
+      "ground_id_mm": 82.0,
+      "hv_od_mm": 84.0,
+      "tube_id_mm": 88.0,
+      "normalized_core_ground_gap_mm": 40.0,
+      "actual_radial_overlap_mm": 1.0,
+      "hole_radius_to_stage_spacing": 9.11111111111111,
+      "analytic_cpar_pf": 38.497691918496315,
+      "fea_cpar_pf": 35.70903582820268,
+      "fea_over_analytic": 0.9275630316695994
+    },
+    {
+      "core_ground_gap_mm": 50.0,
+      "ground_id_mm": 102.0,
+      "hv_od_mm": 104.0,
+      "tube_id_mm": 108.0,
+      "normalized_core_ground_gap_mm": 50.0,
+      "actual_radial_overlap_mm": 1.0,
+      "hole_radius_to_stage_spacing": 11.333333333333334,
+      "analytic_cpar_pf": 59.539140744854926,
+      "fea_cpar_pf": 56.04381462059293,
+      "fea_over_analytic": 0.9412936417869947
+    }
+  ]
+}

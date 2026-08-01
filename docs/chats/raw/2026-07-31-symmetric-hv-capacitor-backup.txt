@@ -1,0 +1,31 @@
+# Raw Conversation Record: Symmetric HV Capacitor Backup
+
+User clarified that a discrete high-voltage capacitor should not be added as a
+single asymmetric part. If the fallback is needed, the physical design should
+use at least two matched capacitors so the assembly remains symmetric.
+
+User also reported previous discharge problems around HV capacitors when
+liquid potting could not be used. The discrete-capacitor branch is therefore
+disfavored unless necessary. The simulation should retain an optional added
+capacitance input, but this is an additional feature rather than the project
+focus.
+
+Assistant outcome: Kept the circuit-only Additional Cg input and its symmetric
+per-bias-node behavior, clarified that zero is the baseline and a one-node case
+is sensitivity-only, moved the discrete-capacitor discussion out of the main
+story, and made it the first substantive backup slide after the backup divider.
+
+User then asked for a way to change slider domains, noticed that right-click
+already provides the needed range editor, and chose to keep that interaction
+without adding double-click. User requested a default maximum of 12 bias plates
+and clarified that "plate pairs" is misleading because the stack contains one
+more ground plate than bias plates.
+
+Assistant outcome: Retained right-click-only range editing, changed the visible
+control to Bias plates, raised its built-in maximum from 6 to 12, and preserved
+the internal `plate_pairs` key for saved-setting and backend compatibility.
+
+User requested that the complete-filter SPICE simulation slide follow
+immediately after the single-node electrical-model slide. Assistant outcome:
+moved the complete-filter SPICE slide from position 7 to position 4, ahead of
+the detailed FEA capacitance and peak-field slides.

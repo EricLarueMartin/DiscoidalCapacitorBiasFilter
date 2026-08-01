@@ -173,7 +173,7 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   detector_capacitance_pf:
     "Detector and immediate input capacitance connected from the far end of the cable to ground, in picofarads. It is added to the lumped cable capacitance in the analytical loaded ladder and is a separate termination capacitor in the SPICE model. This is external load capacitance, not the filter's stage-to-ground capacitance.",
   additional_ground_capacitance_pf:
-    "Additional discrete capacitance connected from each bias plate to ground, in picofarads per bias node. It is placed in parallel with the geometry-derived Cg in the analytical ladder and SPICE model, while the electrostatic FEA geometry, FEA Cg, and every bias-to-bias Cpar remain unchanged and separately reported. Use zero for no added capacitor. The model assumes the same added value at every bias plate and does not include the capacitor's package parasitics, lead inductance, voltage coefficient, dielectric loss, leakage, or voltage rating.",
+    "Optional circuit-only capacitance for a matched set of discrete high-voltage capacitors, in picofarads per bias node. The same value is connected from every bias plate to ground, preserving symmetry when at least two bias nodes are modeled. It is placed in parallel with geometry-derived Cg in the analytical ladder and SPICE model, while the electrostatic FEA geometry, FEA Cg, and every bias-to-bias Cpar remain unchanged and separately reported. Use zero for the baseline design. A one-node result is sensitivity-only, not the intended physical construction. The ideal model omits package voids, placement coupling, lead inductance, voltage coefficient, dielectric loss, leakage, and voltage rating.",
   core_material:
     "Selects the resistive-core or resistor-package preset. A preset can initialize bulk resistivity, core relative permittivity, MELF package diameter, direct stage resistance, parasitic-capacitance model, and minimum package length. These are modeling defaults rather than guaranteed lot properties; selecting Custom leaves the electrical quantities available for independent entry.",
   use_direct_stage_circuit:
@@ -241,7 +241,7 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   edge_diameter_percent:
     "Rounded plate-edge diameter as a percentage of that plate's thickness. At 100%, radius equals half the plate thickness and the edge is fully semicircular; at 0%, the edge is square. Bias plates are rounded at their outer edge and ground plates at their inner edge. Smaller radii generally raise local electric field and also request a finer FEA mesh.",
   plate_pairs:
-    "Number of repeated bias/ground plate pairs in the filter stack. Increasing it adds bias nodes, ground shunt capacitors, internal resistive sections, physical length, and SPICE ladder order. The FEA can either solve the exact mirror half-stack or reconstruct repeated interior cells, depending on the solver option.",
+    "Number of bias plates in the alternating filter stack. The geometry contains one more ground plate than bias plates, so this is not labeled as a pair count. Increasing it adds bias nodes, ground shunt capacitors, internal resistive sections, physical length, and SPICE ladder order. The FEA can either solve the exact mirror half-stack or reconstruct repeated interior cells, depending on the solver option.",
   include_ground_tube:
     "Include the surrounding cylindrical conductor as a grounded physical tube in the CAD and electrostatic model. It provides radial shielding and a bias-to-tube field boundary. Turning it off is useful for sensitivity studies but no longer represents the intended enclosed filter and changes the meaning of the outer-domain boundary.",
   field_solver:
@@ -249,7 +249,7 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   mesh_edge_radius_ratio:
     "Target fine-element size near rounded conductor edges divided by the local edge radius. For example, 0.2 requests elements about one fifth of the radius and 0.1 requests about one tenth. The backend also caps size using the smallest dielectric gap. Lower values generally improve spatial resolution but increase mesh size, memory use, and solve time; convergence should be checked rather than trusting one setting.",
   use_repeating_cell_approximation:
-    "When checked, electric-field FEA solves one physical end region and one representative interior half-cell, then copies and mirrors the interior solution to reconstruct the stack. End mirroring is exact, while reuse of an interior cell is a finite-stack approximation. The capacitance FEA still solves every full-stack unit basis field, then mirror-averages exact reflected Maxwell entries and shares only fully interior terms having the same axial separation. Unchecked uses the exact mirror half-stack for peak field and exact reflection averaging without the repeating-interior capacitance constraint.",
+    "Use only for the reflection-symmetric all-bias excitation. FEA solves one physical end region and one representative interior half-cell, then reconstructs the field and total capacitance. The fast SPICE network allocates that total to end/interior nodes and uses an analytical adjacent-Cpar screen; those entries are not Maxwell row sums or differential FEA capacitances. Unchecked mode uses full-stack basis fields for node-resolved Maxwell extraction, reusing only exact reflected partner excitations.",
   thermal_min_temperature_c:
     "Temperature at which thermal-mismatch stress is evaluated, in degrees Celsius. The current models assume the assembly is stress-free at 70 C and apply cooling from that reference. The setting does not model a thermal transient, cure ramp, interface separation, or time-dependent stress relaxation.",
   thermal_epoxy_modulus_gpa:
@@ -271,7 +271,11 @@ function setupParameterTooltips() {
   });
 }
 
-let params = structuredClone(defaults);
+let installationDefaults = structuredClone(defaults);
+let installationDefaultControlRanges = {};
+let installationDefaultSource = "built-in defaults";
+let installationDefaultLoadError = null;
+let params = structuredClone(installationDefaults);
 let lastResult = null;
 let slideResultCache = null;
 let backendGeometryCache = null;
@@ -1997,8 +2001,7 @@ function replaceCustomControlRanges(ranges) {
   });
 }
 
-function applyImportedSettings(imported, ranges = {}) {
-  replaceCustomControlRanges(ranges);
+function settingsWithBuiltInFallback(imported) {
   const next = { ...structuredClone(defaults), ...imported };
   if (!Object.prototype.hasOwnProperty.call(imported, "washer_id_mode") && Object.prototype.hasOwnProperty.call(imported, "washer_id_matches_ground")) {
     next.washer_id_mode = imported.washer_id_matches_ground === false ? "custom" : "ground_id";
@@ -2013,7 +2016,12 @@ function applyImportedSettings(imported, ranges = {}) {
   if (!Object.prototype.hasOwnProperty.call(imported, "use_package_core_od") && Object.prototype.hasOwnProperty.call(imported, "core_od_mm")) {
     next.use_package_core_od = false;
   }
-  params = next;
+  return next;
+}
+
+function applyImportedSettings(imported, ranges = {}) {
+  replaceCustomControlRanges(ranges);
+  params = settingsWithBuiltInFallback(imported);
   lastResult = null;
   normalizeParams();
   syncControls();
@@ -2026,6 +2034,55 @@ function exportSettingsToFile() {
   const text = JSON.stringify(exportedSettingsPayload(), null, 2);
   downloadTextFile(settingsFileName(), `${text}\n`);
   setSettingsStatus("Settings exported.");
+}
+
+function downloadInstallationDefault() {
+  const text = JSON.stringify(exportedSettingsPayload(), null, 2);
+  downloadTextFile("default.json", `${text}\n`);
+  setSettingsStatus("Downloaded default.json. Place it beside index.html on this deployment, then reload the page.");
+}
+
+async function loadInstallationDefaults() {
+  installationDefaultSource = "built-in defaults";
+  installationDefaultLoadError = null;
+  params = structuredClone(defaults);
+  replaceCustomControlRanges({});
+
+  if (window.location.protocol === "file:") {
+    installationDefaultLoadError = "Optional default.json requires this directory to be served over HTTP.";
+    return;
+  }
+
+  try {
+    const response = await fetch("default.json", { cache: "no-store" });
+    if (response.status === 404) return;
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = importedSettingsPayload(await response.json());
+    params = settingsWithBuiltInFallback(payload.settings);
+    replaceCustomControlRanges(payload.ranges);
+    installationDefaultSource = "default.json";
+  } catch (error) {
+    params = structuredClone(defaults);
+    replaceCustomControlRanges({});
+    installationDefaultLoadError = `default.json was not loaded: ${error.message}`;
+    console.warn(installationDefaultLoadError);
+  }
+}
+
+function updateInstallationDefaultLabels() {
+  const source = installationDefaultSource === "default.json"
+    ? "installation default from default.json"
+    : "built-in defaults";
+  const slideSource = document.getElementById("slideConfigurationSource");
+  if (slideSource) slideSource.textContent = `Simulation geometry: ${source}.`;
+
+  if (installationDefaultLoadError) {
+    setSettingsStatus(`Using built-in defaults. ${installationDefaultLoadError}`, true);
+  } else if (installationDefaultSource === "default.json") {
+    setSettingsStatus("Loaded installation defaults from default.json.");
+  } else {
+    setSettingsStatus("Using built-in defaults; optional default.json was not found.");
+  }
 }
 
 async function importSettingsFromFile(file) {
@@ -3059,17 +3116,21 @@ function setupControls() {
     solveThermalFea();
   });
   document.getElementById("reset").addEventListener("click", () => {
-    params = structuredClone(defaults);
+    replaceCustomControlRanges(installationDefaultControlRanges);
+    params = structuredClone(installationDefaults);
     lastResult = null;
     normalizeParams();
     syncControls();
     drawCadModel();
     drawGeometry();
     clearField();
-    setSettingsStatus("Reset to defaults.");
+    setSettingsStatus(`Reset to ${installationDefaultSource}.`);
   });
   document.getElementById("exportSettings").addEventListener("click", () => {
     exportSettingsToFile();
+  });
+  document.getElementById("downloadInstallationDefault").addEventListener("click", () => {
+    downloadInstallationDefault();
   });
   const settingsFile = document.getElementById("settingsFile");
   document.getElementById("importSettings").addEventListener("click", () => {
@@ -9593,11 +9654,14 @@ function setupSlideDeck() {
 
 async function initializeApp() {
   await loadLocaleCatalogs();
+  await loadInstallationDefaults();
   setupLanguageSelector();
   setupThemeToggle();
   setupTabs();
   setupSlideDeck();
   normalizeParams();
+  installationDefaults = structuredClone(params);
+  installationDefaultControlRanges = structuredClone(customControlRanges);
   setupParameterTooltips();
   setupControls();
   setupCadViewer();
@@ -9605,6 +9669,7 @@ async function initializeApp() {
   syncControls();
   localizationRuntimeReady = true;
   refreshDynamicLanguageLabels();
+  updateInstallationDefaultLabels();
   drawCadModel();
   drawGeometry();
   drawSlideGraphics();

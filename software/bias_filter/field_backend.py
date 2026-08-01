@@ -396,12 +396,16 @@ def stack_symmetry_plan(p: dict[str, Any]) -> dict[str, Any]:
                 "purpose": "Solve one end through the middle plate, then mirror across the center plane.",
                 "boundary": "Mirror plane uses even-potential symmetry, dV/dz = 0, outside fixed conductor cells.",
                 "is_exact_for_this_idealized_stack": True,
+                "valid_excitation": "All bias conductors at the same voltage, or another excitation individually even about the stack center.",
+                "invalid_excitation": "An arbitrary single-node basis field; only its full-domain reflected partner may be reused.",
             },
             {
                 "name": SOLVE_STRATEGY_END_REPEAT_APPROX,
                 "purpose": "Solve end-to-first-bias-center and bias-center-to-next-ground-center regions, then copy and mirror them through the stack.",
                 "boundary": "Cuts use zero-normal-flux at the assumed bias-plate and ground-plate axial symmetry planes.",
                 "is_exact_for_this_idealized_stack": False,
+                "valid_excitation": "Routine equal-voltage all-bias field and total-capacitance screening only.",
+                "invalid_excitation": "Single-node Maxwell basis fields and differential bias-to-bias capacitance excitations.",
             },
         ],
     }
@@ -441,7 +445,9 @@ def symmetry_validation_plan(p: dict[str, Any]) -> dict[str, Any]:
             },
         ],
         "notes": [
-            "Mirror symmetry is exact for the idealized uniform stack; this validation checks the implementation, not the physics assumption.",
+            "Mirror symmetry is exact only when both the idealized geometry and the electrode excitation are reflection-symmetric.",
+            "Arbitrary single-node capacitance basis fields use the full domain; a reflected partner field may be reused because reflection maps one physical excitation onto the other.",
+            "Repeating-cell reuse is limited to the equal-voltage all-bias field/total-capacitance screen and is not applied to Maxwell basis or differential Cpar solves.",
             "The repeating-cell approximation is the operational default; retain mirror-half and full-stack cases as validation references for finite-stack end effects.",
             "Tolerances allow for discretization and interpolation differences between full and reconstructed grids during solver development.",
         ],

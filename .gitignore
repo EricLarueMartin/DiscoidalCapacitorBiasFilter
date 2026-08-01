@@ -26,6 +26,7 @@ tmp/
 scratch/
 .codex-tmp/
 .secrets/
+presentations/web/default.json
 simulations/axisymmetric/test_jobs_tmp/
 simulations/axisymmetric/jobs/
 simulations/axisymmetric/logs/

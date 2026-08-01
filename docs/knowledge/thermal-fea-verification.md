@@ -1,5 +1,10 @@
 # Thermal FEA verification
 
+For the complete project-level order of operations—including software
+regressions, deployed smoke tests, electrostatic checks, resource rules, and
+manual browser review—start with the
+[verification and validation runbook](validation-runbook.md).
+
 ## Status
 
 The axisymmetric linear-thermoelastic FEniCSx implementation passed a

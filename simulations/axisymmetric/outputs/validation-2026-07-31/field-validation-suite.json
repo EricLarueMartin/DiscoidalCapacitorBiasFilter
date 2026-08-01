@@ -1,0 +1,257 @@
+{
+  "method": "fenicsx-field-validation-suite",
+  "plate_count_for_strategy_comparison": 5,
+  "strategy_cases": {
+    "full_stack": {
+      "elapsed_s": 28.387136715929955,
+      "max_field_v_per_mm": 1003.9502809911436,
+      "raw_max_field_v_per_mm": 1004.1028020548337,
+      "max_location_mm": {
+        "r": 10.6,
+        "z": 10.315436241610737
+      },
+      "raw_max_location_mm": {
+        "r": 10.6,
+        "z": 10.315436241610737
+      },
+      "field_model_total_pf": 199.8732578007018,
+      "mesh": {
+        "type": "gmsh-dolfinx-conforming",
+        "base_r_count": 90,
+        "base_z_count": 150,
+        "edge_refinement_centers": 22,
+        "dielectric_probe_centers": 52,
+        "boundary_sample_min_distance": 0.075,
+        "adaptive_r_added": 0,
+        "adaptive_z_added": 0,
+        "final_r_count": 157,
+        "final_z_count": 433,
+        "sampled_grid": "axisymmetric_model.build_grid",
+        "finite_element_family": "Lagrange P1",
+        "field_projection": "DG0 |grad(V)| sampled to r-z grid",
+        "target_fine_mm": 0.15000000000000002,
+        "target_coarse_mm": 0.7249999999999999,
+        "edge_radius_ratio": 0.2,
+        "edge_radius_mm": 0.75,
+        "gap_limiter_mm": 0.18124999999999997,
+        "symmetry_strategy": "full_stack",
+        "solved_z_extent_mm": 31.5,
+        "reconstructed_full_stack": false,
+        "approximation": null,
+        "unique_main_sample_points": 16143,
+        "unique_repeat_sample_points": 0,
+        "reconstructed_dielectric_sample_points": 16143
+      }
+    },
+    "mirror_half": {
+      "elapsed_s": 24.204772976925597,
+      "max_field_v_per_mm": 1009.5464403120249,
+      "raw_max_field_v_per_mm": 1010.0001648310085,
+      "max_location_mm": {
+        "r": 10.516853932584269,
+        "z": 3.075
+      },
+      "raw_max_location_mm": {
+        "r": 10.6,
+        "z": 3.15
+      },
+      "field_model_total_pf": 199.86953409111987,
+      "mesh": {
+        "type": "gmsh-dolfinx-conforming",
+        "base_r_count": 90,
+        "base_z_count": 150,
+        "edge_refinement_centers": 22,
+        "dielectric_probe_centers": 52,
+        "boundary_sample_min_distance": 0.075,
+        "adaptive_r_added": 0,
+        "adaptive_z_added": 0,
+        "final_r_count": 157,
+        "final_z_count": 433,
+        "sampled_grid": "axisymmetric_model.build_grid",
+        "finite_element_family": "Lagrange P1",
+        "field_projection": "DG0 |grad(V)| sampled to r-z grid",
+        "target_fine_mm": 0.15000000000000002,
+        "target_coarse_mm": 0.7249999999999999,
+        "edge_radius_ratio": 0.2,
+        "edge_radius_mm": 0.75,
+        "gap_limiter_mm": 0.18124999999999997,
+        "symmetry_strategy": "mirror_half",
+        "solved_z_extent_mm": 15.75,
+        "reconstructed_full_stack": true,
+        "approximation": null,
+        "unique_main_sample_points": 8085,
+        "unique_repeat_sample_points": 0,
+        "reconstructed_dielectric_sample_points": 16143
+      }
+    },
+    "end_repeat_approx": {
+      "elapsed_s": 2.5690754209645092,
+      "max_field_v_per_mm": 995.8279647244433,
+      "raw_max_field_v_per_mm": 999.0639168100877,
+      "max_location_mm": {
+        "r": 10.6,
+        "z": 10.315436241610737
+      },
+      "raw_max_location_mm": {
+        "r": 10.6,
+        "z": 4.35
+      },
+      "field_model_total_pf": 199.87169475829185,
+      "mesh": {
+        "type": "gmsh-dolfinx-conforming",
+        "base_r_count": 90,
+        "base_z_count": 150,
+        "edge_refinement_centers": 22,
+        "dielectric_probe_centers": 52,
+        "boundary_sample_min_distance": 0.075,
+        "adaptive_r_added": 0,
+        "adaptive_z_added": 0,
+        "final_r_count": 157,
+        "final_z_count": 433,
+        "sampled_grid": "axisymmetric_model.build_grid",
+        "finite_element_family": "Lagrange P1",
+        "field_projection": "DG0 |grad(V)| sampled to r-z grid",
+        "target_fine_mm": 0.15000000000000002,
+        "target_coarse_mm": 0.7249999999999999,
+        "edge_radius_ratio": 0.2,
+        "edge_radius_mm": 0.75,
+        "gap_limiter_mm": 0.18124999999999997,
+        "symmetry_strategy": "end_repeat_approx",
+        "solved_z_extent_mm": 6.75,
+        "reconstructed_full_stack": true,
+        "approximation": "two-equivalent-ends-plus-mirrored-repeating-interior-half-cell",
+        "unique_main_sample_points": 1832,
+        "unique_repeat_sample_points": 1720,
+        "reconstructed_dielectric_sample_points": 16143
+      }
+    }
+  },
+  "flat_parallel_plate_benchmark": {
+    "formula": "E = V / gap",
+    "bias_voltage_v": 1000.0,
+    "plate_gap_mm": 1.5,
+    "expected_v_per_mm": 666.6666666666666,
+    "central_washer_sample_count": 1720,
+    "sample_median_v_per_mm": 666.6666583238746,
+    "sample_p10_v_per_mm": 666.4391057860012,
+    "sample_p90_v_per_mm": 666.9034255679662,
+    "median_over_analytic": 0.9999999874858119,
+    "relative_error": 1.2514188085788193e-08,
+    "acceptance_relative_error": 0.03,
+    "passes": true
+  },
+  "exact_mirror_vs_full": {
+    "dielectric_sample_count": 16975,
+    "reference_peak_v_per_mm": 1003.9502809911436,
+    "candidate_peak_v_per_mm": 1009.5464403120249,
+    "peak_absolute_difference_v_per_mm": 5.59615932088127,
+    "peak_relative_difference": 0.005574139901984486,
+    "peak_location_distance_mm": 7.240913632778457,
+    "maximum_absolute_map_difference_v_per_mm": 194.11384745573798,
+    "maximum_map_difference_over_reference_peak": 0.19335006038755256,
+    "rms_map_difference_v_per_mm": 22.45573580247643,
+    "rms_map_difference_over_reference_peak": 0.022367378372868372,
+    "p99_pointwise_relative_difference_above_1pct_peak": 0.1585246464567558,
+    "maximum_pointwise_relative_difference_above_1pct_peak": 0.5997009051351758,
+    "global_dg0_map_is_diagnostic_only": true,
+    "central_washer_interior": {
+      "sample_count": 1720,
+      "median_relative_difference": 2.4021365861520922e-05,
+      "p95_relative_difference": 0.00019472140350797307,
+      "p99_relative_difference": 0.000343923966023062,
+      "maximum_relative_difference": 0.0006566707364998387,
+      "maximum_absolute_difference_v_per_mm": 0.43749890430956384
+    },
+    "reference_peak_radial_edge_class": "hv_outer",
+    "candidate_peak_radial_edge_class": "hv_outer",
+    "peak_edge_class_matches": true,
+    "peak_acceptance": "within 0.5% or 10 V/mm",
+    "map_acceptance": "central-washer interior 99th-percentile pointwise field error <= 1%",
+    "peak_passes": true,
+    "map_passes": true,
+    "passes": true
+  },
+  "repeat_approximation_vs_full": {
+    "dielectric_sample_count": 16975,
+    "reference_peak_v_per_mm": 1003.9502809911436,
+    "candidate_peak_v_per_mm": 995.8279647244433,
+    "peak_absolute_difference_v_per_mm": 8.122316266700295,
+    "peak_relative_difference": 0.008090357082904134,
+    "peak_location_distance_mm": 0.0,
+    "maximum_absolute_map_difference_v_per_mm": 186.75642415535287,
+    "maximum_map_difference_over_reference_peak": 0.18602158661779422,
+    "rms_map_difference_v_per_mm": 24.94981288358667,
+    "rms_map_difference_over_reference_peak": 0.02485164191493141,
+    "p99_pointwise_relative_difference_above_1pct_peak": 0.1775200719636023,
+    "maximum_pointwise_relative_difference_above_1pct_peak": 0.9902657201266634,
+    "global_dg0_map_is_diagnostic_only": true,
+    "central_washer_interior": {
+      "sample_count": 1720,
+      "median_relative_difference": 2.843963349428687e-05,
+      "p95_relative_difference": 0.0001829003065523458,
+      "p99_relative_difference": 0.0002952280514661909,
+      "maximum_relative_difference": 0.0004713209866034783,
+      "maximum_absolute_difference_v_per_mm": 0.3140286070439515
+    },
+    "reference_peak_radial_edge_class": "hv_outer",
+    "candidate_peak_radial_edge_class": "hv_outer",
+    "peak_edge_class_matches": true,
+    "acceptance": "reported as finite-stack approximation error; no exact-symmetry gate"
+  },
+  "rounded_edge_mesh_convergence": {
+    "cases": [
+      {
+        "mesh_edge_radius_ratio": 0.4,
+        "target_fine_mm": 0.18124999999999997,
+        "target_coarse_mm": 0.7249999999999999,
+        "supported_peak_v_per_mm": 998.0012439942891,
+        "raw_peak_v_per_mm": 998.0012439942891,
+        "field_model_total_pf": 40.312808309144785,
+        "elapsed_s": 4.656589062185958
+      },
+      {
+        "mesh_edge_radius_ratio": 0.3,
+        "target_fine_mm": 0.18124999999999997,
+        "target_coarse_mm": 0.7249999999999999,
+        "supported_peak_v_per_mm": 998.0012439942891,
+        "raw_peak_v_per_mm": 998.0012439942891,
+        "field_model_total_pf": 40.312808309144785,
+        "elapsed_s": 4.667320735054091
+      },
+      {
+        "mesh_edge_radius_ratio": 0.2,
+        "target_fine_mm": 0.15000000000000002,
+        "target_coarse_mm": 0.7249999999999999,
+        "supported_peak_v_per_mm": 991.3893450661027,
+        "raw_peak_v_per_mm": 991.3893450661027,
+        "field_model_total_pf": 40.291854319219134,
+        "elapsed_s": 7.2640592369716614
+      },
+      {
+        "mesh_edge_radius_ratio": 0.15,
+        "target_fine_mm": 0.11249999999999999,
+        "target_coarse_mm": 0.7249999999999999,
+        "supported_peak_v_per_mm": 1012.71981748264,
+        "raw_peak_v_per_mm": 1038.8658722259659,
+        "field_model_total_pf": 40.337563580324755,
+        "elapsed_s": 18.881038842955604
+      },
+      {
+        "mesh_edge_radius_ratio": 0.1,
+        "target_fine_mm": 0.07500000000000001,
+        "target_coarse_mm": 0.7249999999999999,
+        "supported_peak_v_per_mm": 1031.9313651191424,
+        "raw_peak_v_per_mm": 1039.99585544771,
+        "field_model_total_pf": 40.28619554767927,
+        "elapsed_s": 52.89843132602982
+      }
+    ],
+    "finest_two_supported_peak_relative_difference": 0.018617078892920632,
+    "finest_two_capacitance_relative_difference": 0.0012750777765721223,
+    "supported_peak_acceptance": "within 2% or 10 V/mm",
+    "capacitance_acceptance": "within 1%",
+    "peak_passes": true,
+    "capacitance_passes": true,
+    "passes": true
+  }
+}
