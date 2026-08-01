@@ -73,6 +73,8 @@ The filter is based on a cylindrical, discoidal capacitor stack:
 - `deploy/pi/` - agent-facing Raspberry Pi installation and hosting runbooks.
 - `docs/knowledge/` - curated design knowledge, requirements, assumptions, and decisions.
 - [`docs/knowledge/validation-runbook.md`](docs/knowledge/validation-runbook.md) - required software, deployment, electrostatic, SPICE, thermal, symmetry, and browser verification.
+- [`docs/knowledge/distributed-admittance.md`](docs/knowledge/distributed-admittance.md) - planned field-derived admittance and noise-versus-frequency model.
+- [`docs/knowledge/axisymmetry-sensitivity.md`](docs/knowledge/axisymmetry-sensitivity.md) - staged 3D test of the rotational-axisymmetry approximation.
 - `docs/chats/raw/` - raw AI collaboration transcripts and exported chats.
 - `docs/chats/markdown/` - cleaned summaries derived from raw chats.
 - `hardware/` - geometry, materials, connector, and prototype design notes.

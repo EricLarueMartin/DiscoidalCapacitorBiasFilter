@@ -18,11 +18,18 @@ The proposed filter is cylindrical and approximately axisymmetric. It combines:
 ## Development Priorities
 
 1. Define geometry and safe electric-field margins.
-2. Simulate rounded plate edges and dielectric transitions.
-3. Prototype with simple screw-terminal input/output.
-4. Evaluate NiZn ferrite as a resistive core.
-5. Compare against a MELF resistor chain if ferrite noise, stability, or manufacturability is poor.
-6. Evolve the mechanical interface toward direct SHV bulkhead connectors.
+2. Finish the FEniCSx reference models and their validation before refining the
+   browser solver.
+3. Extract distributed complex admittance and noise versus frequency from the
+   physical field model, retaining the FEA-capacitance SPICE ladder as the
+   primary comparison.
+4. Quantify rotational-axisymmetry error with an exact 3D revolve followed by
+   controlled eccentricity, hole, void, grounding, and MELF perturbations.
+5. Simulate rounded plate edges and dielectric transitions.
+6. Prototype with simple screw-terminal input/output.
+7. Evaluate NiZn ferrite as a resistive core.
+8. Compare against a MELF resistor chain if ferrite noise, stability, or manufacturability is poor.
+9. Evolve the mechanical interface toward direct SHV bulkhead connectors.
 
 ## Current Status
 
@@ -33,6 +40,13 @@ The optional FEniCSx backend now runs a conforming axisymmetric electrostatic so
 The current FEniCSx deployment has passed the simplest field-scale regression: default 6 kV bias across each 1 mm flat washer gap samples at about 6.0 kV/mm in the radial middle of the plate overlap. This check caught and fixed an early boundary-tagging bug, so keep it as the first sanity check after solver changes.
 
 The FEniCSx backend now reports a complete node-resolved capacitance network. One full-stack unit basis field is solved for each bias plate, and Maxwell cross-energy integrals directly provide every bias-to-bias mutual term and bias-to-ground row sum. An independent all-bias energy solve checks the total ground capacitance. MELF presets model the resistor body as a ceramic core with an effective metal-film fill factor rather than requiring a fixed package Cpar.
+
+The planned frequency-domain extension is a field-derived complex nodal
+admittance matrix, not the present `G + j omega C` readout. It will use the
+validated electrostatic matrix and SPICE/MNA transfer as limiting comparisons,
+then add spatially distributed core conduction and material loss. The first 3D
+work will verify an exact solid of revolution against the axisymmetric result
+before introducing any real asymmetry.
 
 The deployed FEniCSx solver passed a five-level rounded-edge mesh-convergence check for the recorded default validation geometry: the two finest supported peaks differed by 1.862% and field-energy capacitance by 0.128%. The web UI reports a neighborhood-supported Emax and keeps the raw point maximum as a diagnostic. This verifies the numerical workflow for the tested geometry; it does not turn that peak into a dielectric-breakdown rating. Re-run a design-specific convergence sweep whenever geometry, materials, boundary conditions, or the physical peak edge changes. The complete procedure is in the [verification and validation runbook](validation-runbook.md).
 

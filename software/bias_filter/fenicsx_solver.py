@@ -590,6 +590,53 @@ def _capacitance_from_energy(
     }
 
 
+def distributed_admittance_plan() -> dict[str, Any]:
+    """Machine-readable contract for the next frequency-domain field solver."""
+    return {
+        "status": "planned-not-implemented",
+        "model": "axisymmetric-electroquasistatic-multiport",
+        "strong_form": "div((sigma + j*omega*epsilon) grad(V)) = 0",
+        "real_scalar_formulation": {
+            "required": True,
+            "reason": "Must run with the deployed real-scalar PETSc build.",
+            "real_equation": "div(sigma grad(Vr) - omega epsilon grad(Vi)) = 0",
+            "imaginary_equation": "div(sigma grad(Vi) + omega epsilon grad(Vr)) = 0",
+        },
+        "ports": "one equipotential port per bias plate; all ground conductors are the reference",
+        "matrix_extraction": "unit port basis fields plus integrated complex normal current",
+        "required_outputs": [
+            "full_complex_nodal_admittance_matrix",
+            "schur_reduced_input_output_two_port",
+            "loaded_vout_over_vin",
+            "input_impedance",
+            "loss_by_material",
+            "source_noise_transfer",
+            "thermal_noise_after_validation",
+        ],
+        "primary_comparison": "G_stage + j*omega*C_Maxwell SPICE/MNA ladder",
+        "validation_gates": [
+            "dc_uniform_cylinder_resistance",
+            "lossless_imaginary_admittance_over_omega_matches_maxwell_capacitance",
+            "single_rc_matches_analytic_and_spice",
+            "reciprocity",
+            "passivity",
+            "mesh_convergence",
+            "frequency_endpoint_convergence",
+            "single_resistor_johnson_noise",
+        ],
+        "material_cautions": {
+            "continuous_core": "axisymmetric physical model",
+            "melf": "axisymmetric calibrated cylinder is a surrogate; physical package requires 3D",
+            "dielectric_loss": "requires sourced conductivity or loss tangent versus frequency and temperature",
+        },
+        "followup": "mesh-converged exact 3D revolve, then controlled rotational-symmetry perturbations",
+        "documentation": [
+            "docs/knowledge/distributed-admittance.md",
+            "docs/knowledge/axisymmetry-sensitivity.md",
+        ],
+    }
+
+
 def _maxwell_cross_capacitance_pf(
     mesh: Any,
     potential_i: Any,
@@ -3120,6 +3167,11 @@ def field_validation_suite(parameters: dict[str, Any]) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Inspect optional FEniCSx backend readiness.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable status.")
+    parser.add_argument(
+        "--admittance-plan",
+        action="store_true",
+        help="Print the machine-readable distributed-admittance implementation and validation contract.",
+    )
     parser.add_argument("--solve-stdin", action="store_true", help="Read parameters as JSON from stdin and print the solve result as JSON.")
     parser.add_argument(
         "--validate-cpar-gap-sweep",
@@ -3158,6 +3210,9 @@ def main() -> None:
         help=argparse.SUPPRESS,
     )
     args = parser.parse_args()
+    if args.admittance_plan:
+        print(json.dumps(distributed_admittance_plan(), indent=2))
+        return
     if args.solve_stdin:
         parameters = json.load(sys.stdin)
         print(json.dumps(solve(parameters)))

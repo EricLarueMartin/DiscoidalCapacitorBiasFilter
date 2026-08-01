@@ -27,6 +27,17 @@ import spice_ladder
 
 
 class FieldBackendTests(unittest.TestCase):
+    def test_distributed_admittance_plan_is_not_the_old_capacitance_readout(self) -> None:
+        plan = fenicsx_solver.distributed_admittance_plan()
+
+        self.assertEqual(plan["status"], "planned-not-implemented")
+        self.assertEqual(plan["model"], "axisymmetric-electroquasistatic-multiport")
+        self.assertTrue(plan["real_scalar_formulation"]["required"])
+        self.assertIn("full_complex_nodal_admittance_matrix", plan["required_outputs"])
+        self.assertIn("single_resistor_johnson_noise", plan["validation_gates"])
+        self.assertIn("SPICE/MNA", plan["primary_comparison"])
+        self.assertIn("requires 3D", plan["material_cautions"]["melf"])
+
     def test_two_washer_cg_uses_shared_overlap_and_both_sides(self) -> None:
         params = {
             **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),

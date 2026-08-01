@@ -4,6 +4,18 @@
 
 Use axisymmetric electrostatic simulations where possible. The geometry is intended to be cylindrical, so 2D r-z simulations should capture the dominant field behavior before moving to full 3D.
 
+The next electrical extension is an axisymmetric electroquasistatic FEniCSx
+solve of the full complex nodal admittance matrix. It must solve distributed
+conduction and displacement current together and compare directly with the
+existing Maxwell-capacitance SPICE ladder. See
+[`distributed-admittance.md`](distributed-admittance.md).
+
+After that formulation passes its analytical, electrostatic, reciprocity,
+passivity, mesh, and noise limits, begin the controlled full-3D comparison in
+[`axisymmetry-sensitivity.md`](axisymmetry-sensitivity.md). This study concerns
+rotational symmetry about the axis; it is separate from axial mirror and
+repeating-cell validation.
+
 ## Initial Simulation Targets
 
 1. Inner rounded edge of a ground plate with high-voltage plates on both sides.

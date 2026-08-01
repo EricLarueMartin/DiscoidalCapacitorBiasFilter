@@ -35,6 +35,8 @@ The thermal campaign is recorded in
 | Backend routing, queueing, deployment, or service configuration | Local regressions and complete deployed smoke test |
 | Geometry normalization, conductor boundaries, dielectric map, meshing, field extraction, or peak filtering | Complete electrostatic campaign |
 | Capacitance formulas, Maxwell extraction, SPICE network, mirror/repeat logic | Complete electrostatic campaign and SPICE smoke test |
+| Distributed EQS admittance and thermal-noise calculation | DC cylinder, electrostatic-matrix, single-RC, reciprocity, passivity, mesh, frequency-limit, and Johnson-noise gates in `distributed-admittance.md` |
+| Rotational-axisymmetry approximation | Mesh-converged exact 3D revolve before any asymmetric perturbation; then one controlled change at a time |
 | Thermal geometry, materials, loads, boundary conditions, or meshing | Complete thermal campaign |
 | Dependency or operating-system upgrade | Local regressions, deployed smoke test, electrostatic campaign, and thermal campaign |
 | Geometry selected for a design decision | Full-stack reference, exact-mirror comparison, and a design-specific mesh sweep in addition to the default regression campaign |

@@ -49,6 +49,21 @@ python software/bias_filter/field_backend.py --solver fenicsx
 
 The field backend is still electrostatic. Plate and tube conductivity/permeability parameters are passed through job inputs and summaries so a later frequency-domain admittance or RF backend can consume the same design payload, but the present `fd` solver treats conductors as equipotential boundaries.
 
+The next FEniCSx electrical model is specified as a coupled-real,
+axisymmetric electroquasistatic multiport solve. It will return a complex nodal
+admittance matrix and compare it with the existing `G_stage + j omega
+C_Maxwell` SPICE/MNA ladder before adding source transfer or internal thermal
+noise. Print the machine-readable implementation and validation contract with:
+
+```powershell
+python software/bias_filter/fenicsx_solver.py --admittance-plan
+```
+
+This command reports a plan, not a completed admittance solve. The full
+formulation and the staged 3D rotational-symmetry comparison are documented in
+`docs/knowledge/distributed-admittance.md` and
+`docs/knowledge/axisymmetry-sensitivity.md`.
+
 The `/api/spice-ladder` endpoint is separate from the electrostatic field solve. On the deployed Pi it uses `ngspice` batch AC analysis when available, with an internal Python modified-nodal AC solve as a fallback for development machines without ngspice. The returned netlist uses ordinary SPICE concepts (`R`, `C`, and a lossless transmission-line `T` element), so the simulation can be inspected or rerun directly in ngspice.
 
 The `/api/thermal-solve` endpoint is also separate from the electrostatic field solve. It meshes the full bonded copper/alumina/epoxy/core r-z solid and uses exact cylindrical and center-plane symmetry. The closed-form differential-contraction estimate remains in the web app as an independent baseline. The FEA assumes perfect bonds, traction-free exposed surfaces, linear elasticity, and a 70 C stress-free reference; it does not model cure shrinkage, relaxation, voids, or debonding.
