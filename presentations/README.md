@@ -2,7 +2,7 @@
 
 This section hosts web-based presentations and design views that can be viewed in a browser, version-controlled, and eventually published with GitHub Pages or another static site host.
 
-Start with `web/index.html`. The first screen is an interactive geometry and electric-field design view, with slide material available as a tab. The slides render their geometry and browser-side simulation previews from the same startup settings as the Designer.
+Start with `web/index.html`. The page opens on the slide deck; the interactive geometry and electric-field Designer remains available as a tab. The slides render their geometry and browser-side simulation previews from the same startup settings as the Designer. The repository publishes this directory at `https://ericlaruemartin.github.io/DiscoidalCapacitorBiasFilter/` through GitHub Pages.
 
 Serve `web/` over HTTP rather than opening it with a `file://` URL. For example, from `presentations/web/`, run `python -m http.server 8000` and open `http://localhost:8000/`. This also works from a static host such as GitHub Pages; backend-only FEA, SPICE, thermal, and artifact features still require the project server.
 

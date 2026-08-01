@@ -3776,6 +3776,9 @@ async function refreshBackendGeometry(p, key, requestId) {
     if (requestId === backendGeometryRequestId) {
       backendGeometryPendingKey = null;
       backendGeometryDisabled = true;
+      drawCadModel();
+      drawGeometry();
+      drawSlideGraphics();
     }
   } finally {
     window.clearTimeout(timeout);

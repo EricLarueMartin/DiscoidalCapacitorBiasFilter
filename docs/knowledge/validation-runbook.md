@@ -300,6 +300,8 @@ viscoelastic relaxation, cracking, or void growth.
 Open the deployed page in a fresh tab and verify:
 
 - The page and all Designer/solver tabs load without console errors.
+- The page opens on **Slides**, and the first default-geometry CAD drawing
+  finishes rendering even when `/api/geometry` is unavailable.
 - The control says **Bias plates**, defaults correctly, and permits values
   through 12.
 - Geometry changes update CAD/material views and normalized values coherently.

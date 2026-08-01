@@ -2,6 +2,12 @@
 
 This repository contains the design, simulation, prototyping, and presentation tools for a high-voltage, low-current detector bias filter built from a discoidal capacitor stack. The project is named for the geometry being analyzed; a later implementation is expected to serve SHV connector inputs, but connector packaging is outside the present analysis. The project was developed around an AI-managed Raspberry Pi: the AI works from your computer, connects to the Pi over SSH, installs the solver stack, hosts the web interface, and tests the deployment.
 
+## Interactive Slideshow
+
+[Open the interactive design slideshow](https://ericlaruemartin.github.io/DiscoidalCapacitorBiasFilter/). It runs directly from GitHub Pages without installing the repository and opens on the Slides tab. The published static version includes the default-geometry drawings and JavaScript browser simulations; server-backed FEniCS, thermal, SPICE, and generated-artifact features require a full deployment.
+
+The JavaScript field solver is currently a screening model and is not yet accurate enough to serve as the reference calculation. The immediate simulation priority is to finish and validate the FEniCS model first, preserve its results as the comparison baseline, and then improve the JavaScript solver against that baseline.
+
 ## What You Need
 
 The recommended setup is:

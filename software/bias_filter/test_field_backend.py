@@ -735,6 +735,8 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn('id="plate_pairs" type="range" min="1" max="12" step="1"', index)
                 self.assertIn('id="downloadInstallationDefault"', index)
                 self.assertIn('id="slideConfigurationSource"', index)
+                self.assertIn('<button class="tab active" type="button" data-view="slides">Slides</button>', index)
+                self.assertIn('<section class="view slides active" id="slides"', index)
 
                 app = urllib.request.urlopen(base_url + "/app.js", timeout=5).read().decode("utf-8")
                 self.assertIn('fetch("default.json", { cache: "no-store" })', app)
