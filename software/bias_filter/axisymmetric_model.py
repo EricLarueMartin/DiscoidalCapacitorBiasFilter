@@ -35,6 +35,13 @@ def load_parameters(path: Path) -> dict[str, Any]:
 
 def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
     """Derive legacy fields from the current gap and resistivity controls."""
+    p["washer_material"] = str(p.get("washer_material", "alumina"))
+    p["epoxy_epsr"] = max(1.0, float(p.get("epoxy_epsr", 3.7)))
+    p["washer_epsr"] = (
+        p["epoxy_epsr"]
+        if p["washer_material"] == "epoxy"
+        else max(1.0, float(p.get("washer_epsr", 10.0)))
+    )
     if "use_direct_stage_capacitance" not in p:
         p["use_direct_stage_capacitance"] = bool(
             p.get("use_direct_stage_circuit")
@@ -125,11 +132,11 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
         p["input_series_matches_stage"] = p.get("input_series_matches_stage", True) is not False
         p["output_series_matches_stage"] = bool(p.get("output_series_matches_stage", False))
         if p["input_series_matches_stage"]:
-            p["input_series_resistance_mohm"] = p["melf_stage_resistance_mohm"]
+            p["input_series_resistance_mohm"] = matched_end_series_resistance_ohm(p) / 1e6
         else:
             p["input_series_resistance_mohm"] = max(0.0, float(p.get("input_series_resistance_mohm", 0.0)))
         if p["output_series_matches_stage"]:
-            p["output_series_resistance_ohm"] = p["melf_stage_resistance_mohm"] * 1e6
+            p["output_series_resistance_ohm"] = matched_end_series_resistance_ohm(p)
         else:
             if "output_series_resistance_ohm" not in p and "output_series_resistance_mohm" in p:
                 p["output_series_resistance_ohm"] = float(p["output_series_resistance_mohm"]) * 1e6
@@ -139,20 +146,26 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
         if total_resistance_mohm > 0:
             p["core_resistance_gohm"] = total_resistance_mohm / 1000.0
     elif "core_volume_resistivity_ohm_cm" in p and "core_od_mm" in p:
-        core_area_mm2 = math.pi * (p["core_od_mm"] / 2.0) ** 2
-        if core_area_mm2 > 0.0:
-            p["core_resistance_gohm"] = (
-                p["core_volume_resistivity_ohm_cm"]
-                * (10.0 * stack_length_mm(p) / core_area_mm2)
-                * ferrite_resistive_length_fraction(p)
-                / 1e9
-            )
         p["input_series_matches_stage"] = p.get("input_series_matches_stage", True) is not False
         p["output_series_matches_stage"] = bool(p.get("output_series_matches_stage", False))
-        p["input_series_resistance_mohm"] = max(0.0, float(p.get("input_series_resistance_mohm", 0.0)))
+        if p["input_series_matches_stage"]:
+            p["input_series_resistance_mohm"] = matched_end_series_resistance_ohm(p) / 1e6
+        else:
+            p["input_series_resistance_mohm"] = max(0.0, float(p.get("input_series_resistance_mohm", 0.0)))
         if "output_series_resistance_ohm" not in p and "output_series_resistance_mohm" in p:
             p["output_series_resistance_ohm"] = float(p["output_series_resistance_mohm"]) * 1e6
-        p["output_series_resistance_ohm"] = max(0.0, float(p.get("output_series_resistance_ohm", 50.0)))
+        if p["output_series_matches_stage"]:
+            p["output_series_resistance_ohm"] = matched_end_series_resistance_ohm(p)
+        else:
+            p["output_series_resistance_ohm"] = max(0.0, float(p.get("output_series_resistance_ohm", 50.0)))
+        stage_count = max(0, int(p.get("plate_pairs", 1)) - 1)
+        total_resistance_ohm = (
+            p["input_series_resistance_mohm"] * 1e6
+            + stage_count * stage_core_resistance_ohm(p)
+            + p["output_series_resistance_ohm"]
+        )
+        if total_resistance_ohm > 0.0:
+            p["core_resistance_gohm"] = total_resistance_ohm / 1e9
     p["load_current_na"] = max(0.0, float(p.get("load_current_na", 1.0)))
     p["load_cable_length_m"] = max(0.0, float(p.get("load_cable_length_m", 10.0)))
     p["load_cable_impedance_ohm"] = max(1e-9, float(p.get("load_cable_impedance_ohm", 50.0)))
@@ -191,7 +204,23 @@ def ferrite_resistive_length_fraction(p: dict[str, Any]) -> float:
     return max(0.05, 1.0 - fill_factor)
 
 
+EPSILON_0_PF_PER_MM = 8.8541878128e-3
+
+
+def direct_stage_capacitance_effective_epsr(p: dict[str, Any]) -> float:
+    """Fit the core dielectric to the entered package-only stage capacitance."""
+    radius_mm = float(p.get("core_od_mm", 0.0)) / 2.0
+    area_mm2 = math.pi * radius_mm**2
+    length_mm = stage_core_length_mm(p)
+    capacitance_pf = max(0.0, float(p.get("melf_stage_parasitic_pf", 0.3)))
+    if area_mm2 <= 0.0 or length_mm <= 0.0:
+        return 1.0
+    return max(1e-6, capacitance_pf * length_mm / (EPSILON_0_PF_PER_MM * area_mm2))
+
+
 def core_capacitance_epsr(p: dict[str, Any]) -> float:
+    if p.get("use_direct_stage_capacitance", False):
+        return direct_stage_capacitance_effective_epsr(p)
     if uses_melf_core_model(p):
         return melf_effective_epsr(p)
     return float(p.get("ferrite_epsr", 12.0)) / ferrite_resistive_length_fraction(p)
@@ -238,6 +267,42 @@ def stack_length_mm(p: dict[str, Any]) -> float:
         + n_hv * bias_plate_thickness_mm(p)
         + (n_ground + n_hv - 1) * p["plate_gap_mm"]
     )
+
+
+def stage_core_length_mm(p: dict[str, Any]) -> float:
+    """Resistive length between adjacent bias plates."""
+    return ground_plate_thickness_mm(p) + 2.0 * float(p["plate_gap_mm"])
+
+
+def end_core_length_mm(p: dict[str, Any]) -> float:
+    """Resistive length from a stack end to its nearest bias plate."""
+    return ground_plate_thickness_mm(p) + float(p["plate_gap_mm"])
+
+
+def core_resistance_for_length_ohm(p: dict[str, Any], length_mm: float) -> float:
+    area_mm2 = math.pi * (float(p["core_od_mm"]) / 2.0) ** 2
+    if area_mm2 <= 0.0 or length_mm < 0.0:
+        return math.nan
+    rho_ohm_cm = float(
+        p.get(
+            "core_volume_resistivity_ohm_cm",
+            10.0 ** float(p.get("core_volume_resistivity_log10_ohm_cm", 8.0)),
+        )
+    )
+    return rho_ohm_cm * (10.0 * length_mm / area_mm2) * ferrite_resistive_length_fraction(p)
+
+
+def stage_core_resistance_ohm(p: dict[str, Any]) -> float:
+    if p.get("use_direct_stage_circuit", False):
+        return float(p.get("melf_stage_resistance_mohm", 12.0)) * 1e6
+    return core_resistance_for_length_ohm(p, stage_core_length_mm(p))
+
+
+def matched_end_series_resistance_ohm(p: dict[str, Any]) -> float:
+    """Reuse a discrete stage R, or reuse bulk material conductivity at the end."""
+    if p.get("use_direct_stage_circuit", False):
+        return float(p.get("melf_stage_resistance_mohm", 12.0)) * 1e6
+    return core_resistance_for_length_ohm(p, end_core_length_mm(p))
 
 
 def plate_centers(p: dict[str, Any]) -> list[tuple[str, float]]:
@@ -388,7 +453,7 @@ def component_profiles(p: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     washer_inner, washer_outer = washer_radial_bounds(p)
-    if washer_outer > washer_inner:
+    if p.get("washer_material") != "epoxy" and washer_outer > washer_inner:
         for index, (z0, z1) in enumerate(washer_gap_intervals(p)):
             components.append(
                 {
@@ -426,6 +491,8 @@ def material_epsr(p: dict[str, Any], r: float, z_stack: float | None = None) -> 
 
 
 def material_region(p: dict[str, Any], r: float, z_stack: float | None = None) -> str:
+    if p.get("washer_material") == "epoxy":
+        return "epoxy"
     washer_inner, washer_outer = washer_radial_bounds(p)
     if washer_inner <= r <= washer_outer and z_stack is not None and is_in_washer_gap(p, z_stack):
         return "washer"

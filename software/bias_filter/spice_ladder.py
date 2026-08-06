@@ -18,7 +18,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import axisymmetric_model
+try:
+    from . import axisymmetric_model
+except ImportError:  # Direct script execution by the Pi backend.
+    import axisymmetric_model
 
 
 EPS0_F_PER_MM = 8.8541878128e-15
@@ -27,6 +30,7 @@ SPEED_OF_LIGHT_M_PER_S = 299_792_458.0
 NGSPICE_TIMEOUT_SECONDS = 20
 ATTENUATION_SWEEP_FMIN_HZ = 1.0
 ATTENUATION_SWEEP_FMAX_HZ = 100e6
+INSTRUMENT_PORT_OHM = 50.0
 
 
 def parallel_plate_capacitance_pf(epsr: float, area_mm2: float, separation_mm: float) -> float:
@@ -36,15 +40,7 @@ def parallel_plate_capacitance_pf(epsr: float, area_mm2: float, separation_mm: f
 
 
 def core_resistance_for_length_ohm(p: dict[str, Any], length_mm: float) -> float:
-    area_mm2 = math.pi * (float(p["core_od_mm"]) / 2.0) ** 2
-    if area_mm2 <= 0.0:
-        return math.nan
-    rho_ohm_cm = 10.0 ** float(p.get("core_volume_resistivity_log10_ohm_cm", 8.0))
-    return (
-        rho_ohm_cm
-        * (10.0 * length_mm / area_mm2)
-        * axisymmetric_model.ferrite_resistive_length_fraction(p)
-    )
+    return axisymmetric_model.core_resistance_for_length_ohm(p, length_mm)
 
 
 def uses_direct_stage_circuit(p: dict[str, Any]) -> bool:
@@ -69,7 +65,7 @@ def resistive_section_count(p: dict[str, Any]) -> int:
 
 def series_resistance_ohm(p: dict[str, Any], circuit: dict[str, float], prefix: str) -> float:
     if bool(p.get(f"{prefix}_series_matches_stage", False)):
-        return max(0.0, float(circuit["stageResistanceOhm"]))
+        return max(0.0, axisymmetric_model.matched_end_series_resistance_ohm(p))
     if prefix == "output":
         if "output_series_resistance_ohm" in p:
             return max(0.0, float(p["output_series_resistance_ohm"]))
@@ -87,9 +83,7 @@ def active_series_section_count(p: dict[str, Any], circuit: dict[str, float], in
 
 
 def stage_resistance_ohm(p: dict[str, Any], bias_bias_separation_mm: float) -> float:
-    if uses_direct_stage_circuit(p):
-        return float(p.get("melf_stage_resistance_mohm", 12.0)) * 1e6
-    return core_resistance_for_length_ohm(p, bias_bias_separation_mm)
+    return axisymmetric_model.stage_core_resistance_ohm(p)
 
 
 def circuit_estimates(p: dict[str, Any]) -> dict[str, Any]:
@@ -175,6 +169,34 @@ def circuit_with_capacitance_network(
     adjacent_pf = [mutual_pf[index][index + 1] for index in range(stages - 1)]
     average_ground_pf = sum(ground_pf) / stages
     average_adjacent_pf = sum(adjacent_pf) / len(adjacent_pf) if adjacent_pf else 0.0
+    electrical_ground_raw = capacitance_network.get("electrical_node_ground_pf")
+    electrical_mutual_raw = capacitance_network.get("electrical_mutual_pf_matrix")
+    electrical_count = stages + 2
+    has_port_network = (
+        isinstance(electrical_ground_raw, list)
+        and len(electrical_ground_raw) == electrical_count
+        and isinstance(electrical_mutual_raw, list)
+        and len(electrical_mutual_raw) == electrical_count
+        and all(isinstance(row, list) and len(row) == electrical_count for row in electrical_mutual_raw)
+    )
+    if has_port_network:
+        electrical_ground_pf = [max(0.0, float(value)) for value in electrical_ground_raw]
+        electrical_mutual_pf = [
+            [max(0.0, float(value)) for value in row]
+            for row in electrical_mutual_raw
+        ]
+        input_mutual_pf = electrical_mutual_pf[0][1:stages + 1]
+        output_mutual_pf = electrical_mutual_pf[-1][1:stages + 1]
+        input_output_mutual_pf = electrical_mutual_pf[0][-1]
+    else:
+        electrical_ground_pf = [0.0, *geometric_ground_pf, 0.0]
+        electrical_mutual_pf = [[0.0 for _ in range(electrical_count)] for _ in range(electrical_count)]
+        for i in range(stages):
+            for j in range(stages):
+                electrical_mutual_pf[i + 1][j + 1] = mutual_pf[i][j]
+        input_mutual_pf = [0.0 for _ in range(stages)]
+        output_mutual_pf = [0.0 for _ in range(stages)]
+        input_output_mutual_pf = 0.0
     return {
         **circuit,
         "pairCapPf": (sum(geometric_ground_pf) / stages) / 2.0,
@@ -187,6 +209,18 @@ def circuit_with_capacitance_network(
         "shuntCapPfByNode": ground_pf,
         "mutualCapPfMatrix": mutual_pf,
         "parasiticPfByAdjacentPair": adjacent_pf,
+        "inputPortGroundCapPf": electrical_ground_pf[0],
+        "outputPortGroundCapPf": electrical_ground_pf[-1],
+        "inputPortMutualPfByBias": input_mutual_pf,
+        "outputPortMutualPfByBias": output_mutual_pf,
+        "inputOutputMutualPf": input_output_mutual_pf,
+        "electricalNodeGroundCapPf": electrical_ground_pf,
+        "electricalMutualCapPfMatrix": electrical_mutual_pf,
+        "portCapacitanceSource": (
+            capacitance_network.get("method", "fenicsx-capacitance-matrix")
+            if has_port_network
+            else "unavailable"
+        ),
         "capacitanceSource": capacitance_network.get(
             "method",
             "fenicsx-capacitance-matrix",
@@ -216,6 +250,22 @@ def mutual_capacitance_matrix_pf(circuit: dict[str, Any], stages: int) -> list[l
     for index in range(stages - 1):
         matrix[index][index + 1] = matrix[index + 1][index] = uniform
     return matrix
+
+
+def port_capacitance_network_pf(circuit: dict[str, Any], stages: int) -> dict[str, Any]:
+    def bias_values(key: str) -> list[float]:
+        values = circuit.get(key)
+        if isinstance(values, list) and len(values) == stages:
+            return [max(0.0, float(value)) for value in values]
+        return [0.0 for _ in range(stages)]
+
+    return {
+        "input_ground": max(0.0, float(circuit.get("inputPortGroundCapPf", 0.0))),
+        "output_ground": max(0.0, float(circuit.get("outputPortGroundCapPf", 0.0))),
+        "input_bias_mutual": bias_values("inputPortMutualPfByBias"),
+        "output_bias_mutual": bias_values("outputPortMutualPfByBias"),
+        "input_output_mutual": max(0.0, float(circuit.get("inputOutputMutualPf", 0.0))),
+    }
 
 
 def load_conductance_s(p: dict[str, Any]) -> float:
@@ -299,21 +349,32 @@ def ladder_transfer(
     omega = 2.0 * math.pi * frequency_hz
     ground_cap_pf = node_ground_capacitances_pf(circuit, stages)
     mutual_cap_pf = mutual_capacitance_matrix_pf(circuit, stages)
+    instrument_measurement = load_mode == "instrument_50ohm"
     if load_mode == "transmission_line":
         y_load = transmission_line_input_admittance(p, frequency_hz)
     elif load_mode == "lumped":
         y_load = lumped_load_admittance(p, frequency_hz)
+    elif instrument_measurement:
+        y_load = complex(1.0 / INSTRUMENT_PORT_OHM, 0.0)
     else:
         y_load = 0.0 + 0.0j
 
     input_ohm = series_resistance_ohm(p, circuit, "input")
     output_ohm = series_resistance_ohm(p, circuit, "output")
-    include_output_node = output_ohm > 0.0 and abs(y_load) > 0.0
-    output_node = stages if include_output_node else stages - 1
-    all_nodes = list(range(stages + (1 if include_output_node else 0)))
-    fixed = {-1: 1.0 + 0.0j}
-    if input_ohm <= 0.0:
-        fixed[0] = 1.0 + 0.0j
+    port_caps = port_capacitance_network_pf(circuit, stages)
+    next_node = stages
+    if input_ohm > 0.0:
+        input_node = next_node
+        next_node += 1
+    else:
+        input_node = 0
+    if output_ohm > 0.0:
+        output_node = next_node
+        next_node += 1
+    else:
+        output_node = stages - 1
+    all_nodes = list(range(next_node))
+    fixed = {-1: 1.0 + 0.0j} if instrument_measurement else {input_node: 1.0 + 0.0j}
     unknown_nodes = [node for node in all_nodes if node not in fixed]
     if not unknown_nodes:
         return fixed.get(output_node, 1.0 + 0.0j)
@@ -328,7 +389,7 @@ def ladder_transfer(
         matrix[row][row] += y
 
     def add_branch(a: int, b: int, y: complex) -> None:
-        if abs(y) <= 0.0:
+        if a == b or abs(y) <= 0.0:
             return
         a_row = unknown_index.get(a)
         b_row = unknown_index.get(b)
@@ -350,24 +411,46 @@ def ladder_transfer(
 
     for node in range(stages):
         add_shunt(node, complex(0.0, omega * ground_cap_pf[node] * 1e-12))
-    add_branch(0, -1, resistor_y(input_ohm))
+    add_shunt(input_node, complex(0.0, omega * port_caps["input_ground"] * 1e-12))
+    add_shunt(output_node, complex(0.0, omega * port_caps["output_ground"] * 1e-12))
+    if instrument_measurement:
+        add_branch(input_node, -1, resistor_y(INSTRUMENT_PORT_OHM))
+    if input_ohm > 0.0:
+        add_branch(input_node, 0, resistor_y(input_ohm))
     for node in range(1, stages):
         add_branch(node - 1, node, resistor_y(float(circuit["stageResistanceOhm"])))
     for i in range(stages):
         for j in range(i + 1, stages):
             add_branch(i, j, complex(0.0, omega * mutual_cap_pf[i][j] * 1e-12))
-    if include_output_node:
+    for index in range(stages):
+        add_branch(
+            input_node,
+            index,
+            complex(0.0, omega * port_caps["input_bias_mutual"][index] * 1e-12),
+        )
+        add_branch(
+            output_node,
+            index,
+            complex(0.0, omega * port_caps["output_bias_mutual"][index] * 1e-12),
+        )
+    add_branch(
+        input_node,
+        output_node,
+        complex(0.0, omega * port_caps["input_output_mutual"] * 1e-12),
+    )
+    if output_ohm > 0.0:
         add_branch(stages - 1, output_node, resistor_y(output_ohm))
-        add_shunt(output_node, y_load)
-    else:
-        add_shunt(stages - 1, y_load)
+    add_shunt(output_node, y_load)
 
     solution = solve_complex_linear(matrix, rhs)
     if not solution:
         return complex(math.nan, math.nan)
     if output_node in fixed:
         return fixed[output_node]
-    return solution[unknown_index[output_node]]
+    transfer = solution[unknown_index[output_node]]
+    # A calibrated 50-ohm analyzer reports a matched through as 0 dB even
+    # though its load receives half of the Thevenin generator voltage.
+    return 2.0 * transfer if instrument_measurement else transfer
 
 
 def scaled_stage_transfer(circuit: dict[str, float], p: dict[str, Any], frequency_hz: float) -> complex:
@@ -399,22 +482,35 @@ def sample_frequencies(p: dict[str, Any], count: int = 161) -> list[float]:
     return [f_min * (f_max / f_min) ** (index / (count - 1)) for index in range(count)]
 
 
-def netlist_text(circuit: dict[str, Any], p: dict[str, Any], include_load: bool = True) -> str:
+def netlist_text(
+    circuit: dict[str, Any],
+    p: dict[str, Any],
+    include_load: bool = True,
+    instrument_ports: bool = False,
+) -> str:
     stages = max(1, int(p["plate_pairs"]))
     ground_cap_pf = node_ground_capacitances_pf(circuit, stages)
     mutual_cap_pf = mutual_capacitance_matrix_pf(circuit, stages)
     input_ohm = series_resistance_ohm(p, circuit, "input")
     output_ohm = series_resistance_ohm(p, circuit, "output")
-    source_node = "src" if input_ohm > 0.0 else "n0"
-    load_node = "out" if include_load and output_ohm > 0.0 else f"n{stages - 1}"
+    port_caps = port_capacitance_network_pf(circuit, stages)
+    filter_source_node = "src" if input_ohm > 0.0 else "n0"
+    source_node = "gen" if instrument_ports else filter_source_node
+    load_node = "out" if output_ohm > 0.0 else f"n{stages - 1}"
     lines = [
         "* Discoidal Capacitor Bias Filter ladder, generated by backend",
         f"V1 {source_node} 0 AC 1",
     ]
+    if instrument_ports:
+        lines.append(f"Rsource50 gen {filter_source_node} {INSTRUMENT_PORT_OHM:.6g}")
     if input_ohm > 0.0:
         lines.append(f"Rin src n0 {input_ohm:.6g}")
     for stage in range(stages):
         lines.append(f"Cg{stage} n{stage} 0 {ground_cap_pf[stage] * 1e-12:.6g}")
+    if port_caps["input_ground"] > 0.0:
+        lines.append(f"CportInG {filter_source_node} 0 {port_caps['input_ground'] * 1e-12:.6g}")
+    if port_caps["output_ground"] > 0.0:
+        lines.append(f"CportOutG {load_node} 0 {port_caps['output_ground'] * 1e-12:.6g}")
     for stage in range(1, stages):
         lines.append(f"R{stage} n{stage - 1} n{stage} {circuit['stageResistanceOhm']:.6g}")
     capacitor_index = 0
@@ -426,9 +522,28 @@ def netlist_text(circuit: dict[str, Any], p: dict[str, Any], include_load: bool 
             lines.append(
                 f"Cpar{capacitor_index} n{i} n{j} {mutual_cap_pf[i][j] * 1e-12:.6g}"
             )
-    if include_load and output_ohm > 0.0:
+    for stage in range(stages):
+        bias_node = f"n{stage}"
+        if port_caps["input_bias_mutual"][stage] > 0.0 and filter_source_node != bias_node:
+            lines.append(
+                f"CportInBias{stage} {filter_source_node} {bias_node} "
+                f"{port_caps['input_bias_mutual'][stage] * 1e-12:.6g}"
+            )
+        if port_caps["output_bias_mutual"][stage] > 0.0 and load_node != bias_node:
+            lines.append(
+                f"CportOutBias{stage} {load_node} {bias_node} "
+                f"{port_caps['output_bias_mutual'][stage] * 1e-12:.6g}"
+            )
+    if port_caps["input_output_mutual"] > 0.0 and filter_source_node != load_node:
+        lines.append(
+            f"CportInOut {filter_source_node} {load_node} "
+            f"{port_caps['input_output_mutual'] * 1e-12:.6g}"
+        )
+    if output_ohm > 0.0:
         lines.append(f"Rout n{stages - 1} out {output_ohm:.6g}")
-    if include_load:
+    if instrument_ports:
+        lines.append(f"Rmeasure50 {load_node} 0 {INSTRUMENT_PORT_OHM:.6g}")
+    elif include_load:
         lines.append(f"Tload {load_node} 0 det 0 Z0={float(p.get('load_cable_impedance_ohm', 50.0)):.6g} TD={max(0.0, float(p.get('load_cable_length_m', 10.0))) / (max(1e-9, float(p.get('load_cable_velocity_factor', 0.66))) * SPEED_OF_LIGHT_M_PER_S):.6g}")
         lines.append(f"Cdet det 0 {detector_capacitance_pf(p) * 1e-12:.6g}")
         conductance = load_conductance_s(p)
@@ -470,11 +585,17 @@ def ngspice_controlled_netlist(
     p: dict[str, Any],
     output_path: Path,
     include_load: bool = True,
+    instrument_ports: bool = False,
 ) -> str:
-    base = netlist_text(circuit, p, include_load=include_load).splitlines()
+    base = netlist_text(
+        circuit,
+        p,
+        include_load=include_load,
+        instrument_ports=instrument_ports,
+    ).splitlines()
     without_ac = [line for line in base if not line.lower().startswith(".ac ") and line.lower() != ".end"]
     stages = max(1, int(p["plate_pairs"]))
-    output_node = "out" if include_load and series_resistance_ohm(p, circuit, "output") > 0.0 else f"n{stages - 1}"
+    output_node = "out" if series_resistance_ohm(p, circuit, "output") > 0.0 else f"n{stages - 1}"
     without_ac.extend(
         [
             ".control",
@@ -507,7 +628,12 @@ def parse_ngspice_wrdata(path: Path) -> list[tuple[float, complex]]:
     return samples
 
 
-def ngspice_ac_sweep(circuit: dict[str, float], p: dict[str, Any], include_load: bool = True) -> dict[str, Any] | None:
+def ngspice_ac_sweep(
+    circuit: dict[str, float],
+    p: dict[str, Any],
+    include_load: bool = True,
+    instrument_ports: bool = False,
+) -> dict[str, Any] | None:
     status = spice_runtime_status()
     ngspice_path = status["ngspicePath"]
     if not ngspice_path:
@@ -518,7 +644,13 @@ def ngspice_ac_sweep(circuit: dict[str, float], p: dict[str, Any], include_load:
             data_path = temp / "ac.dat"
             netlist_path = temp / "ladder.cir"
             netlist_path.write_text(
-                ngspice_controlled_netlist(circuit, p, data_path, include_load=include_load),
+                ngspice_controlled_netlist(
+                    circuit,
+                    p,
+                    data_path,
+                    include_load=include_load,
+                    instrument_ports=instrument_ports,
+                ),
                 encoding="utf-8",
             )
             completed = subprocess.run(
@@ -533,8 +665,11 @@ def ngspice_ac_sweep(circuit: dict[str, float], p: dict[str, Any], include_load:
                     "error": (completed.stderr or completed.stdout or f"ngspice returned {completed.returncode}").strip()[-800:],
                     "runtime": status,
                 }
+            parsed_samples = parse_ngspice_wrdata(data_path)
+            if instrument_ports:
+                parsed_samples = [(frequency, 2.0 * value) for frequency, value in parsed_samples]
             return {
-                "samples": parse_ngspice_wrdata(data_path),
+                "samples": parsed_samples,
                 "stdout": completed.stdout[-800:],
                 "stderr": completed.stderr[-800:],
                 "runtime": status,
@@ -552,8 +687,9 @@ def internal_sample_rows(circuit: dict[str, float], p: dict[str, Any], frequenci
         full_tline = ladder_transfer(circuit, p, frequency, "transmission_line")
         full_lumped = ladder_transfer(circuit, p, frequency, "lumped")
         full_unloaded = ladder_transfer(circuit, p, frequency, "none")
+        instrument_50ohm = ladder_transfer(circuit, p, frequency, "instrument_50ohm")
         scaled = scaled_stage_transfer(circuit, p, frequency)
-        rows.append(sample_row(frequency, full_tline, full_lumped, full_unloaded, scaled))
+        rows.append(sample_row(frequency, full_tline, full_lumped, full_unloaded, instrument_50ohm, scaled))
     return rows
 
 
@@ -562,6 +698,7 @@ def sample_row(
     full_tline: complex,
     full_lumped: complex,
     full_unloaded: complex,
+    instrument_50ohm: complex,
     scaled: complex,
 ) -> dict[str, Any]:
     return {
@@ -580,6 +717,11 @@ def sample_row(
             "magnitude": abs(full_unloaded),
             "attenuationDb": attenuation_db(full_unloaded),
             "phaseDeg": math.degrees(cmath.phase(full_unloaded)) if math.isfinite(abs(full_unloaded)) else math.nan,
+        },
+        "instrument50Ohm": {
+            "magnitude": abs(instrument_50ohm),
+            "attenuationDb": attenuation_db(instrument_50ohm),
+            "phaseDeg": math.degrees(cmath.phase(instrument_50ohm)) if math.isfinite(abs(instrument_50ohm)) else math.nan,
         },
         "scaledStage": {
             "magnitude": abs(scaled),
@@ -601,11 +743,19 @@ def simulate(
     )
     ngspice_result = ngspice_ac_sweep(circuit, p, include_load=True)
     ngspice_unloaded_result = ngspice_ac_sweep(circuit, p, include_load=False)
+    ngspice_instrument_result = ngspice_ac_sweep(
+        circuit,
+        p,
+        include_load=False,
+        instrument_ports=True,
+    )
     ngspice_samples = ngspice_result.get("samples") if ngspice_result else None
     ngspice_unloaded_samples = ngspice_unloaded_result.get("samples") if ngspice_unloaded_result else None
+    ngspice_instrument_samples = ngspice_instrument_result.get("samples") if ngspice_instrument_result else None
     if ngspice_samples:
         frequencies = [frequency for frequency, _ in ngspice_samples]
         unloaded_by_frequency = dict(ngspice_unloaded_samples or [])
+        instrument_by_frequency = dict(ngspice_instrument_samples or [])
         samples = []
         for frequency, full_tline in ngspice_samples:
             full_lumped = ladder_transfer(circuit, p, frequency, "lumped")
@@ -613,8 +763,12 @@ def simulate(
                 frequency,
                 ladder_transfer(circuit, p, frequency, "none"),
             )
+            instrument_50ohm = instrument_by_frequency.get(
+                frequency,
+                ladder_transfer(circuit, p, frequency, "instrument_50ohm"),
+            )
             scaled = scaled_stage_transfer(circuit, p, frequency)
-            samples.append(sample_row(frequency, full_tline, full_lumped, full_unloaded, scaled))
+            samples.append(sample_row(frequency, full_tline, full_lumped, full_unloaded, instrument_50ohm, scaled))
         source = "ngspice-ac"
         method = "ngspice-batch-ac"
         spice_package = ngspice_result["runtime"]["ngspiceVersion"] or "ngspice"
@@ -629,12 +783,14 @@ def simulate(
         full_tline = ladder_transfer(circuit, p, frequency, "transmission_line")
         full_lumped = ladder_transfer(circuit, p, frequency, "lumped")
         full_unloaded = ladder_transfer(circuit, p, frequency, "none")
+        instrument_50ohm = ladder_transfer(circuit, p, frequency, "instrument_50ohm")
         scaled = scaled_stage_transfer(circuit, p, frequency)
         return {
             "frequencyHz": frequency,
             "fullTlineAttenuationDb": attenuation_db(full_tline),
             "fullLumpedAttenuationDb": attenuation_db(full_lumped),
             "fullUnloadedAttenuationDb": attenuation_db(full_unloaded),
+            "instrument50OhmAttenuationDb": attenuation_db(instrument_50ohm),
             "scaledStageAttenuationDb": attenuation_db(scaled),
         }
 
@@ -659,6 +815,8 @@ def simulate(
             "loadCapPfLumped": cable_capacitance_pf(p) + detector_capacitance_pf(p),
             "cableDelayS": max(0.0, float(p.get("load_cable_length_m", 10.0))) / (max(1e-9, float(p.get("load_cable_velocity_factor", 0.66))) * SPEED_OF_LIGHT_M_PER_S),
             "cableZ0Ohm": max(1e-9, float(p.get("load_cable_impedance_ohm", 50.0))),
+            "instrumentSourceOhm": INSTRUMENT_PORT_OHM,
+            "instrumentLoadOhm": INSTRUMENT_PORT_OHM,
         },
         "samples": samples,
         "summary": {
@@ -667,8 +825,11 @@ def simulate(
             "notes": [
                 "Uses ngspice batch AC analysis when available; otherwise falls back to the same AC MNA equations that a small-signal SPICE deck would solve.",
                 "The coax is represented as a lossless transmission-line input admittance terminated by detector capacitance and DC-load conductance.",
-                "The unloaded full-ladder curve removes the load conductance, cable, detector capacitance, and output series branch, and measures the last filter node with infinite input impedance.",
+                "The unloaded full-ladder curve removes the load conductance, cable, and detector capacitance, but retains the physical output terminal and its configured end resistance, then measures that terminal with infinite input impedance.",
+                "When an exact FEniCSx Maxwell matrix is available, both physical end terminals retain their direct capacitance to ground and every mutual capacitance to the bias plates and opposite terminal.",
+                "The 50-ohm instrument curve adds an external 50-ohm tracking-generator source and a 50-ohm analyzer load without changing the filter's configured input resistance; 2*Vload/Vsource normalization makes a matched through read 0 dB.",
             ],
         },
         "netlist": netlist_text(circuit, p),
+        "instrumentNetlist": netlist_text(circuit, p, include_load=False, instrument_ports=True),
     }

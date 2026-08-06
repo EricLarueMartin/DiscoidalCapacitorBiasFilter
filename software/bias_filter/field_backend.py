@@ -40,6 +40,7 @@ from urllib.parse import unquote, urlparse
 
 import axisymmetric_model
 import fenicsx_solver
+import full_wave_meep_solver
 import spice_ladder
 import thermal_fenicsx_solver
 
@@ -53,6 +54,7 @@ ARTIFACT_SPECS = (
     ("simulation", "latest-geometry.svg", ROOT / "simulations" / "axisymmetric" / "outputs" / "latest-geometry.svg"),
     ("simulation", "latest-summary.json", ROOT / "simulations" / "axisymmetric" / "outputs" / "latest-summary.json"),
     ("simulation", "latest-field.svg", ROOT / "simulations" / "axisymmetric" / "outputs" / "latest-field.svg"),
+    ("simulation", "latest-full-wave.json", ROOT / "simulations" / "electromagnetic" / "latest-full-wave.json"),
     ("cad", "latest-model.scad", ROOT / "hardware" / "geometry" / "generated" / "latest-model.scad"),
     ("cad", "latest-model.obj", ROOT / "hardware" / "geometry" / "generated" / "latest-model.obj"),
     ("cad", "latest-model.mtl", ROOT / "hardware" / "geometry" / "generated" / "latest-model.mtl"),
@@ -65,7 +67,9 @@ MAX_GRID_Z_COUNT = 280
 MAX_SOLVER_ITERATIONS = 2500
 FENICSX_SUBPROCESS_TIMEOUT_SECONDS = 15 * 60
 THERMAL_FENICSX_SUBPROCESS_TIMEOUT_SECONDS = 15 * 60
-JOB_RETENTION_SECONDS = 6 * 60 * 60
+FULL_WAVE_DEFAULT_TIMEOUT_HOURS = 2.0
+FULL_WAVE_MAX_TIMEOUT_HOURS = 7 * 24.0
+JOB_RETENTION_SECONDS = 8 * 24 * 60 * 60
 MIN_HALF_OZ_COPPER_THICKNESS_MM = 0.0175
 
 SOLVE_STRATEGY_FULL_STACK = "full_stack"
@@ -140,6 +144,7 @@ class Job:
     client_id: str
     parameters: dict[str, Any]
     solver_name: str
+    solve_type: str = "field"
     status: str = "queued"
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -163,6 +168,30 @@ def clamp_number(value: Any, lower: float, upper: float, fallback: float) -> flo
 
 def clamp_int(value: Any, lower: int, upper: int, fallback: int) -> int:
     return int(clamp_number(value, lower, upper, fallback))
+
+
+def sanitized_frequency_list(value: Any, fallback: tuple[float, ...]) -> list[float]:
+    if not isinstance(value, (list, tuple)):
+        return list(fallback)
+    frequencies = sorted({
+        clamp_number(item, 1.0, 100.0e9, float("nan"))
+        for item in value[:64]
+    })
+    return [frequency for frequency in frequencies if math.isfinite(frequency)] or list(fallback)
+
+
+def sanitized_optional_frequency_list(value: Any) -> list[float]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    frequencies = set()
+    for item in value[:64]:
+        try:
+            frequency = float(item)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(frequency) and 1.0 <= frequency <= 100.0e9:
+            frequencies.add(frequency)
+    return sorted(frequencies)
 
 
 def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
@@ -197,6 +226,17 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         "thermal_epoxy_modulus_gpa",
         "thermal_restraint_factor",
         "thermal_mesh_size_mm",
+        "full_wave_resolution_per_mm",
+        "full_wave_space_margin_mm",
+        "full_wave_pml_mm",
+        "full_wave_tolerance",
+        "full_wave_max_iterations",
+        "full_wave_bicgstab_l",
+        "full_wave_timeout_hours",
+        "full_wave_verify_resonances",
+        "full_wave_resonance_hints_hz",
+        "full_wave_frequencies_hz",
+        "full_wave_eqs_frequencies_hz",
     }
     for key, value in raw_parameters.items():
         if key in params or key in extra_keys:
@@ -254,6 +294,32 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
     params["solver_iterations"] = clamp_int(params.get("solver_iterations"), 1, MAX_SOLVER_ITERATIONS, 520)
     params["solver_tolerance_v"] = clamp_number(params.get("solver_tolerance_v"), 1e-6, 1000.0, 0.04)
     params["mesh_edge_radius_ratio"] = clamp_number(params.get("mesh_edge_radius_ratio"), 0.005, 2.0, 0.2)
+    params["full_wave_resolution_per_mm"] = clamp_number(
+        params.get("full_wave_resolution_per_mm"), 1.0, 12.0, 2.0
+    )
+    params["full_wave_space_margin_mm"] = clamp_number(
+        params.get("full_wave_space_margin_mm"), 4.0, 50.0, 8.0
+    )
+    params["full_wave_pml_mm"] = clamp_number(params.get("full_wave_pml_mm"), 1.0, 20.0, 3.0)
+    params["full_wave_tolerance"] = clamp_number(params.get("full_wave_tolerance"), 1e-8, 1e-2, 1e-4)
+    params["full_wave_max_iterations"] = clamp_int(params.get("full_wave_max_iterations"), 100, 50_000, 10_000)
+    params["full_wave_bicgstab_l"] = clamp_int(params.get("full_wave_bicgstab_l"), 1, 20, 10)
+    params["full_wave_timeout_hours"] = clamp_number(
+        params.get("full_wave_timeout_hours"),
+        5.0 / 60.0,
+        FULL_WAVE_MAX_TIMEOUT_HOURS,
+        FULL_WAVE_DEFAULT_TIMEOUT_HOURS,
+    )
+    params["full_wave_verify_resonances"] = bool(params.get("full_wave_verify_resonances", False))
+    params["full_wave_resonance_hints_hz"] = sanitized_optional_frequency_list(
+        params.get("full_wave_resonance_hints_hz")
+    )[:8]
+    params["full_wave_frequencies_hz"] = sanitized_frequency_list(
+        params.get("full_wave_frequencies_hz"), full_wave_meep_solver.DEFAULT_FREQUENCIES_HZ
+    )
+    params["full_wave_eqs_frequencies_hz"] = sanitized_frequency_list(
+        params.get("full_wave_eqs_frequencies_hz"), full_wave_meep_solver.DEFAULT_EQS_FREQUENCIES_HZ
+    )
     params["ferrite_epsr"] = clamp_number(params.get("ferrite_epsr"), 1.0, 1000.0, 12.0)
     if "melf_stage_resistance_mohm" not in params and "melf_stage_resistance_log10_ohm" in params:
         params["melf_stage_resistance_mohm"] = (10.0 ** float(params["melf_stage_resistance_log10_ohm"])) / 1e6
@@ -285,9 +351,9 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         stage_mohm * 1e6 if params["output_series_matches_stage"] else 50.0,
     )
     if params["input_series_matches_stage"]:
-        params["input_series_resistance_mohm"] = stage_mohm
+        params["input_series_resistance_mohm"] = axisymmetric_model.matched_end_series_resistance_ohm(params) / 1e6
     if params["output_series_matches_stage"]:
-        params["output_series_resistance_ohm"] = stage_mohm * 1e6
+        params["output_series_resistance_ohm"] = axisymmetric_model.matched_end_series_resistance_ohm(params)
     params["load_current_na"] = clamp_number(params.get("load_current_na"), 0.0, 1_000_000.0, 1.0)
     params["load_cable_length_m"] = clamp_number(params.get("load_cable_length_m"), 0.0, 10_000.0, 10.0)
     params["load_cable_impedance_ohm"] = clamp_number(params.get("load_cable_impedance_ohm"), 1.0, 10_000.0, 50.0)
@@ -527,25 +593,42 @@ class BackendState:
         self.jobs: dict[str, Job] = {}
         self.jobs_lock = threading.Lock()
         self.job_queue: queue.Queue[str | None] = queue.Queue()
+        self.full_wave_job_queue: queue.Queue[str | None] = queue.Queue()
         self.workers = [
-            threading.Thread(target=self._worker_loop, name=f"field-worker-{index}", daemon=True)
+            threading.Thread(target=self._worker_loop, args=(self.job_queue,), name=f"field-worker-{index}", daemon=True)
             for index in range(max(1, worker_count))
         ]
-        for worker in self.workers:
+        self.full_wave_workers = [
+            threading.Thread(
+                target=self._worker_loop,
+                args=(self.full_wave_job_queue,),
+                name="full-wave-worker",
+                daemon=True,
+            )
+        ]
+        for worker in self.workers + self.full_wave_workers:
             worker.start()
 
-    def submit(self, client_id: str, raw_parameters: dict[str, Any], solver_name: str | None = None) -> Job:
+    def submit(
+        self,
+        client_id: str,
+        raw_parameters: dict[str, Any],
+        solver_name: str | None = None,
+        solve_type: str = "field",
+    ) -> Job:
         self.cleanup_old_jobs()
         job = Job(
             job_id=uuid.uuid4().hex,
             client_id=client_id or "browser",
             parameters=sanitized_parameters(raw_parameters),
             solver_name=sanitize_field_solver(solver_name or self.solver_name),
+            solve_type=solve_type,
         )
         with self.jobs_lock:
             self.jobs[job.job_id] = job
         self._write_job_file(job, "input.json", job.parameters)
-        self.job_queue.put(job.job_id)
+        target_queue = self.full_wave_job_queue if solve_type == "full_wave" else self.job_queue
+        target_queue.put(job.job_id)
         return copy.deepcopy(job)
 
     def solver_status(self, solver_name: str | None = None) -> dict[str, Any]:
@@ -577,7 +660,9 @@ class BackendState:
     def stop(self) -> None:
         for _ in self.workers:
             self.job_queue.put(None)
-        for worker in self.workers:
+        for _ in self.full_wave_workers:
+            self.full_wave_job_queue.put(None)
+        for worker in self.workers + self.full_wave_workers:
             worker.join(timeout=2.0)
 
     def cleanup_old_jobs(self) -> None:
@@ -587,16 +672,16 @@ class BackendState:
             for job_id in old_ids:
                 del self.jobs[job_id]
 
-    def _worker_loop(self) -> None:
+    def _worker_loop(self, work_queue: queue.Queue[str | None]) -> None:
         while True:
-            job_id = self.job_queue.get()
+            job_id = work_queue.get()
             if job_id is None:
-                self.job_queue.task_done()
+                work_queue.task_done()
                 return
             try:
                 self._run_job(job_id)
             finally:
-                self.job_queue.task_done()
+                work_queue.task_done()
 
     def _run_job(self, job_id: str) -> None:
         with self.jobs_lock:
@@ -607,7 +692,7 @@ class BackendState:
             job.updated_at = time.time()
 
         try:
-            result = self._solve_job(job.parameters, job.solver_name)
+            result = self._solve_job(job.parameters, job.solver_name, job.solve_type)
             self._write_job_file(job, "result.json", result)
             with self.jobs_lock:
                 job = self.jobs[job_id]
@@ -622,7 +707,14 @@ class BackendState:
                 job.updated_at = time.time()
             self._write_job_file(job, "error.txt", traceback.format_exc())
 
-    def _solve_job(self, parameters: dict[str, Any], solver_name: str) -> dict[str, Any]:
+    def _solve_job(
+        self,
+        parameters: dict[str, Any],
+        solver_name: str,
+        solve_type: str = "field",
+    ) -> dict[str, Any]:
+        if solve_type == "full_wave":
+            return solve_full_wave_subprocess(copy.deepcopy(parameters))
         solver_status = self.solver_status(solver_name)
         if solver_status["effective"] == SOLVER_FENICSX:
             raw_result = solve_fenicsx_subprocess(copy.deepcopy(parameters))
@@ -753,6 +845,14 @@ def _resource_log_record(
             "exact_mirror_symmetry_used": True,
             "repeating_cell_approximation_used": False,
         }
+    elif solve_type == "full_wave":
+        reduction = {
+            "solve_strategy": "axisymmetric_full_stack",
+            "full_stack_solved": True,
+            "exact_mirror_symmetry_used": False,
+            "repeating_cell_approximation_used": False,
+            "azimuthal_mode": 0,
+        }
     record: dict[str, Any] = {
         "timestamp_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "solve_type": solve_type,
@@ -800,8 +900,12 @@ def _run_monitored_fenicsx(
     except subprocess.TimeoutExpired:
         process.kill()
         stdout, stderr = process.communicate()
-        detail = stderr.strip() or stdout.strip() or f"timed out after {timeout_seconds:g} seconds"
-        error = f"{solve_type.title()} FEniCSx subprocess failed: {detail}"
+        diagnostics = stderr.strip() or stdout.strip()
+        detail = f"timed out after {timeout_seconds:g} seconds"
+        if diagnostics:
+            detail += f"; last diagnostics: {diagnostics[-1000:]}"
+        solver_name = "MEEP" if solve_type == "full_wave" else "FEniCSx"
+        error = f"{solve_type.replace('_', ' ').title()} {solver_name} subprocess failed: {detail}"
         usage["duration_seconds"] = round(time.monotonic() - started, 3)
         _append_resource_log(_resource_log_record(solve_type, parameters, usage, "failed", error=error))
         raise RuntimeError(error)
@@ -812,8 +916,14 @@ def _run_monitored_fenicsx(
     try:
         if process.returncode != 0:
             detail = stderr.strip() or stdout.strip() or f"exit code {process.returncode}"
-            raise RuntimeError(f"{solve_type.title()} FEniCSx subprocess failed: {detail}")
-        result = json.loads(stdout)
+            solver_name = "MEEP" if solve_type == "full_wave" else "FEniCSx"
+            raise RuntimeError(
+                f"{solve_type.replace('_', ' ').title()} {solver_name} subprocess failed: {detail}"
+            )
+        json_start = stdout.find("{")
+        if json_start < 0:
+            raise ValueError("Solver subprocess returned no JSON object.")
+        result, _json_end = json.JSONDecoder().raw_decode(stdout, json_start)
     except Exception as exc:
         _append_resource_log(_resource_log_record(solve_type, parameters, usage, "failed", error=str(exc)))
         raise
@@ -837,6 +947,23 @@ def solve_thermal_fenicsx_subprocess(parameters: dict[str, Any]) -> dict[str, An
     )
 
 
+def solve_full_wave_subprocess(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Run the axisymmetric full-wave MEEP model out-of-process."""
+    timeout_hours = clamp_number(
+        parameters.get("full_wave_timeout_hours"),
+        5.0 / 60.0,
+        FULL_WAVE_MAX_TIMEOUT_HOURS,
+        FULL_WAVE_DEFAULT_TIMEOUT_HOURS,
+    )
+    result = _run_monitored_fenicsx(
+        "full_wave_meep_solver.py", "full_wave", parameters, timeout_hours * 60.0 * 60.0
+    )
+    output = ROOT / "simulations" / "electromagnetic" / "latest-full-wave.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    return result
+
+
 def job_payload(job: Job) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "job_id": job.job_id,
@@ -844,6 +971,7 @@ def job_payload(job: Job) -> dict[str, Any]:
         "status": job.status,
         "created_at": job.created_at,
         "updated_at": job.updated_at,
+        "solve_type": job.solve_type,
     }
     if job.result is not None:
         payload["result"] = job.result
@@ -904,9 +1032,10 @@ def make_handler(state: BackendState) -> type[BaseHTTPRequestHandler]:
                     "source": source,
                     "solver": solver_status,
                     "thermalSolver": thermal_fenicsx_solver.dependency_status(),
+                    "fullWaveSolver": full_wave_meep_solver.dependency_status(),
                 })
                 return
-            if parsed.path.startswith("/api/field-solve/"):
+            if parsed.path.startswith("/api/field-solve/") or parsed.path.startswith("/api/full-wave-solve/"):
                 job_id = unquote(parsed.path.rsplit("/", 1)[-1])
                 job = state.get_job(job_id)
                 if job is None:
@@ -968,6 +1097,22 @@ def make_handler(state: BackendState) -> type[BaseHTTPRequestHandler]:
                     self._send_json(solve_thermal_fenicsx_subprocess(parameters))
                 except Exception as exc:
                     self._send_json({"status": "failed", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                return
+            if parsed.path == "/api/full-wave-solve":
+                try:
+                    request = self._read_json_body()
+                    raw_parameters = request.get("parameters", request)
+                    if not isinstance(raw_parameters, dict):
+                        raise ValueError("parameters must be an object")
+                    job = state.submit(
+                        str(request.get("client_id", "browser")),
+                        raw_parameters,
+                        solve_type="full_wave",
+                    )
+                except Exception as exc:
+                    self._send_json({"status": "failed", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                    return
+                self._send_json(job_payload(job), HTTPStatus.ACCEPTED)
                 return
             if parsed.path != "/api/field-solve":
                 self._send_json({"error": "Unknown endpoint"}, HTTPStatus.NOT_FOUND)

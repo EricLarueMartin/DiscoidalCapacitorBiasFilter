@@ -32,6 +32,10 @@ except ImportError:  # Direct script execution on the Pi.
 
 REQUIRED_MODULES = ("dolfinx", "ufl", "mpi4py", "petsc4py", "gmsh", "numpy")
 REFERENCE_TEMPERATURE_C = 70.0
+EPOXY_THERMAL_PRESETS = {
+    "mg_9510": {"cte_per_c": 74.0e-6, "stress_free_temperature_c": 70.0},
+    "stycast_2850ft_23lv": {"cte_per_c": 39.4e-6, "stress_free_temperature_c": 25.0},
+}
 MATERIAL_TAGS = {
     "epoxy": 1,
     "alumina": 2,
@@ -206,6 +210,28 @@ def _build_mesh(p: dict[str, Any], modules: dict[str, Any]) -> tuple[Any, Any, d
             continue
         tools.append((2, _polygon_surface(gmsh, profile, mesh_size * 0.5)))
 
+    # Preserve the former washer boundaries as internal mesh partitions when
+    # the whole gap is epoxy. These partitions keep the residual epoxy domain
+    # from becoming one highly non-convex surface whose center of mass can lie
+    # inside a conductor and be assigned the wrong physical tag.
+    if p.get("washer_material") == "epoxy":
+        washer_inner, washer_outer = axisymmetric_model.washer_radial_bounds(p)
+        for z0, z1 in axisymmetric_model.washer_gap_intervals(p):
+            clipped_z0 = max(0.0, z0)
+            clipped_z1 = min(solved_z_max, z1)
+            if washer_outer > washer_inner and clipped_z1 > clipped_z0:
+                partition = _polygon_surface(
+                    gmsh,
+                    [
+                        (washer_inner, clipped_z0),
+                        (washer_outer, clipped_z0),
+                        (washer_outer, clipped_z1),
+                        (washer_inner, clipped_z1),
+                    ],
+                    mesh_size * 0.5,
+                )
+                tools.append((2, partition))
+
     gmsh.model.occ.synchronize()
     if tools:
         gmsh.model.occ.fragment([(2, base)], tools, removeObject=True, removeTool=True)
@@ -273,10 +299,13 @@ def _material_functions(
     poisson = fem.Function(Q)
     cte = fem.Function(Q)
 
+    epoxy_preset = EPOXY_THERMAL_PRESETS.get(
+        str(p.get("epoxy_material", "mg_9510")), EPOXY_THERMAL_PRESETS["mg_9510"]
+    )
     epoxy = {
         "youngs_modulus_mpa": float(p.get("thermal_epoxy_modulus_gpa", 3.0)) * 1000.0,
         "poisson_ratio": 0.35,
-        "cte_per_c": 74.0e-6,
+        "cte_per_c": epoxy_preset["cte_per_c"],
     }
     core_key = "alumina" if str(p.get("core_material", "")).startswith("mmb020") else "ferrite_core"
     plate_material = str(p.get("plate_material", "copper"))
@@ -362,16 +391,18 @@ def _interpolate_dg0(expression: Any, domain: Any, modules: dict[str, Any]) -> A
 
 def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
     p = axisymmetric_model.normalize_parameters(dict(raw_parameters))
-    if p.get("washer_material") != "alumina":
-        raise ValueError("Thermal FEA currently has mechanical properties only for the alumina washer preset.")
+    if p.get("washer_material") not in {"alumina", "epoxy"}:
+        raise ValueError("Thermal FEA currently supports alumina washers or a continuous epoxy-filled gap.")
     unsupported_conductors = {
         str(p.get("plate_material", "copper")), str(p.get("tube_material", "copper"))
     } - THERMAL_CONDUCTOR_MATERIALS
     if unsupported_conductors:
         names = ", ".join(sorted(unsupported_conductors))
         raise ValueError(f"Thermal FEA has no mechanical-property preset for: {names}.")
-    if p.get("epoxy_material") != "mg_9510":
-        raise ValueError("Thermal FEA currently has mechanical properties only for the MG Chemicals 9510 epoxy preset.")
+    epoxy_material = str(p.get("epoxy_material", "mg_9510"))
+    if epoxy_material not in EPOXY_THERMAL_PRESETS:
+        raise ValueError("Thermal FEA currently supports MG 9510 or Stycast 2850FT/CAT 23LV mechanical presets.")
+    reference_temperature_c = EPOXY_THERMAL_PRESETS[epoxy_material]["stress_free_temperature_c"]
     p["thermal_mesh_size_mm"] = max(0.05, min(2.0, float(raw_parameters.get("thermal_mesh_size_mm", 0.3))))
     evaluation_temperature = float(raw_parameters.get("thermal_min_temperature_c", 20.0))
     modules = _import_modules()
@@ -405,7 +436,7 @@ def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         shear = 0.5 * (displacement[0].dx(1) + displacement[1].dx(0))
         return radial, hoop, axial, shear
 
-    delta_temperature_value = evaluation_temperature - REFERENCE_TEMPERATURE_C
+    delta_temperature_value = evaluation_temperature - reference_temperature_c
     delta_temperature = fem.Constant(domain, PETSc.ScalarType(delta_temperature_value))
     err_u, ett_u, ezz_u, erz_u = strain_components(u)
     err_v, ett_v, ezz_v, erz_v = strain_components(v)
@@ -684,7 +715,7 @@ def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         "source": "thermal-fenicsx",
         "solver": "axisymmetric-linear-thermoelastic-fenicsx",
         "evaluation_temperature_c": evaluation_temperature,
-        "reference_temperature_c": REFERENCE_TEMPERATURE_C,
+        "reference_temperature_c": reference_temperature_c,
         "temperature_change_c": delta_temperature_value,
         "epoxy_principal_tensile_stress_mpa": {
             "p95": p95,
@@ -733,7 +764,7 @@ def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
             ),
             "solve_strategy": solve_strategy,
             "boundary_mode": boundary_mode,
-            "stress_free_temperature_c": REFERENCE_TEMPERATURE_C,
+            "stress_free_temperature_c": reference_temperature_c,
             "cure_shrinkage_included": False,
             "viscoelasticity_included": False,
             "plasticity_included": constitutive_model == "copper_j2_perfect_plastic",

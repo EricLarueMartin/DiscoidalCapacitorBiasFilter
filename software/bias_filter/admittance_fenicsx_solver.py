@@ -53,9 +53,7 @@ def calibrated_core_conductivity_s_per_m(p: dict[str, Any]) -> tuple[float, str]
     """Return the continuous-cylinder conductivity used by the axisymmetric model."""
     if p.get("use_direct_stage_circuit", False):
         resistance_ohm = max(1e-12, float(p["melf_stage_resistance_mohm"]) * 1e6)
-        length_m = (
-            axisymmetric_model.ground_plate_thickness_mm(p) + 2.0 * float(p["plate_gap_mm"])
-        ) * 1e-3
+        length_m = axisymmetric_model.stage_core_length_mm(p) * 1e-3
         radius_m = max(1e-12, float(p["core_od_mm"]) * 0.5e-3)
         conductivity = length_m / (resistance_ohm * math.pi * radius_m * radius_m)
         return conductivity, "homogeneous cylinder calibrated to entered interstage resistance"

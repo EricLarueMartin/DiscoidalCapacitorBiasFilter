@@ -9,6 +9,7 @@ window.DISCOIDAL_DEFAULT_EQS_SWEEP = {
   samples: [
     { frequencyHz: 1, magnitudeDb: -0.027808, phaseDeg: -4.573368, intrinsicFieldDb: -0.000126, intrinsicSpiceDb: -0.000039 },
     { frequencyHz: 10, magnitudeDb: -2.148439, phaseDeg: -38.654809, intrinsicFieldDb: -0.004077, intrinsicSpiceDb: -0.003940 },
+    { frequencyHz: 50, magnitudeDb: -12.304345, phaseDeg: -75.942603, intrinsicFieldDb: -0.098775, intrinsicSpiceDb: null },
     { frequencyHz: 100, magnitudeDb: -18.128979, phaseDeg: -82.833284, intrinsicFieldDb: -0.382060, intrinsicSpiceDb: -0.377274 },
     { frequencyHz: 1000, magnitudeDb: -38.062554, phaseDeg: -88.868892, intrinsicFieldDb: -10.083564, intrinsicSpiceDb: -10.032322 },
     { frequencyHz: 10000, magnitudeDb: -58.082536, phaseDeg: -85.703040, intrinsicFieldDb: -29.657525, intrinsicSpiceDb: -29.543311 },

@@ -1,0 +1,57 @@
+2026-08-03: Full-wave intent and end-resistance matching
+
+The intended high-frequency structural analysis is a damped RF-cavity transfer
+calculation that includes magnetic energy, cavity/antenna modes, radiation,
+and material loss. The existing axisymmetric electroquasistatic FEniCSx sweep
+is retained as a distributed-RC validation limit and must not be described as
+the full-wave result. Its slide was renamed accordingly.
+
+The planned full-wave FEniCSx model uses the Maxwell curl-curl equation,
+free-space defaults for unspecified regions, explicit material overrides,
+radiation boundaries or PML around open space, and Poynting-flux accounting.
+An axisymmetric solve is the first reference; 3D is required for asymmetric
+ports, leads, cavity modes, and the MELF film geometry.
+
+Input/output resistance matching now follows the stage definition. A directly
+entered discrete stage resistance is reused exactly at a checked end. A bulk
+resistive material instead retains the same conductivity and cross-sectional
+area, with resistance calculated from the end region's own length. In the
+current symmetric geometry:
+
+Lstage = ground plate thickness + 2 dielectric gaps
+Lend = ground plate thickness + 1 dielectric gap
+Rend / Rstage = Lend / Lstage
+
+For a discrete resistance represented in a field model, the homogeneous
+surrogate conductivity is sigma = L/(R A). A selected bulk material retains
+one common conductivity and allows resistance to vary with L/A.
+
+The direct capacitance override follows the same surrogate idea but remains
+independent of the resistance choice. The entered Cpar is the resistor package
+alone, before installation. Field models fit the core-region permittivity as
+
+epsr_eff = Cpar_package Lstage / (epsilon0 Acore)
+
+so that the ideal cylindrical core reproduces the entered terminal
+capacitance. Epoxy outside the core is still meshed with the selected epoxy
+permittivity and contributes a separate parallel coupling path. Including
+that external path in the entered package Cpar would double count it.
+
+The first full-wave implementation now uses MEEP 1.29 in cylindrical m=0
+coordinates rather than relabeling the FEniCSx scalar EQS model. Undefined
+space is vacuum and radial/axial PML layers absorb emitted fields. Radial
+lumped ports span the core-to-ground apertures at the first and final ground
+plates. The input, interstage, and output core pieces each use sigma=L/(RA)
+with their own specified resistance; the saved default is 12 Mohm, 12 Mohm,
+and 50 ohm respectively.
+
+The convergence-audited 3-cells/mm default sweep covers 100 MHz to 30 GHz.
+All six points met a 1e-4 CW residual target. Transfer is about -99.19 dB at
+100 MHz, rises to -11.88 dB at 10 GHz, and returns to -57.80 dB at 30 GHz. The
+10 GHz feature requires a denser frequency sweep and mesh comparison.
+
+The first radiation-monitor implementation used unshifted z coordinates after
+centering the MEEP cell. Its upper monitor was outside the cell, producing an
+impossible exact-zero output flux and invalid signed percentages. Corrected
+centered-cell monitors give nonzero output flux. Raw signed Poynting flux is
+retained; the slide normalizes only positive outward power.

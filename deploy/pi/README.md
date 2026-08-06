@@ -12,7 +12,7 @@ The agent setup guide uses these variables:
 
 - `PROJECT_DIR` - repository checkout or synced working tree on the Pi.
 - `STATIC_ROOT` - web server document root on the Pi.
-- `APP_PATH` - URL path for the app, usually `/discoidal-capacitor-bias-filter/`.
+- `APP_PATH` - URL path for the app, usually `/filter/`.
 - `STATIC_DIR` - static files for the app, usually `STATIC_ROOT` plus `APP_PATH`.
 - `SERVICE_NAME` - systemd service name.
 

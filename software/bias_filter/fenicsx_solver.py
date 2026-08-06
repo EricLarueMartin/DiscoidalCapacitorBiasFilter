@@ -436,6 +436,25 @@ def _grounded_outer_axial_cut_marker(
     return marker
 
 
+def _terminal_face_marker(
+    p: dict[str, Any],
+    modules: dict[str, Any],
+    output_end: bool = False,
+) -> Any:
+    """Mark the resistive-core end face used as an electrical port."""
+    np = modules["np"]
+    core_r = float(p["core_od_mm"]) / 2.0
+    z_terminal = axisymmetric_model.stack_length_mm(p) if output_end else 0.0
+
+    def marker(x: Any) -> Any:
+        return np.logical_and(
+            np.abs(x[1] - z_terminal) <= BOUNDARY_MARKER_TOLERANCE_MM,
+            x[0] <= core_r + BOUNDARY_MARKER_TOLERANCE_MM,
+        )
+
+    return marker
+
+
 def _locate_dofs(fem: Any, V: Any, marker: Any) -> Any:
     if hasattr(fem, "locate_dofs_geometrical"):
         return fem.locate_dofs_geometrical(V, marker)
@@ -1066,7 +1085,9 @@ def _full_capacitance_network(
     if not node_names:
         raise RuntimeError("FEniCSx capacitance extraction found no bias-plate electrodes")
 
-    all_names = set(node_names)
+    electrical_node_names = ["input_terminal", *node_names, "output_terminal"]
+    electrical_count = len(electrical_node_names)
+    all_names = set(electrical_node_names)
     ground_marker = _component_marker(
         local_p,
         modules,
@@ -1074,31 +1095,28 @@ def _full_capacitance_network(
         include_core_dielectric=True,
     )
 
+    def electrode_marker(name: str) -> Any:
+        if name == "input_terminal":
+            return _terminal_face_marker(local_p, modules, output_end=False)
+        if name == "output_terminal":
+            return _terminal_face_marker(local_p, modules, output_end=True)
+        return _component_marker(
+            local_p,
+            modules,
+            names={name},
+            include_core_dielectric=True,
+        )
+
+    electrode_markers = {
+        name: electrode_marker(name)
+        for name in electrical_node_names
+    }
+
     def solve_basis_potential(active_names: set[str]) -> Any:
-        inactive_names = all_names - active_names
         markers: list[tuple[float, Any]] = [
-            (
-                1.0,
-                _component_marker(
-                    local_p,
-                    modules,
-                    names=active_names,
-                    include_core_dielectric=True,
-                ),
-            ),
+            (1.0 if name in active_names else 0.0, electrode_markers[name])
+            for name in electrical_node_names
         ]
-        if inactive_names:
-            markers.append(
-                (
-                    0.0,
-                    _component_marker(
-                        local_p,
-                        modules,
-                        names=inactive_names,
-                        include_core_dielectric=True,
-                    ),
-                )
-            )
         markers.append((0.0, ground_marker))
         return _solve_potential_with_dirichlet_markers(
             mesh,
@@ -1126,26 +1144,25 @@ def _full_capacitance_network(
 
     use_repeating_interior = excitation_strategy == CAPACITANCE_STRATEGY_REPEAT
     count = len(node_names)
-    reuse_small_mirror = (
-        excitation_strategy != CAPACITANCE_STRATEGY_FULL
-        and count in {2, 3}
-    )
-    if reuse_small_mirror:
-        basis_indices = [0] if count == 2 else [0, 1]
-        single_representatives = [0, 0] if count == 2 else [0, 1, 0]
+    if excitation_strategy == CAPACITANCE_STRATEGY_FULL:
+        electrical_representatives = list(range(electrical_count))
+        electrical_basis_indices = list(range(electrical_count))
     else:
-        basis_indices = list(range(count))
-        single_representatives = list(range(count))
+        electrical_representatives = [
+            min(index, electrical_count - 1 - index)
+            for index in range(electrical_count)
+        ]
+        electrical_basis_indices = sorted(set(electrical_representatives))
     basis_potentials = {
-        index: solve_basis_potential({node_names[index]})
-        for index in basis_indices
+        index: solve_basis_potential({electrical_node_names[index]})
+        for index in electrical_basis_indices
     }
-    if reuse_small_mirror:
+    if excitation_strategy != CAPACITANCE_STRATEGY_FULL:
         stack_length = axisymmetric_model.stack_length_mm(local_p)
-        for index in range(count):
+        for index in range(electrical_count):
             if index in basis_potentials:
                 continue
-            representative = single_representatives[index]
+            representative = electrical_representatives[index]
             basis_potentials[index] = _reflect_potential_axially(
                 mesh,
                 basis_potentials[representative],
@@ -1154,9 +1171,12 @@ def _full_capacitance_network(
                 modules,
             )
 
-    raw_maxwell_pf = [[0.0 for _ in range(count)] for _ in range(count)]
-    for i in range(count):
-        for j in range(i, count):
+    raw_electrical_maxwell_pf = [
+        [0.0 for _ in range(electrical_count)]
+        for _ in range(electrical_count)
+    ]
+    for i in range(electrical_count):
+        for j in range(i, electrical_count):
             coefficient = _maxwell_cross_capacitance_pf(
                 mesh,
                 basis_potentials[i],
@@ -1164,35 +1184,54 @@ def _full_capacitance_network(
                 local_p,
                 modules,
             )
-            raw_maxwell_pf[i][j] = coefficient
-            raw_maxwell_pf[j][i] = coefficient
+            raw_electrical_maxwell_pf[i][j] = coefficient
+            raw_electrical_maxwell_pf[j][i] = coefficient
 
-    all_bias_solve_reused = count == 1
-    if all_bias_solve_reused:
-        all_bias_pf = float(raw_maxwell_pf[0][0])
-    else:
-        all_bias_potential = solve_basis_potential(all_names)
-        all_bias_pf = _capacitance_from_energy(
-            mesh,
-            all_bias_potential,
-            local_p,
-            modules,
-            voltage_v=1.0,
-            include_core_dielectric=True,
-        )["total_pf"]
+    all_electrical_potential = solve_basis_potential(all_names)
+    all_electrical_pf = _capacitance_from_energy(
+        mesh,
+        all_electrical_potential,
+        local_p,
+        modules,
+        voltage_v=1.0,
+        include_core_dielectric=True,
+    )["total_pf"]
 
-    maxwell_pf = [row[:] for row in raw_maxwell_pf]
+    electrical_maxwell_pf = [row[:] for row in raw_electrical_maxwell_pf]
     if excitation_strategy != CAPACITANCE_STRATEGY_FULL:
-        maxwell_pf = [
+        electrical_maxwell_pf = [
             [
                 (
-                    raw_maxwell_pf[i][j]
-                    + raw_maxwell_pf[count - 1 - i][count - 1 - j]
+                    raw_electrical_maxwell_pf[i][j]
+                    + raw_electrical_maxwell_pf[electrical_count - 1 - i][electrical_count - 1 - j]
                 ) / 2.0
-                for j in range(count)
+                for j in range(electrical_count)
             ]
-            for i in range(count)
+            for i in range(electrical_count)
         ]
+
+    electrical_mutual_pf = [
+        [0.0 for _ in range(electrical_count)]
+        for _ in range(electrical_count)
+    ]
+    for i in range(electrical_count):
+        for j in range(i + 1, electrical_count):
+            value = max(0.0, -float(electrical_maxwell_pf[i][j]))
+            electrical_mutual_pf[i][j] = electrical_mutual_pf[j][i] = value
+    electrical_ground_pf = [
+        float(electrical_maxwell_pf[i][i]) - sum(electrical_mutual_pf[i])
+        for i in range(electrical_count)
+    ]
+
+    bias_electrical_indices = list(range(1, count + 1))
+    raw_maxwell_pf = [
+        [raw_electrical_maxwell_pf[i][j] for j in bias_electrical_indices]
+        for i in bias_electrical_indices
+    ]
+    maxwell_pf = [
+        [electrical_maxwell_pf[i][j] for j in bias_electrical_indices]
+        for i in bias_electrical_indices
+    ]
 
     pair_representatives = {
         (i, j): (i, j)
@@ -1224,8 +1263,19 @@ def _full_capacitance_network(
             mutual_pf[i][j] = mutual_pf[j][i] = value
 
     raw_ground_pf = [
-        float(maxwell_pf[i][i]) - sum(mutual_pf[i])
-        for i in range(count)
+        float(electrical_ground_pf[index])
+        for index in bias_electrical_indices
+    ]
+    all_bias_pf = sum(max(0.0, value) for value in raw_ground_pf)
+    all_bias_solve_reused = False
+    basis_indices = [
+        index - 1
+        for index in electrical_basis_indices
+        if 1 <= index <= count
+    ]
+    single_representatives = [
+        electrical_representatives[index + 1] - 1
+        for index in range(count)
     ]
     adjacent_pf = [mutual_pf[i][i + 1] for i in range(count - 1)]
     pair_node_pf = {
@@ -1260,6 +1310,19 @@ def _full_capacitance_network(
             sum(adjacent_pf) / len(adjacent_pf) if adjacent_pf else 0.0
         ),
         "all_bias_equivalent_pf": float(all_bias_pf),
+        "all_electrical_equivalent_pf": float(all_electrical_pf),
+        "electrical_node_count": electrical_count,
+        "electrical_node_names": electrical_node_names,
+        "electrical_node_ground_pf": [max(0.0, value) for value in electrical_ground_pf],
+        "raw_electrical_node_ground_pf": electrical_ground_pf,
+        "electrical_mutual_pf_matrix": electrical_mutual_pf,
+        "electrical_maxwell_pf_matrix": electrical_maxwell_pf,
+        "raw_electrical_maxwell_pf_matrix": raw_electrical_maxwell_pf,
+        "input_terminal_ground_pf": max(0.0, float(electrical_ground_pf[0])),
+        "output_terminal_ground_pf": max(0.0, float(electrical_ground_pf[-1])),
+        "terminal_ground_symmetry_difference_pf": abs(
+            float(electrical_ground_pf[0]) - float(electrical_ground_pf[-1])
+        ),
         "total_ground_pf": sum(max(0.0, value) for value in raw_ground_pf),
         "ground_normalization_factor": 1.0,
         "core_treatment": "dielectric-with-effective-permittivity",
@@ -1275,9 +1338,34 @@ def _full_capacitance_network(
     else:
         ground_representatives = list(range(count))
     _apply_ground_capacitance_classes(network, ground_representatives)
+    final_electrical_ground_pf = [
+        max(0.0, float(electrical_ground_pf[0])),
+        *[float(value) for value in network["node_ground_pf"]],
+        max(0.0, float(electrical_ground_pf[-1])),
+    ]
+    final_electrical_mutual_pf = [row[:] for row in electrical_mutual_pf]
+    for i in range(count):
+        for j in range(count):
+            final_electrical_mutual_pf[i + 1][j + 1] = float(mutual_pf[i][j])
+    final_electrical_maxwell_pf = [
+        [0.0 for _ in range(electrical_count)]
+        for _ in range(electrical_count)
+    ]
+    for i in range(electrical_count):
+        final_electrical_maxwell_pf[i][i] = (
+            final_electrical_ground_pf[i]
+            + sum(final_electrical_mutual_pf[i])
+        )
+        for j in range(electrical_count):
+            if i != j:
+                final_electrical_maxwell_pf[i][j] = -float(final_electrical_mutual_pf[i][j])
+    network["electrical_node_ground_pf"] = final_electrical_ground_pf
+    network["electrical_mutual_pf_matrix"] = final_electrical_mutual_pf
+    network["electrical_maxwell_pf_matrix"] = final_electrical_maxwell_pf
+    network["total_electrical_ground_pf"] = sum(final_electrical_ground_pf)
     single_node_pf = [float(value) for value in network["single_node_equivalent_pf"]]
-    full_solve_count = count + 1
-    actual_solve_count = len(basis_indices) + (0 if all_bias_solve_reused else 1)
+    full_solve_count = electrical_count + 1
+    actual_solve_count = len(electrical_basis_indices) + 1
     network.update({
         "energy_solve_count_without_symmetry": full_solve_count,
         "energy_solve_count": actual_solve_count,
@@ -1292,10 +1380,10 @@ def _full_capacitance_network(
         ),
         "geometry_domain": "full-stack",
         "geometric_mirror_half_used": False,
-        "mirror_equivalent_excitations_reused": reuse_small_mirror,
+        "mirror_equivalent_excitations_reused": excitation_strategy != CAPACITANCE_STRATEGY_FULL,
         "matrix_extraction": (
             "basis-field cross-energy with exact reflected-field interpolation"
-            if reuse_small_mirror
+            if excitation_strategy != CAPACITANCE_STRATEGY_FULL
             else "basis-field cross-energy"
         ),
         "excitation_strategy": excitation_strategy,
@@ -1320,7 +1408,7 @@ def _full_capacitance_network(
                 "maxwell_row_sums": True,
                 "reflection_reuse": (
                     "exact-reflected-partner-excitation"
-                    if reuse_small_mirror
+                    if excitation_strategy != CAPACITANCE_STRATEGY_FULL
                     else "none; reflected coefficients averaged after full-stack solves"
                 ),
             },
@@ -2710,7 +2798,10 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
     modules = _import_fenicsx_modules()
     gmsh = modules["gmsh"]
     requested_strategy = p.get("solve_strategy")
-    use_end_repeat = requested_strategy == SOLVE_STRATEGY_END_REPEAT_APPROX and int(p["plate_pairs"]) >= 2
+    # Two plates contain only one reflected end class, and three plates add one
+    # unique center class. There is no repeated interior class to approximate
+    # until the stack has at least four bias plates.
+    use_end_repeat = requested_strategy == SOLVE_STRATEGY_END_REPEAT_APPROX and int(p["plate_pairs"]) >= 4
     use_mirror_half = requested_strategy == SOLVE_STRATEGY_MIRROR_HALF or (
         requested_strategy == SOLVE_STRATEGY_END_REPEAT_APPROX and not use_end_repeat
     )
@@ -2775,14 +2866,15 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         capacitance = _capacitance_from_energy(mesh, uh, p, modules, energy_scale=2.0 if use_mirror_half else 1.0)
         capacitance["symmetry_strategy"] = SOLVE_STRATEGY_MIRROR_HALF if use_mirror_half else "full_stack"
         capacitance["solved_z_extent_mm"] = mirror_z_mm or axisymmetric_model.stack_length_mm(p)
-    if use_end_repeat:
-        capacitance_network = _repeating_capacitance_network(
-            p,
-            end_capacitance["total_pf"],
-            repeat_capacitance["total_pf"],
-        )
-    else:
-        capacitance_network = _full_capacitance_network(p, modules)
+    capacitance_network = _full_capacitance_network(
+        p,
+        modules,
+        excitation_strategy=(
+            CAPACITANCE_STRATEGY_REPEAT
+            if use_end_repeat
+            else CAPACITANCE_STRATEGY_MIRROR
+        ),
+    )
     capacitance["field_model_total_pf"] = capacitance["total_pf"]
     capacitance["field_model_energy_pj"] = capacitance["energy_pj"]
     capacitance["total_pf"] = capacitance_network["total_ground_pf"]
@@ -2790,10 +2882,9 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
     capacitance["network_all_bias_equivalent_pf"] = capacitance_network["all_bias_equivalent_pf"]
     capacitance["capacitance_network"] = capacitance_network
     capacitance["description"] = (
-        "Fast SPICE screening network: total all-bias capacitance comes from "
-        "the symmetric end/repeating-region FEA; per-node Cg is a regional "
-        "energy allocation rather than a Maxwell row sum, and adjacent Cpar "
-        "uses the local analytical estimate."
+        "Node-resolved FEniCSx capacitance matrix from basis-field cross "
+        "energies with reflected and repeated interior excitation classes, "
+        "plus a separately reconstructed end/repeating-region field solve."
         if use_end_repeat
         else
         "Node-resolved FEniCSx capacitance matrix from single-node basis-field "
@@ -2812,35 +2903,34 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         )
         else CAPACITANCE_STRATEGY_MIRROR
     )
-    if not use_end_repeat:
-        comparison_networks: dict[int, dict[str, Any]] = {}
-        current_count = int(capacitance_network["node_count"])
-        if current_count in {1, 2, 3}:
-            comparison_networks[current_count] = capacitance_network
-        for comparison_count in (1, 2, 3):
-            if comparison_count in comparison_networks:
-                continue
-            comparison_parameters = axisymmetric_model.normalize_parameters({
-                **p,
-                "plate_pairs": comparison_count,
-                "bias_voltage_v": 1.0,
-            })
-            comparison_networks[comparison_count] = _full_capacitance_network(
-                comparison_parameters,
-                modules,
-                excitation_strategy=comparison_strategy,
-            )
-        capacitance["bias_to_ground_comparison"] = _bias_to_ground_method_comparison(
-            p,
+    comparison_networks: dict[int, dict[str, Any]] = {}
+    current_count = int(capacitance_network["node_count"])
+    if current_count in {1, 2, 3}:
+        comparison_networks[current_count] = capacitance_network
+    for comparison_count in (1, 2, 3):
+        if comparison_count in comparison_networks:
+            continue
+        comparison_parameters = axisymmetric_model.normalize_parameters({
+            **p,
+            "plate_pairs": comparison_count,
+            "bias_voltage_v": 1.0,
+        })
+        comparison_networks[comparison_count] = _full_capacitance_network(
+            comparison_parameters,
             modules,
-            single_network=comparison_networks[1],
-            three_network=comparison_networks[3],
             excitation_strategy=comparison_strategy,
         )
-        capacitance["cg_matrix_plate_count_comparison"] = _cg_matrix_plate_count_comparison(
-            comparison_networks[2],
-            comparison_networks[3],
-        )
+    capacitance["bias_to_ground_comparison"] = _bias_to_ground_method_comparison(
+        p,
+        modules,
+        single_network=comparison_networks[1],
+        three_network=comparison_networks[3],
+        excitation_strategy=comparison_strategy,
+    )
+    capacitance["cg_matrix_plate_count_comparison"] = _cg_matrix_plate_count_comparison(
+        comparison_networks[2],
+        comparison_networks[3],
+    )
     admittance = _admittance_from_capacitance(p, capacitance["total_pf"])
     field_fn = _project_field_magnitude(mesh, uh, modules)
     if use_end_repeat:

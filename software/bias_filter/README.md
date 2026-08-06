@@ -29,9 +29,11 @@ Open `http://<pi-hostname-or-ip>:8765/` from the browser. The server exposes:
 - `POST /api/geometry`: accepts `{ "parameters": { ... } }` and returns the sanitized solver-side r-z component profiles without running a field solve.
 - `POST /api/spice-ladder`: accepts `{ "parameters": { ... } }` and returns a SPICE-style small-signal AC ladder sweep, generated netlist text, and summaries for the RC ladder plus coax transmission-line load.
 - `POST /api/thermal-solve`: runs the axisymmetric linear-thermoelastic FEniCSx solid model synchronously and returns epoxy tensile-stress percentiles, the raw corner peak, mesh statistics, and model assumptions.
+- `POST /api/full-wave-solve`: queues an axisymmetric MEEP/EQS sweep and returns a resumable `job_id`; point lists and a timeout of up to seven days are sanitized with the design inputs.
+- `GET /api/full-wave-solve/{job_id}`: returns queued, running, failed, or complete full-wave job state.
 - `GET /api/health`: lightweight server status.
 
-Jobs are independent and write under `simulations/axisymmetric/jobs/{job_id}/`, avoiding shared `latest-*` output files for browser requests. The default worker uses the repository finite-difference axisymmetric solver; explicit FEniCSx jobs run in a subprocess so Gmsh and PETSc are isolated from the web worker thread.
+Jobs are independent and write under `simulations/axisymmetric/jobs/{job_id}/`, avoiding shared `latest-*` output files for browser requests. Field and full-wave jobs have separate single-worker queues, so a weekend MEEP sweep does not block ordinary field jobs. The default field worker uses the repository finite-difference axisymmetric solver; explicit FEniCSx and MEEP jobs run in subprocesses so Gmsh, PETSc, and MEEP remain isolated from web worker threads.
 
 Every electric-field or thermal FEniCSx subprocess is sampled from Linux `/proc` at 0.1 s intervals. The solve tabs show peak solver-process RSS, peak system memory use, lowest available system memory, and maximum system swap use. The backend appends the complete sanitized inputs, solve status, mesh summary, full-stack/mirror/repeating-cell choices, process-tree RSS and swap, and system-memory extrema to `simulations/axisymmetric/logs/fea-resource-usage.jsonl`. This runtime log is intentionally ignored by Git; retain or analyze it on each Pi when developing hardware recommendations.
 
@@ -89,7 +91,7 @@ CTE-offset invariance, full-stack symmetry, and six mesh sizes from 0.60 to
 boundary, and full-stack controls use private validation parameters and are
 not exposed by the Designer.
 
-The backend SPICE sweep and matching web attenuation plots are fixed at 1 Hz to 100 MHz. This makes the low-frequency rolloff around power-line noise easier to read while avoiding excessive very-slow-drift plot space, and 100 MHz is a practical upper view limit for the current detector readout context because the DAQ sample rate is only about 200 MS/s.
+The backend SPICE sweep and matching web attenuation plots are fixed at 1 Hz to 100 MHz. This makes the low-frequency rolloff around power-line noise easier to read while retaining margin above the 31.25 MHz Nyquist band of the 62.5 MS/s ADC. The full-field presentation starts at 50 Hz with FEniCSx EQS, extends that electrically small limit to a shared 1 GHz overlap point, and uses MEEP at 1 GHz, 3 GHz, 10 GHz, and 30 GHz to bracket the first candidate local mode. The earlier 100 MHz and 300 MHz MEEP CW points were removed because they were redundant with EQS and dominated runtime for longer stacks.
 
 The web Designer exposes the same distinction as a dropdown: `Backend adaptive FD` means Python-backed finite difference, not FEniCSx. `FEniCSx required` is the explicit conforming FEA path.
 
@@ -134,7 +136,7 @@ The complete end-to-end procedure and acceptance criteria are in
 
 FEniCSx conductor boundary tagging uses a small geometric tolerance. This is required because Gmsh/DOLFINx boundary coordinates can land infinitesimally outside ideal plate intervals; exact classification previously missed one side of some conductor faces and produced washer-gap fields far below `V / gap`.
 
-The field material model is z-dependent. Flat washer material exists only in the axial gaps between adjacent plate faces and between the explicit washer ID/OD. The defaults tie washer ID to ground plate ID and washer OD to HV plate OD; smaller custom washers leave the newly exposed radial pockets as epoxy.
+The field material model is z-dependent. Flat washer material exists only in the axial gaps between adjacent plate faces and between the explicit washer ID/OD. The defaults tie washer ID to ground plate ID and washer OD to HV plate OD; smaller custom washers leave the newly exposed radial pockets as epoxy. Selecting `washer_material = epoxy` removes the distinct washer region: the entire dielectric volume uses the selected potting epoxy, and thermal FEA assigns the former washer volume epoxy properties.
 
 Keep the flat-gap sanity check in any solver review: for default 6 kV bias and 1 mm washer thickness, samples in the radial and axial middle of each washer overlap should be about 6000 V/mm. The deployed Pi FEniCSx API passed this check on 2026-06-25.
 

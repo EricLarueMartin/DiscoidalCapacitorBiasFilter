@@ -99,6 +99,22 @@ epsr_core = epsr_substrate / (1 - FF)
 
 The default 0207 model uses `epsr_substrate = 9.8` and `FF = 0.50`, giving `epsr_core = 19.6`. This is a first-draft effective-medium approximation for a high-value spiral-trimmed metal-film resistor. It avoids pretending the proprietary film path is known while still letting the capacitance scale with geometry. The old direct `Resistor Cpar` input remains available for non-MELF direct-stage models such as a deliberately lumped potted resistor chain.
 
+When `Enter resistor Cpar` is checked, the entered value describes only the
+resistor package between adjacent bias terminals before installation. The
+surrounding epoxy annulus remains a separate dielectric path and is added by
+the analytical and SPICE models. For electrostatic and distributed-field FEA,
+the package is represented by a fitted core permittivity:
+
+```text
+epsr_core,eff = Cpar,package Lstage / (epsilon0 Acore)
+```
+
+This makes the ideal cylindrical core region reproduce the entered package
+capacitance while preserving the separately meshed epoxy region. It is an
+electrical surrogate, not a claim that the resistor body has that physical
+bulk permittivity. Entering a capacitance that already includes external epoxy
+would count that path twice.
+
 For a ferrite core with conductive interleave discs, the app uses the analogous
 one-dimensional effective-length model:
 
@@ -177,6 +193,57 @@ the corresponding bias nodes. The displayed analytical `Cg` sanity check is
 `2 C_washer`, directly comparable to one FEA bias node's `Cg,i`; the axial
 parallel-plate `Cpar` remains a separate sanity comparison.
 
+The exact-reference Maxwell matrix also includes the exposed input and output
+faces of the resistive core as electrical terminals. Its node order is:
+
+```text
+input terminal, bias plate 1, ..., bias plate N, output terminal
+```
+
+For each terminal, the Maxwell row sum is its direct capacitance to grounded
+metal. Off-diagonal terms separately give terminal-to-bias and
+terminal-to-terminal mutual capacitances. The SPICE model retains all of these
+terms at physical port nodes; it does not replace them with a guessed shunt
+capacitor. Exact end-to-end mirror symmetry makes the input and output values
+equal, and the solver reuses the reflected output excitation rather than
+solving it again.
+
+For the 2026-08-06 two-bias default exact-mirror solve, each terminal has
+`0.250256 pF` directly to ground and `0.191884 pF` to its nearest bias plate.
+The resulting terminal Maxwell diagonal is `0.442140 pF`. Direct coupling to
+the opposite end is below numerical significance. The adjacent bias-plate
+mutual capacitance is `0.129586 pF`, so the terminal capacitances are indeed of
+the same order as the stage parasitic capacitance, but they are not one
+interchangeable quantity.
+
+### 50 ohm instrument comparison
+
+The complete-filter SPICE plot includes a measurement configuration suitable
+for comparison with a 50 ohm tracking generator and spectrum analyzer. The
+configured filter input and output resistances remain part of the DUT. The test
+fixture adds a 50 ohm Thevenin source ahead of the filter and terminates the
+measurement output in 50 ohms:
+
+```text
+H_50(f) = 2 V_load(f) / V_source(f)
+attenuation_50(f) = -20 log10 |H_50(f)|
+```
+
+The factor of two is the normal matched-port normalization: a direct 50 ohm
+through connection places half the open-circuit source voltage across the 50
+ohm analyzer input and therefore reads 0 dB. This curve includes the mismatch
+between the 50 ohm source and the filter's actual input network without
+pretending that the filter itself has a 50 ohm input resistance. Cable and
+adapter loss are not included. A prototype comparison should first normalize
+the tracking-generator/analyzer setup with a through connection at the DUT
+reference planes.
+
+The source drives the physical input terminal and the analyzer terminates the
+physical output terminal. Consequently, an exact FEniCSx result makes the
+50-ohm curve include port-to-ground capacitance, port-to-bias mutual
+capacitance, and the usually tiny direct input-to-output capacitance. The same
+port network is also present in the loaded-detector and unloaded-filter curves.
+
 A 2026-07-30 Pi campaign checked `Cg` with one, two, three, four, and five bias
 plates. Raw full-matrix values, exact reflection averaging, and
 repeated-interior constraints agreed in mean to the displayed precision. The
@@ -238,7 +305,39 @@ attenuation_dB = -20 log10(|Vout / Vin|)
 
 This uses the usual power-dB convention for equal impedances, so a factor-of-10 voltage-noise reduction is shown as 20 dB attenuation.
 
-The displayed attenuation and SPICE-style ladder sweeps are intentionally limited to 1 Hz through 100 MHz. Power-line noise is the low-frequency feature that matters most here, so the plot starts far enough below 50/60 Hz to make the low-frequency rolloff clear without spending much visual space on slower drift. The high end is capped at 100 MHz because the DAQ sample rate is only around 200 MS/s, making higher-frequency response less useful for this design screen.
+The displayed attenuation and SPICE-style ladder sweeps are intentionally limited to 1 Hz through 100 MHz. Power-line noise is the low-frequency feature that matters most here, so the plot starts far enough below 50/60 Hz to make the low-frequency rolloff clear without spending much visual space on slower drift. The DAQ samples at 62.5 MS/s, giving an ordinary Nyquist band through 31.25 MHz; extending the circuit plots to 100 MHz retains useful anti-alias and full-wave overlap margin.
+
+## Frequency-Regime Interpretation
+
+The main presentation summarizes the simulation chain as full geometry to a
+FEniCSx Maxwell capacitance matrix, then to an RC ladder, and finally to the
+loaded SPICE model. For an isolated representative section:
+
+```text
+low-frequency scale:       fg   = 1 / (2 pi Rstage Cg)
+parasitic-bypass scale:    fpar = 1 / (2 pi Rstage Cpar)
+high-frequency attenuation: Ainf = 20 log10(1 + Cg / Cpar)
+```
+
+At low frequency, increasing series resistance or shunt capacitance improves
+attenuation. Around `fpar`, bias-to-bias parasitic capacitance starts bypassing
+the resistor. At high frequency, increasing resistance no longer improves the
+capacitive-divider limit; geometry must increase `Cg/Cpar` instead.
+
+This makes megohm-scale resistance incompatible with extending purely
+resistive behavior to MHz frequencies unless parasitic capacitance is
+implausibly small. Even `10 Mohm` with `0.1 pF` gives `fpar` near `159 kHz`.
+A `1 MHz` bypass corner at `10 Mohm` would require less than `16 fF`, before
+including epoxy and plate coupling.
+
+The evidence limits are intentionally stated precisely. The distributed EQS
+field solve agrees with the matched RC network within `0.62 dB` over the saved
+`1 Hz` to `100 MHz` sweep. The convergence-qualified axisymmetric MEEP branch
+begins departing in the multi-GHz range and has its first bracketed candidate
+mode near `10 GHz`. The combined presentation sweep starts at `50 Hz`, uses
+EQS through the shared `1 GHz` overlap point, overlap-normalizes the
+uncalibrated MEEP voltage ports there, and stops at that first mode. This is evidence of eventual full-wave
+departure, not proof that the RC model remains valid through `10 GHz`.
 
 The designer tab reports the same single-stage attenuation values numerically:
 
@@ -264,14 +363,13 @@ full stage. The full ladder applies the external load once at the output.
 
 The SPICE slide also includes a separate **full ladder unloaded** curve. This
 retains the input series resistance, every internal stage resistance, every
-stage-to-ground capacitance, and every adjacent-stage parasitic capacitance.
-It removes load conductance, output-series current, cable, transmission line,
-and detector capacitance, then measures voltage at the last filter node with
-infinite input impedance. It therefore answers a different question from the
-loaded detector curve: how much source voltage noise the filter itself removes
-at its bare output terminal. For the default design at 50 Hz, the backend gives
-about 0.45 dB unloaded versus 18.16 dB with the specified transmission-line
-load.
+stage-to-ground capacitance, every mutual capacitance, both physical port
+nodes, and both configured end resistances. It removes load conductance, cable,
+transmission line, and detector capacitance, then measures the bare output
+terminal with infinite input impedance. It therefore answers a different
+question from the loaded detector curve: how much source voltage noise the
+filter itself removes before an external load is connected. Re-run the backend
+for current numerical values when geometry or the FEA matrix changes.
 
 At 50 Hz with the default loaded design, the multiplied and full-ladder results
 diverge with stage count: 36.75 versus 18.16 dB for two bias stages, 73.51
@@ -311,6 +409,24 @@ C_parasitic ~= epsilon0 * (19.6 * pi * 1.1^2 + 3.4 * pi * (2.55^2 - 1.1^2)) / 4.
 ```
 
 ## Assumptions And Gaps
+
+### Matched input and output resistance
+
+The input/output matching checkboxes follow the selected stage definition;
+they do not always force the same numeric resistance. With a directly entered
+stage resistance, such as a discrete MELF resistor, a checked end uses another
+resistor of exactly that value. With a bulk resistive material, a checked end
+uses the same conductivity, core area, and fill-factor correction as the
+interior material. Its resistance is calculated from its own shorter length:
+
+```text
+Lstage = tground + 2 d
+Lend   = tground + d
+Rend / Rstage = Lend / Lstage
+```
+
+The present symmetric stack gives the input and output the same end length.
+An unchecked end uses the independently entered resistance instead.
 
 - Edge correction is ignored for capacitance.
 - Outer tube capacitance is ignored in the circuit estimate; this is expected to be smaller when the washer overlap has much larger area and permittivity.

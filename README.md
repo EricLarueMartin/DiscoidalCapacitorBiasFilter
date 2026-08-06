@@ -4,9 +4,9 @@ This repository contains the design, simulation, prototyping, and presentation t
 
 ## Interactive Slideshow
 
-[Open the interactive design slideshow](https://ericlaruemartin.github.io/DiscoidalCapacitorBiasFilter/). It runs directly from GitHub Pages without installing the repository and opens on the Slides tab. The static version includes a committed FEniCSx field solution, an exact node-resolved FEniCSx capacitance extraction, and the matching ngspice sweep for the built-in default geometry. Changing the design switches the field slide to the clearly labeled JavaScript screening preview until a matching solve is run. New server-backed FEniCSx, thermal, SPICE, and generated-artifact features require a full deployment.
+[Open the interactive design slideshow](https://ericlaruemartin.github.io/DiscoidalCapacitorBiasFilter/). It runs directly from GitHub Pages without installing the repository and opens on the Slides tab. The static version includes committed FEniCSx field and capacitance results, the matching ngspice sweep, and a convergence-audited axisymmetric MEEP full-wave sweep for the built-in default geometry. Changing the design invalidates saved results until matching backend solves are run. New server-backed FEniCSx, thermal, SPICE, full-wave, and generated-artifact features require a full deployment.
 
-The slideshow now opens with a concise main presentation and a linked contents rail. Capacitance-extraction methods, analytical and limiting-case validation, and engineering trade studies remain available as separate technical sections. A quasi-static electromagnetic network view uses the solved Maxwell capacitance matrix and geometry-derived partial inductance to show the low-loss coupled resonances and their strong damping by the physical interstage resistance. A separate committed FEniCSx electroquasistatic sweep applies a signal at the input, extracts the complete complex field admittance matrix, and reports loaded output voltage from 1 Hz to 100 MHz. Both are precursors to, not replacements for, a 3D full-wave solve.
+The slideshow now opens with a concise main presentation and a linked contents rail. Capacitance-extraction methods, analytical and limiting-case validation, and engineering trade studies remain available as separate technical sections. The displayed full-field noise-transmission sweep starts at 50 Hz using the FEniCSx electroquasistatic Maxwell limit, hands off to overlap-normalized cylindrical MEEP at 1 GHz, and searches logarithmically until the first bracketed candidate resonance near 10 GHz. The MEEP branch includes magnetic induction and open-space fields, but asymmetric leads, the MELF spiral, and non-axisymmetric modes still require 3D validation.
 
 The JavaScript field solver is currently a screening model and is not yet accurate enough to serve as the reference calculation. The immediate simulation priority is to finish and validate the FEniCS model first, preserve its results as the comparison baseline, and then improve the JavaScript solver against that baseline.
 
@@ -27,7 +27,7 @@ If you already have a suitable Pi running on your network, use it; the agent run
 
 ### Measured Memory Use
 
-Resource monitoring around the actual FEniCSx subprocesses was added before setting the hardware recommendation. With the default two-pair geometry and default meshes on a Raspberry Pi 5, the electric-field solve peaked at 156.5 MiB of solver-process RSS and the thermal-stress solve peaked at 251.8 MiB. Peak total system memory in use was approximately 655 MiB and 771 MiB respectively, and neither solve used swap.
+Resource monitoring around the actual solver subprocesses was added before setting the hardware recommendation. With the default two-pair geometry and default meshes on a Raspberry Pi 5, the electric-field solve peaked at 156.5 MiB of process RSS, the thermal-stress solve peaked at 251.8 MiB, and the six-point 3-cells/mm MEEP full-wave sweep peaked at 132.1 MiB. Peak total system memory remained below 0.8 GiB and none of these solves used swap.
 
 These measurements support 2 GB as a practical minimum and 4 GB as the recommended capacity for ordinary development. They are not hard upper bounds: the FEniCSx direct linear solver can grow substantially faster than the mesh dimensions, so aggressive mesh refinement, larger full-stack models, parallel solves, or unrelated services may need more RAM. The backend intentionally runs one FEA worker at a time. Each solve records its geometry, reduction strategy, peak process memory, lowest available system memory, and swap use in the ignored runtime log `simulations/axisymmetric/logs/fea-resource-usage.jsonl` so this guidance can be updated as larger cases are exercised.
 
@@ -75,7 +75,9 @@ The filter is based on a cylindrical, discoidal capacitor stack:
 - `deploy/pi/` - agent-facing Raspberry Pi installation and hosting runbooks.
 - `docs/knowledge/` - curated design knowledge, requirements, assumptions, and decisions.
 - [`docs/knowledge/validation-runbook.md`](docs/knowledge/validation-runbook.md) - required software, deployment, electrostatic, SPICE, thermal, symmetry, and browser verification.
-- [`docs/knowledge/distributed-admittance.md`](docs/knowledge/distributed-admittance.md) - implemented axisymmetric field-derived admittance and input-output frequency model, plus remaining noise/full-wave work.
+- [`docs/knowledge/distributed-admittance.md`](docs/knowledge/distributed-admittance.md) - implemented electroquasistatic field-derived admittance and its relationship to the full-wave model.
+- [`docs/knowledge/full-wave-maxwell.md`](docs/knowledge/full-wave-maxwell.md) - axisymmetric MEEP transfer/emission model, conductivity calibration, saved results, and validation limits.
+- [`docs/knowledge/noise-budget.md`](docs/knowledge/noise-budget.md) - Ge-76 Fano-limit stopping criterion, source-noise assumptions, and the five-plate weekend verification plan.
 - [`docs/knowledge/axisymmetry-sensitivity.md`](docs/knowledge/axisymmetry-sensitivity.md) - staged 3D test of the rotational-axisymmetry approximation.
 - `docs/chats/raw/` - raw AI collaboration transcripts and exported chats.
 - `docs/chats/markdown/` - cleaned summaries derived from raw chats.
@@ -98,7 +100,7 @@ The browser page at `presentations/web/index.html` provides interactive design c
 
 The JavaScript and Python finite-difference solvers are structured-grid screening tools. The optional FEniCSx/DOLFINx backend uses a conforming Gmsh r-z dielectric domain and reports field and capacitance checks. The deployed solver has passed the recorded analytical-limit, exact-symmetry, flat-gap, and default rounded-edge mesh-convergence gates. These are numerical code-verification results, not dielectric-breakdown or manufactured-hardware qualification. Re-run the design-specific mesh sweep whenever geometry, materials, or the selected peak edge changes.
 
-The backend also provides RC-ladder and SPICE-style response calculations using `ngspice` when available, with an internal modified-nodal fallback.
+The backend also provides RC-ladder and SPICE-style response calculations using `ngspice` when available, with an internal modified-nodal fallback. MEEP provides the separate cylindrical full-wave Maxwell endpoint.
 
 ## AI Collaboration
 

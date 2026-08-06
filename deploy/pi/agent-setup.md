@@ -76,7 +76,7 @@ Before running commands, identify:
 - `REPOSITORY_URL`: Git URL for this repository, if cloning from Git.
 - `PROJECT_DIR`: repository checkout or synced working tree on the Pi.
 - `STATIC_ROOT`: document root served by the backend.
-- `APP_PATH`: URL path for the app, usually `/discoidal-capacitor-bias-filter/`.
+- `APP_PATH`: URL path for the app, usually `/filter/`.
 - `STATIC_DIR`: static app directory, usually `STATIC_ROOT` plus `APP_PATH`.
 - `SERVICE_NAME`: systemd service name.
 
@@ -89,21 +89,21 @@ export AGENT_USER="${AGENT_USER:-$(whoami)}"
 export REPOSITORY_URL="${REPOSITORY_URL:-https://github.com/EricLarueMartin/DiscoidalCapacitorBiasFilter.git}"
 export PROJECT_DIR="${PROJECT_DIR:-$HOME/projects/DiscoidalCapacitorBiasFilter}"
 export STATIC_ROOT="${STATIC_ROOT:-$HOME/sites/public}"
-export APP_PATH="${APP_PATH:-/discoidal-capacitor-bias-filter/}"
+export APP_PATH="${APP_PATH:-/filter/}"
 export STATIC_DIR="${STATIC_DIR:-${STATIC_ROOT%/}${APP_PATH}}"
 export SERVICE_NAME="${SERVICE_NAME:-agent-sites.service}"
 ```
 
 ## 1. Install Packages
 
-Read and follow [package-requirements.md](package-requirements.md). Install the base packages, FEniCSx/Gmsh packages, and `ngspice` if available.
+Read and follow [package-requirements.md](package-requirements.md). Install the base packages, FEniCSx/Gmsh packages, MEEP, and `ngspice` if available.
 
 After package installation, verify:
 
 ```bash
 python3 - <<'PY'
-import dolfinx, gmsh, mpi4py, petsc4py, ufl
-print("FEniCSx import check passed")
+import dolfinx, gmsh, meep, mpi4py, petsc4py, ufl
+print("FEniCSx and MEEP import checks passed", meep.__version__)
 PY
 ```
 

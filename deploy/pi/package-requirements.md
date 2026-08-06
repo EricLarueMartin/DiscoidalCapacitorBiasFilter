@@ -41,14 +41,20 @@ Install `ngspice` when available. The backend has an internal Python fallback, b
 sudo apt install -y ngspice
 ```
 
+## Full-Wave Maxwell Package
+
+```bash
+sudo apt install -y python3-meep
+```
+
 ## Import Checks
 
 Run these after installation:
 
 ```bash
 python3 - <<'PY'
-import dolfinx, gmsh, mpi4py, petsc4py, ufl
-print("FEniCSx import check passed")
+import dolfinx, gmsh, meep, mpi4py, petsc4py, ufl
+print("FEniCSx and MEEP import checks passed", meep.__version__)
 PY
 ```
 

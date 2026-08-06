@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import io
+import importlib
 import json
 import math
 import sys
@@ -24,10 +25,15 @@ import field_backend
 import fenicsx_solver
 import axisymmetric_model
 import admittance_fenicsx_solver
+import full_wave_meep_solver
 import spice_ladder
 
 
 class FieldBackendTests(unittest.TestCase):
+    def test_full_wave_solver_imports_as_a_package(self) -> None:
+        module = importlib.import_module("software.bias_filter.full_wave_meep_solver")
+        self.assertEqual(module.DEFAULT_EQS_FREQUENCIES_HZ[0], 50.0)
+
     def test_distributed_admittance_plan_is_not_the_old_capacitance_readout(self) -> None:
         plan = fenicsx_solver.distributed_admittance_plan()
 
@@ -62,6 +68,116 @@ class FieldBackendTests(unittest.TestCase):
         self.assertAlmostEqual(recovered_resistance, parameters["melf_stage_resistance_mohm"] * 1e6)
         self.assertIn("calibrated", basis)
 
+    def test_full_wave_core_sections_use_input_stage_and_output_resistance(self) -> None:
+        parameters = axisymmetric_model.normalize_parameters({
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "plate_pairs": 2,
+            "input_series_matches_stage": False,
+            "input_series_resistance_mohm": 12.0,
+            "output_series_matches_stage": False,
+            "output_series_resistance_ohm": 50.0,
+        })
+        sections = full_wave_meep_solver.resistance_sections_ohm(parameters)
+
+        self.assertEqual([section["role"] for section in sections], ["input", "stage", "output"])
+        self.assertEqual(sections[0]["resistance_ohm"], 12e6)
+        self.assertEqual(sections[1]["resistance_ohm"], 12e6)
+        self.assertEqual(sections[2]["resistance_ohm"], 50.0)
+        for section in sections:
+            sigma = full_wave_meep_solver.section_conductivity_s_per_m(section, parameters["core_od_mm"])
+            area_m2 = math.pi * (parameters["core_od_mm"] * 0.5e-3) ** 2
+            recovered = section["length_mm"] * 1e-3 / (sigma * area_m2)
+            self.assertAlmostEqual(recovered, section["resistance_ohm"])
+
+    def test_resonance_verification_brackets_coarse_and_model_candidates(self) -> None:
+        coarse = [
+            {"frequency_hz": 1e9, "magnitude_db": -80.0},
+            {"frequency_hz": 3e9, "magnitude_db": -25.0},
+            {"frequency_hz": 10e9, "magnitude_db": -55.0},
+            {"frequency_hz": 30e9, "magnitude_db": -70.0},
+        ]
+        candidates = full_wave_meep_solver.resonance_candidates(
+            coarse,
+            [3.1e9, 12e9],
+            1e9,
+            30e9,
+        )
+
+        self.assertEqual(len(candidates), 2)
+        self.assertAlmostEqual(candidates[0]["frequency_hz"], 3e9)
+        self.assertIn("coarse_local_maximum", candidates[0]["source"])
+        self.assertIn("low_loss_rlc_prediction", candidates[0]["source"])
+        plan = full_wave_meep_solver.resonance_refinement_plan(candidates, 1e9, 30e9)
+        first_frequencies = plan[0]["frequencies_hz"]
+        self.assertEqual(len(first_frequencies), full_wave_meep_solver.RESONANCE_REFINEMENT_POINT_COUNT)
+        self.assertIn(3e9, first_frequencies)
+        fine_samples = [
+            {
+                "frequency_hz": frequency,
+                "magnitude_db": -20.0 - 80.0 * abs(math.log(frequency / 3e9)),
+            }
+            for frequency in first_frequencies
+        ]
+        verified = full_wave_meep_solver.verified_resonances(plan[:1], fine_samples)
+        self.assertEqual(len(verified), 1)
+        self.assertAlmostEqual(verified[0]["frequency_hz"], 3e9)
+        self.assertLess(verified[0]["bracket_hz"][0], 3e9)
+        self.assertGreater(verified[0]["bracket_hz"][1], 3e9)
+
+    def test_full_wave_settings_sanitize_resonance_verification(self) -> None:
+        parameters = field_backend.sanitized_parameters({
+            "full_wave_verify_resonances": True,
+            "full_wave_resonance_hints_hz": [3e9, -1, 3e9, 12e9],
+        })
+
+        self.assertTrue(parameters["full_wave_verify_resonances"])
+        self.assertEqual(parameters["full_wave_resonance_hints_hz"], [3e9, 12e9])
+
+    def test_full_wave_sweep_runs_coarse_then_fine_resonance_pass(self) -> None:
+        parameters = {
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "full_wave_resolution_per_mm": 2.0,
+            "full_wave_verify_resonances": True,
+            "full_wave_frequencies_hz": [1e9, 3e9, 10e9],
+            "full_wave_eqs_frequencies_hz": [1e9],
+            "full_wave_resonance_hints_hz": [3e9],
+        }
+        eqs_result = {
+            "samples": [{
+                "frequency_hz": 1e9,
+                "intrinsic_transfer": {"magnitude_db": -80.0, "phase_deg": 0.0},
+                "solve_seconds": 0.1,
+                "reciprocity_max_abs_s": 0.0,
+            }],
+            "mesh": {"cells": 10},
+        }
+
+        def fake_frequency(_parameters, frequency, resolution, save_field=False):
+            return {
+                "frequency_hz": frequency,
+                "resolution_per_mm": resolution,
+                "magnitude_db": -20.0 - 80.0 * abs(math.log(frequency / 3e9)),
+                "convergence": {"converged": True},
+                "saved_field": save_field,
+            }
+
+        with (
+            mock.patch.object(full_wave_meep_solver.admittance_fenicsx_solver, "solve_sweep", return_value=eqs_result),
+            mock.patch.object(full_wave_meep_solver, "solve_frequency", side_effect=fake_frequency) as solve_mock,
+            mock.patch.object(full_wave_meep_solver, "_import_meep", return_value=object()),
+            mock.patch.object(full_wave_meep_solver, "build_geometry", return_value=([], [])),
+        ):
+            result = full_wave_meep_solver.solve_sweep(parameters)
+
+        self.assertEqual(len(result["coarse_samples"]), 3)
+        self.assertEqual(len(result["refined_samples"]), 7)
+        self.assertEqual(result["coarse_resolution_per_mm"], 1.0)
+        self.assertEqual(result["resolution_per_mm"], 2.0)
+        self.assertEqual(len(result["resonance_verification"]["verified_resonances"]), 1)
+        self.assertTrue(result["all_frequency_points_converged"])
+        self.assertEqual([call.args[2] for call in solve_mock.call_args_list[:3]], [1.0, 1.0, 1.0])
+        self.assertTrue(all(call.args[2] == 2.0 for call in solve_mock.call_args_list[3:]))
+
     def test_checked_in_eqs_sweep_and_validation_are_finite(self) -> None:
         root = Path(__file__).resolve().parents[2]
         result = json.loads(
@@ -93,11 +209,43 @@ class FieldBackendTests(unittest.TestCase):
         index = (root / "presentations" / "web" / "index.html").read_text(encoding="utf-8")
         app = (root / "presentations" / "web" / "app.js").read_text(encoding="utf-8")
         eqs = (root / "presentations" / "web" / "default-eqs-sweep.js").read_text(encoding="utf-8")
+        full_wave_text = (root / "presentations" / "web" / "default-full-wave.js").read_text(encoding="utf-8")
         self.assertIn('src="default-eqs-sweep.js', index)
+        self.assertIn('src="default-full-wave.js', index)
         self.assertIn('value="annealed_copper"', index)
         self.assertIn('value="titanium_grade_2"', index)
         self.assertIn('value="mocu_70_30"', index)
+        self.assertIn('<option value="epoxy">Epoxy (same as potting fill)</option>', index)
+        self.assertNotIn('value="sux"', index)
+        self.assertNotIn('value="en-sc-1840"', index)
+        self.assertIn("Full-Field Noise Transmission to First Resonance", index)
+        self.assertIn("Reference Design", index)
         self.assertIn("function drawEqsSlide", app)
+        self.assertIn("function drawFullWaveSlide", app)
+        self.assertIn("function drawSimulationChainSlide", app)
+        self.assertIn('id="slideSimulationChainCanvas"', index)
+        self.assertIn('id="full_wave_verify_resonances"', index)
+        self.assertIn('id="fullWaveActualTime"', index)
+        self.assertIn("function fullWaveResonanceHints", app)
+        self.assertIn('id="noise_fano_factor"', index)
+        self.assertNotIn('id="noise_observed_resolution_fwhm_kev"', index)
+        self.assertIn("const GE_FANO_MEASUREMENTS", app)
+        self.assertIn("const FANO_TARGET_FRACTION = 0.1", app)
+        self.assertNotIn("observedExcessSigmaEv", app)
+        full_wave = json.loads(full_wave_text.split("=", 1)[1].strip().rstrip(";"))
+        result = full_wave["result"]
+        self.assertTrue(result["all_frequency_points_converged"])
+        self.assertGreaterEqual(len(result["samples"]), 4)
+        for sample in result["samples"]:
+            self.assertTrue(sample["convergence"]["converged"])
+            self.assertLess(sample["convergence"]["final_residual"], 1e-4)
+            self.assertAlmostEqual(sum(sample["outward_flux_fraction"].values()), 1.0)
+        bundled_frequencies = [sample["frequency_hz"] for sample in result["samples"]]
+        self.assertTrue(set(full_wave_meep_solver.DEFAULT_FREQUENCIES_HZ).issubset(bundled_frequencies))
+        self.assertEqual(result["eqs_samples"][0]["frequency_hz"], 50.0)
+        self.assertGreaterEqual(result["eqs_samples"][-1]["frequency_hz"], 100e6)
+        self.assertEqual(full_wave_meep_solver.DEFAULT_FREQUENCIES_HZ, (1e9, 3e9, 10e9, 30e9))
+        self.assertEqual(full_wave_meep_solver.DEFAULT_EQS_FREQUENCIES_HZ[-1], 1e9)
         self.assertIn("function drawIntrinsicComparisonSlide", app)
         self.assertNotIn('id="slideIntrinsicSpiceCanvas"', index)
         self.assertIn("Intrinsic filter, EM ports", app)
@@ -346,7 +494,7 @@ class FieldBackendTests(unittest.TestCase):
         })
         self.assertAlmostEqual(
             fenicsx_solver._analytic_parallel_plate_cpar_pf(params),
-            0.2691060599222756,
+            0.3550129944359252,
         )
 
     def test_cpar_gap_validation_geometry_survives_normalization(self) -> None:
@@ -434,8 +582,27 @@ class FieldBackendTests(unittest.TestCase):
         }))
 
         self.assertEqual(calculated["stageResistanceOhm"], 12e6)
-        self.assertAlmostEqual(calculated["parasiticPf"], 0.26764333479608754)
-        self.assertAlmostEqual(entered["parasiticPf"], 0.42104550860163364)
+        self.assertAlmostEqual(calculated["parasiticPf"], 0.32195023865519884)
+        self.assertAlmostEqual(entered["parasiticPf"], 0.47535241246074494)
+
+    def test_direct_stage_capacitance_calibrates_core_permittivity(self) -> None:
+        params = axisymmetric_model.normalize_parameters({
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "use_direct_stage_capacitance": True,
+            "melf_stage_parasitic_pf": 0.3,
+        })
+        radius_mm = params["core_od_mm"] / 2.0
+        area_mm2 = math.pi * radius_mm**2
+        length_mm = axisymmetric_model.stage_core_length_mm(params)
+        recovered_pf = (
+            axisymmetric_model.EPSILON_0_PF_PER_MM
+            * axisymmetric_model.core_capacitance_epsr(params)
+            * area_mm2
+            / length_mm
+        )
+
+        self.assertAlmostEqual(recovered_pf, 0.3)
+        self.assertGreater(spice_ladder.circuit_estimates(params)["parasiticPf"], recovered_pf)
 
     def test_spice_uses_node_resolved_fea_capacitance_network(self) -> None:
         params = axisymmetric_model.normalize_parameters({
@@ -467,6 +634,45 @@ class FieldBackendTests(unittest.TestCase):
         self.assertIn("Cpar2 n0 n2 2e-13", netlist)
         self.assertIn("Cpar3 n1 n2 2e-12", netlist)
         self.assertTrue(math.isfinite(abs(spice_ladder.ladder_transfer(circuit, params, 50.0))))
+
+    def test_spice_uses_fea_terminal_capacitance_network(self) -> None:
+        params = axisymmetric_model.normalize_parameters({
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "plate_pairs": 2,
+        })
+        circuit = spice_ladder.circuit_with_capacitance_network(
+            spice_ladder.circuit_estimates(params),
+            params,
+            {
+                "method": "test-electrical-maxwell-matrix",
+                "node_ground_pf": [10.0, 10.0],
+                "mutual_pf_matrix": [[0.0, 1.0], [1.0, 0.0]],
+                "electrical_node_ground_pf": [0.4, 10.0, 10.0, 0.4],
+                "electrical_mutual_pf_matrix": [
+                    [0.0, 0.6, 0.1, 0.02],
+                    [0.6, 0.0, 1.0, 0.1],
+                    [0.1, 1.0, 0.0, 0.6],
+                    [0.02, 0.1, 0.6, 0.0],
+                ],
+            },
+        )
+
+        self.assertEqual(circuit["inputPortGroundCapPf"], 0.4)
+        self.assertEqual(circuit["outputPortGroundCapPf"], 0.4)
+        self.assertEqual(circuit["inputPortMutualPfByBias"], [0.6, 0.1])
+        self.assertEqual(circuit["outputPortMutualPfByBias"], [0.1, 0.6])
+        self.assertEqual(circuit["inputOutputMutualPf"], 0.02)
+        netlist = spice_ladder.netlist_text(
+            circuit,
+            params,
+            include_load=False,
+            instrument_ports=True,
+        )
+        self.assertIn("CportInG src 0 4e-13", netlist)
+        self.assertIn("CportOutG out 0 4e-13", netlist)
+        self.assertIn("CportInBias0 src n0 6e-13", netlist)
+        self.assertIn("CportOutBias1 out n1 6e-13", netlist)
+        self.assertIn("CportInOut src out 2e-14", netlist)
 
     def test_additional_ground_capacitance_augments_cg_without_changing_cpar(self) -> None:
         params = axisymmetric_model.normalize_parameters({
@@ -548,6 +754,50 @@ class FieldBackendTests(unittest.TestCase):
         legacy_circuit = spice_ladder.circuit_estimates(legacy)
         self.assertEqual(spice_ladder.series_resistance_ohm(legacy, legacy_circuit, "output"), 50.0)
 
+    def test_matched_end_resistance_reuses_discrete_r_or_bulk_conductivity(self) -> None:
+        base = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        direct = axisymmetric_model.normalize_parameters({
+            **base,
+            "use_direct_stage_circuit": True,
+            "melf_stage_resistance_mohm": 12.0,
+            "input_series_matches_stage": True,
+            "output_series_matches_stage": True,
+        })
+        direct_circuit = spice_ladder.circuit_estimates(direct)
+        self.assertEqual(spice_ladder.series_resistance_ohm(direct, direct_circuit, "input"), 12e6)
+        self.assertEqual(spice_ladder.series_resistance_ohm(direct, direct_circuit, "output"), 12e6)
+
+        material = axisymmetric_model.normalize_parameters({
+            **base,
+            "core_material": "type61",
+            "use_direct_stage_circuit": False,
+            "input_series_matches_stage": True,
+            "output_series_matches_stage": True,
+        })
+        material_circuit = spice_ladder.circuit_estimates(material)
+        expected_ratio = (
+            axisymmetric_model.end_core_length_mm(material)
+            / axisymmetric_model.stage_core_length_mm(material)
+        )
+        self.assertAlmostEqual(
+            spice_ladder.series_resistance_ohm(material, material_circuit, "input")
+            / material_circuit["stageResistanceOhm"],
+            expected_ratio,
+        )
+        self.assertAlmostEqual(
+            spice_ladder.series_resistance_ohm(material, material_circuit, "output")
+            / material_circuit["stageResistanceOhm"],
+            expected_ratio,
+        )
+        self.assertAlmostEqual(
+            material["input_series_resistance_mohm"] * 1e6,
+            axisymmetric_model.matched_end_series_resistance_ohm(material),
+        )
+        self.assertAlmostEqual(
+            material["output_series_resistance_ohm"],
+            axisymmetric_model.matched_end_series_resistance_ohm(material),
+        )
+
     def test_isolated_single_stage_analytic_transfer_matches_full_mna(self) -> None:
         params = axisymmetric_model.normalize_parameters({
             **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
@@ -578,7 +828,7 @@ class FieldBackendTests(unittest.TestCase):
         self.assertNotIn("Tload", unloaded_netlist)
         self.assertNotIn("Cdet", unloaded_netlist)
         self.assertNotIn("Rload", unloaded_netlist)
-        self.assertNotIn("Rout", unloaded_netlist)
+        self.assertIn("Rout", unloaded_netlist)
         loaded_db = spice_ladder.attenuation_db(
             spice_ladder.ladder_transfer(circuit, params, 50.0, "transmission_line")
         )
@@ -586,6 +836,34 @@ class FieldBackendTests(unittest.TestCase):
             spice_ladder.ladder_transfer(circuit, params, 50.0, "none")
         )
         self.assertGreater(loaded_db, unloaded_db)
+
+    def test_50_ohm_instrument_curve_is_through_normalized(self) -> None:
+        params = axisymmetric_model.normalize_parameters({
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "plate_pairs": 1,
+            "input_series_matches_stage": False,
+            "input_series_resistance_mohm": 0.0,
+            "output_series_matches_stage": False,
+            "output_series_resistance_ohm": 0.0,
+        })
+        circuit = {
+            **spice_ladder.circuit_estimates(params),
+            "nodeGroundCapacitancesPf": [0.0],
+            "mutualCapacitanceMatrixPf": [[0.0]],
+        }
+        measured = spice_ladder.ladder_transfer(circuit, params, 1e3, "instrument_50ohm")
+        self.assertAlmostEqual(abs(measured), 1.0, places=10)
+        self.assertAlmostEqual(spice_ladder.attenuation_db(measured), 0.0, places=9)
+
+        instrument_netlist = spice_ladder.netlist_text(
+            circuit,
+            params,
+            include_load=False,
+            instrument_ports=True,
+        )
+        self.assertIn("Rsource50 gen n0 50", instrument_netlist)
+        self.assertIn("Rmeasure50 n0 0 50", instrument_netlist)
+        self.assertNotIn("Tload", instrument_netlist)
 
     def test_loaded_stage_multiplication_error_grows_with_stage_count(self) -> None:
         base = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
@@ -816,7 +1094,7 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn('src="default-fenicsx-field.js?', index)
                 self.assertIn('id="slideTocList"', index)
                 self.assertNotIn('SPICE Transfer Without Cable or Output Load', index)
-                self.assertIn('Field Solve Matches the Intrinsic SPICE Transfer', index)
+                self.assertIn('Electroquasistatic FEA Checks the Distributed RC Model', index)
                 self.assertIn('From Damped Resonances to Field-Derived Transfer', index)
                 self.assertIn('src="default-eqs-sweep.js?', index)
                 self.assertIn('id="slideEqsCanvas"', index)
@@ -935,7 +1213,7 @@ class FieldBackendTests(unittest.TestCase):
             try:
                 manifest = self._get_json(base_url + "/api/artifacts")
                 self.assertEqual(manifest["status"], "ok")
-                self.assertEqual(manifest["totalCount"], 8)
+                self.assertEqual(manifest["totalCount"], 9)
                 available = [item for item in manifest["files"] if item["available"]]
                 self.assertTrue(available)
                 self.assertNotIn("axisymmetric_model.py", {item["name"] for item in manifest["files"]})
@@ -998,9 +1276,13 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn("fullTline", first)
                 self.assertIn("fullLumped", first)
                 self.assertIn("fullUnloaded", first)
+                self.assertIn("instrument50Ohm", first)
                 self.assertIn("scaledStage", first)
                 self.assertGreaterEqual(payload["summary"]["at50Hz"]["fullTlineAttenuationDb"], 0.0)
                 self.assertGreaterEqual(payload["summary"]["at50Hz"]["fullUnloadedAttenuationDb"], 0.0)
+                self.assertGreaterEqual(payload["summary"]["at50Hz"]["instrument50OhmAttenuationDb"], 0.0)
+                self.assertIn("Rsource50", payload["instrumentNetlist"])
+                self.assertIn("Rmeasure50", payload["instrumentNetlist"])
             finally:
                 server.shutdown()
                 server.server_close()
@@ -1031,6 +1313,44 @@ class FieldBackendTests(unittest.TestCase):
                 submitted = solve_mock.call_args.args[0]
                 self.assertEqual(submitted["thermal_min_temperature_c"], -20.0)
                 self.assertEqual(submitted["thermal_mesh_size_mm"], 0.2)
+            finally:
+                server.shutdown()
+                server.server_close()
+                state.stop()
+                thread.join(timeout=2.0)
+
+    def test_full_wave_endpoint_returns_maxwell_result(self) -> None:
+        with self._temporary_job_dir() as temp_dir:
+            state = field_backend.BackendState(field_backend.DEFAULT_STATIC_DIR, Path(temp_dir))
+            server = ThreadingHTTPServer(("127.0.0.1", 0), field_backend.make_handler(state))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base_url = f"http://127.0.0.1:{server.server_port}"
+            mocked_result = {
+                "status": "completed",
+                "solver": "meep-axisymmetric-full-wave",
+                "samples": [{"frequency_hz": 1e9, "magnitude_db": -60.0}],
+            }
+            try:
+                with mock.patch.object(field_backend, "solve_full_wave_subprocess", return_value=mocked_result) as solve_mock:
+                    payload = self._post_json(
+                        base_url + "/api/full-wave-solve",
+                        {"parameters": {
+                            "full_wave_resolution_per_mm": 2.0,
+                            "full_wave_timeout_hours": 48.0,
+                            "full_wave_frequencies_hz": [1e9, 2e9],
+                        }},
+                    )
+                    self.assertEqual(payload["status"], "queued")
+                    for _ in range(100):
+                        completed = self._get_json(base_url + f"/api/full-wave-solve/{payload['job_id']}")
+                        if completed["status"] == "complete":
+                            break
+                        time.sleep(0.01)
+                self.assertEqual(completed["result"], mocked_result)
+                self.assertEqual(solve_mock.call_args.args[0]["full_wave_resolution_per_mm"], 2.0)
+                self.assertEqual(solve_mock.call_args.args[0]["full_wave_timeout_hours"], 48.0)
+                self.assertEqual(solve_mock.call_args.args[0]["full_wave_frequencies_hz"], [1e9, 2e9])
             finally:
                 server.shutdown()
                 server.server_close()
@@ -1101,6 +1421,30 @@ class FieldBackendTests(unittest.TestCase):
         self.assertEqual(field_backend.axisymmetric_model.material_region(params, washer_inner + 0.01, z_mid), "washer")
         self.assertEqual(field_backend.axisymmetric_model.material_region(params, washer_outer - 0.01, z_mid), "washer")
         self.assertEqual(field_backend.axisymmetric_model.material_region(params, washer_outer + 0.01, z_mid), "epoxy")
+
+    def test_epoxy_washer_choice_is_one_continuous_material_region(self) -> None:
+        raw_parameters = self._small_parameters()
+        raw_parameters.update({
+            "washer_material": "epoxy",
+            "washer_epsr": 10.0,
+            "epoxy_epsr": 4.2,
+        })
+        params = field_backend.sanitized_parameters(raw_parameters)
+        washer_inner, washer_outer = field_backend.axisymmetric_model.washer_radial_bounds(params)
+        gap_z0, gap_z1 = field_backend.axisymmetric_model.washer_gap_intervals(params)[0]
+        z_mid = 0.5 * (gap_z0 + gap_z1)
+        r_mid = 0.5 * (washer_inner + washer_outer)
+
+        self.assertEqual(params["washer_epsr"], params["epoxy_epsr"])
+        self.assertEqual(field_backend.axisymmetric_model.material_region(params, r_mid, z_mid), "epoxy")
+        self.assertFalse(any(
+            component["material"] == "washer"
+            for component in field_backend.axisymmetric_model.component_profiles(params)
+        ))
+        self.assertEqual(
+            field_backend.thermal_fenicsx_solver._mechanical_material(params, r_mid, z_mid),
+            "epoxy",
+        )
 
     def _small_parameters(self) -> dict[str, float | int | bool]:
         params = field_backend.load_default_parameters()

@@ -6,6 +6,13 @@
 - Detector current: typically sub-nA for LEGEND and similar detector bias applications.
 - Series resistance target: approximately 100 Mohm to low Gohm.
 - Filtering should reduce bias noise while avoiding excess parasitic capacitance around the resistive core.
+- Judge filtering by the RMS reconstructed-energy contribution after the
+  complete loaded ladder and production digital energy filter, not by a single
+  high-frequency attenuation target. The provisional subsystem allocation is
+  `0.1` times the Ge-76 endpoint Fano RMS width.
+- Preserve coherent 50/60 Hz lines separately from broadband PSD during noise
+  integration. Pickup coupled downstream of the bias filter requires a
+  separate budget.
 - Track the RC ladder values: per plate-pair capacitance, per-node capacitance to ground, resistance between adjacent bias plates, and bias-to-bias parasitic capacitance.
 - At high frequency, track the approximate capacitive feedthrough ratio `C_parasitic / C_ground`; see `rc-network.md`.
 - Do not size bias-path resistors as if they must hold the full 6 kV DC supply in normal operation. Their steady drop is set by detector load current times resistance; see `resistor-voltage-stress.md`.

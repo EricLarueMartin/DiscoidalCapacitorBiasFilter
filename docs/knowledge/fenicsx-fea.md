@@ -28,7 +28,7 @@ The JavaScript/Python finite-difference solvers use the correct cylindrical r-z 
 - Every solve returns the normalized parameter set, serialized r-z component profiles, and imposed conductor boundary potentials as an authoritative model record. The CAD, FEA-region, potential, and electric-field review views draw from that returned record rather than rebuilding geometry independently from the browser controls.
 - The material map is z-dependent: flat washer slabs occupy only the axial gaps between adjacent plate faces, while epoxy fills the rounded-edge pockets, core-side gap, tube-side gap, and other non-washer voids.
 - Result payloads include a neighborhood-supported peak field, a raw point maximum, dielectric-region peaks, and peak-quality diagnostics.
-- Result payloads also include a circuit capacitance network. In repeated-cell screening mode, the two solved regions provide the all-bias total; end/interior `Cg` entries are a regional allocation and adjacent `Cpar` uses the local analytical screen. Exact reference mode uses separate full-domain unit basis fields and cross-energy integrals to recover node-resolved `Cg,i` and `Cpar,i,j`.
+- Result payloads also include a circuit capacitance network. In repeated-cell screening mode, the two solved regions provide the all-bias total; end/interior `Cg` entries are a regional allocation and adjacent `Cpar` uses the local analytical screen. Exact reference mode uses separate full-domain unit basis fields and cross-energy integrals to recover the complete Maxwell matrix for the input terminal, every bias plate, and the output terminal.
 - For the equal-voltage all-bias excitation, the exact `mirror_half` reference strategy meshes one physical end through the center of the middle plate. The center cut uses the weak form's natural zero-normal-flux boundary condition, energy is doubled, and sampled fields are mirrored back to the full-stack browser grid. `full_stack` remains available for regression comparisons.
 - This is exact mirror symmetry only for an excitation that is itself even under reflection. It is not a periodic-cell assumption; arbitrary single-node basis excitations require the full domain, and arbitrary interior cells retain small global end effects.
 
@@ -70,10 +70,11 @@ C_total = 2 U / V^2
 ```
 
 In exact-reference mode, the capacitance solve extracts a full physical
-capacitor network for the bias nodes and treats the resistive core as
-dielectric. For each node `i`, FEniCSx
-solves a unit basis field `phi_i`: node `i` is at 1 V and every other bias and
-ground conductor is at 0 V. The Maxwell coefficients are then assembled
+capacitor network and treats the resistive core as dielectric. The electrical
+nodes are the exposed input core face, every solid bias plate, and the exposed
+output core face. For each node `i`, FEniCSx solves a unit basis field `phi_i`:
+node `i` is at 1 V and every other electrical node and ground conductor is at
+0 V. The Maxwell coefficients are then assembled
 directly from the basis fields:
 
 ```text
@@ -86,11 +87,19 @@ Cg,i = sum(j) Cij
 ```
 
 This cross-energy form avoids subtracting two large, nearly equal stored-energy
-results to recover a much smaller mutual capacitance. An all-bias excitation
-independently checks `sum(Cg,i)`. The complete extraction therefore requires
-`N + 1` solves for `N` bias nodes: one solve per basis field plus the all-bias
-check. At the current six-node UI limit that is seven solves on one conforming
-full-stack mesh.
+results to recover a much smaller mutual capacitance. An all-electrical-node
+excitation independently checks the sum of all direct-to-ground row terms. For
+`N` bias plates there are `N + 2` electrical nodes, so a no-symmetry extraction
+requires `N + 3` solves: one per basis field plus the all-electrical check.
+Exact mirror symmetry reduces the independent basis fields to one member of
+each reflected pair while still reconstructing the complete matrix.
+
+The direct capacitance of a terminal to grounded metal is the row sum `Cg,i`,
+not its diagonal `Cii`. The diagonal also contains every mutual capacitance
+connected to that terminal. For the 2026-08-06 two-bias default solve, both end
+row sums are `0.250256 pF`; each end also couples `0.191884 pF` to the nearest
+bias plate, giving `Cii = 0.442140 pF`. The two terminal row sums agree exactly
+after exact mirror reconstruction.
 
 The browser passes either reconstructed screening network or exact-reference
 network to the SPICE endpoint. The repeated network has distinct end/interior

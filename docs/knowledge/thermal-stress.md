@@ -29,6 +29,25 @@ stress, a conservative upper bound, nor a prediction of separation. The
 current models do not calculate the temperature at which an epoxy-to-alumina
 or epoxy-to-copper interface opens and creates a void.
 
+## Continuous-epoxy gap sensitivity
+
+The washer-material menu includes a linked epoxy option that removes the
+distinct alumina washer and assigns the complete dielectric gap the selected
+potting-epoxy properties. A matched 0.30 mm default-geometry comparison used
+9,276 cells for the alumina model and 9,272 cells for the continuous-epoxy
+model. At 20 C, continuous epoxy reduced epoxy P99 maximum-principal tension
+from 31.741 to 27.208 MPa (-14.3%) and P99 axial tension from 29.489 to
+21.054 MPa (-28.6%). It increased P99 absolute r-z shear from 12.618 to
+13.675 MPa (+8.4%) and P99 von Mises stress from 24.671 to 25.589 MPa
+(+3.7%).
+
+This is a useful stress redistribution, not evidence that an all-epoxy design
+eliminates thermal risk. The core and metal interfaces remain, and the current
+perfect-bonded linear model still excludes cure shrinkage, viscoelastic
+relaxation, cohesive failure, solder joints, and void formation. Raw results
+and exact inputs are retained under
+`simulations/thermal/continuous-epoxy-study/`.
+
 ## What strength data are actually published for 9510?
 
 The MG Chemicals 9510 technical data sheet reports a cured tensile strength of

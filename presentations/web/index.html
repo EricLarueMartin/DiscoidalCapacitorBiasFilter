@@ -17,10 +17,11 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=2026-07-31-symmetric-cap-backup">
-    <script defer src="default-fenicsx-field.js?v=2026-08-01-default-exact-cap-spice"></script>
-    <script defer src="default-eqs-sweep.js?v=2026-08-01-intrinsic-comparison"></script>
-    <script defer src="app.js?v=2026-08-01-intrinsic-overlay"></script>
+    <link rel="stylesheet" href="style.css?v=2026-08-05-noise-budget-4">
+    <script defer src="default-fenicsx-field.js?v=2026-08-06-port-capacitance-1"></script>
+    <script defer src="default-eqs-sweep.js?v=2026-08-06-bundle-sync-1"></script>
+    <script defer src="default-full-wave.js?v=2026-08-06-bundle-sync-1"></script>
+    <script defer src="app.js?v=2026-08-06-port-capacitance-1"></script>
   </head>
   <body>
     <header class="topbar">
@@ -44,8 +45,6 @@
             <option value="en">English</option>
             <option value="fr">Français</option>
             <option value="de">Deutsch</option>
-            <option value="sux">𒅴𒂠 · Sumerian (experimental)</option>
-            <option value="en-sc-1840">South Carolina English, c. 1840</option>
           </select>
         </label>
       </div>
@@ -57,6 +56,7 @@
           <div class="control-tabs" role="tablist" aria-label="Design setting groups">
             <button class="control-tab active" type="button" role="tab" aria-selected="true" data-control-tab="electrical">Electrical</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="geometry">Geometry</button>
+            <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="noise">Noise</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="solver">Field FEA</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="thermal">Thermal</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="files">Files</button>
@@ -68,9 +68,9 @@
             <label id="core_resistivity_control" title="Log slider: resistance is derived as resistivity times core length divided by core area"><span>Core volume resistivity</span><output id="core_volume_resistivity_log10_ohm_cm_out"></output><input id="core_volume_resistivity_log10_ohm_cm" type="range" min="-3" max="12" step="0.1"></label>
             <label id="melf_stage_resistance_control" hidden title="Stage resistance is entered directly instead of derived from bulk resistivity and geometry"><span>Direct stage R</span><output id="melf_stage_resistance_mohm_out"></output><input id="melf_stage_resistance_mohm" type="range" min="1" max="1000" step="1"></label>
             <label title="Series resistance before the first bias plate. Zero ohms makes the first plate an ideal driven node."><span>Input series R</span><output id="input_series_resistance_mohm_out"></output><input id="input_series_resistance_mohm" type="range" min="0" max="1000" step="1"></label>
-            <label class="check" title="Set input series resistance equal to the current stage resistance."><input id="input_series_matches_stage" type="checkbox"> Input R = stage R</label>
+            <label class="check" title="Reuse the entered discrete stage resistance, or reuse the bulk core material conductivity over the input end geometry."><input id="input_series_matches_stage" type="checkbox"> Input matches stage definition</label>
             <label title="Series resistance after the final bias plate and before the cable/load, entered in ohms. Zero ohms connects the load directly to the final plate."><span>Output series R</span><output id="output_series_resistance_ohm_out"></output><input id="output_series_resistance_ohm" type="range" min="0" max="1000" step="1"></label>
-            <label class="check" title="Set output series resistance equal to the current stage resistance."><input id="output_series_matches_stage" type="checkbox"> Output R = stage R</label>
+            <label class="check" title="Reuse the entered discrete stage resistance, or reuse the bulk core material conductivity over the output end geometry."><input id="output_series_matches_stage" type="checkbox"> Output matches stage definition</label>
             <label title="Load conductance for the admittance estimate is Iload / Vbias."><span>Load current</span><output id="load_current_na_out"></output><input id="load_current_na" type="range" min="0" max="10" step="0.01"></label>
             <label title="Coax length connected at the filter output. The loaded ladder treats this as lumped cable capacitance."><span>Load cable length</span><output id="load_cable_length_m_out"></output><input id="load_cable_length_m" type="range" min="0" max="30" step="0.5"></label>
             <label title="Characteristic impedance used to infer lumped cable capacitance from length and velocity factor."><span>Load cable Z<sub>0</sub></span><output id="load_cable_impedance_ohm_out"></output><input id="load_cable_impedance_ohm" type="range" min="25" max="125" step="1"></label>
@@ -88,10 +88,11 @@
                 <option value="custom">Custom</option>
               </select>
             </label>
-            <label class="check" title="Use the entered per-stage resistance instead of deriving resistance from bulk resistivity and geometry."><input id="use_direct_stage_circuit" type="checkbox"> Enter stage R</label>
-            <label class="check" title="Use the entered resistor/package Cpar instead of calculating core capacitance from material and geometry. Epoxy coupling is still calculated separately."><input id="use_direct_stage_capacitance" type="checkbox"> Enter resistor C<sub>par</sub></label>
+            <label class="check" title="Use the entered R exactly in circuit models; field models fit an effective core conductivity sigma = L/(R A) to reproduce it."><input id="use_direct_stage_circuit" type="checkbox"> Enter stage R</label>
+            <label class="check" title="Enter package-only Cpar. Field models fit the core permittivity to reproduce it, while surrounding epoxy remains a separate capacitance path."><input id="use_direct_stage_capacitance" type="checkbox"> Enter resistor C<sub>par</sub></label>
             <label>Washer material
               <select id="washer_material">
+                <option value="epoxy">Epoxy (same as potting fill)</option>
                 <option value="fr4">FR4/G10</option>
                 <option value="macor">Macor</option>
                 <option value="alumina">Alumina</option>
@@ -105,6 +106,7 @@
             <label>Epoxy material
               <select id="epoxy_material">
                 <option value="mg_9510">MG Chemicals 9510</option>
+                <option value="stycast_2850ft_23lv">Stycast 2850FT + CAT 23LV</option>
                 <option value="mg_832fx">MG Chemicals 832FX</option>
                 <option value="mg_832fxt">MG Chemicals 832FXT</option>
                 <option value="mg_832fxc">MG Chemicals 832FXC</option>
@@ -147,7 +149,7 @@
             <label id="melf_stage_parasitic_control" hidden title="Entered resistor/package bias-to-bias capacitance. Epoxy coupling around the package is calculated separately."><span>Resistor C<sub>par</sub></span><output id="melf_stage_parasitic_pf_out"></output><input id="melf_stage_parasitic_pf" type="range" min="0.001" max="5" step="0.001"></label>
             <label id="melf_substrate_epsr_control" hidden title="Ceramic substrate permittivity for the geometric MELF capacitance model. Alumina is a reasonable default."><span>MELF substrate &epsilon;<sub>r</sub></span><output id="melf_substrate_epsr_out"></output><input id="melf_substrate_epsr" type="range" min="3" max="30" step="0.1"></label>
             <label id="melf_metal_fill_factor_control" hidden title="Fractional metal-film shielding estimate. Effective core permittivity is substrate epsr divided by 1 - fill factor."><span>MELF film fill</span><output id="melf_metal_fill_factor_out"></output><input id="melf_metal_fill_factor" type="range" min="0" max="0.9" step="0.01"></label>
-            <label><span>Washer &epsilon;<sub>r</sub></span><output id="washer_epsr_out"></output><input id="washer_epsr" type="range" min="2" max="200" step="0.1"></label>
+            <label id="washer_epsr_control"><span>Washer &epsilon;<sub>r</sub></span><output id="washer_epsr_out"></output><input id="washer_epsr" type="range" min="2" max="200" step="0.1"></label>
             <label><span>Epoxy &epsilon;<sub>r</sub></span><output id="epoxy_epsr_out"></output><input id="epoxy_epsr" type="range" min="2" max="8" step="0.1"></label>
             <label><span>RF compare frequency</span><output id="rf_compare_frequency_log10_mhz_out"></output><input id="rf_compare_frequency_log10_mhz" type="range" min="-3" max="4" step="0.1"></label>
             <label><span>Plate &sigma;</span><output id="plate_conductivity_log10_s_per_m_out"></output><input id="plate_conductivity_log10_s_per_m" type="range" min="5" max="8.2" step="0.05"></label>
@@ -165,6 +167,27 @@
               <span>Plate &delta; <strong id="plate_skin_depth_out">--</strong></span>
               <span>Tube &delta; <strong id="tube_skin_depth_out">--</strong></span>
             </div>
+          </div>
+
+          <div class="control-group control-panel" data-control-panel="noise" hidden>
+            <h2>Detector noise</h2>
+            <label><span>ADC sampling frequency</span><output id="noise_sample_rate_msps_out"></output><input id="noise_sample_rate_msps" type="range" min="1" max="250" step="0.1"></label>
+            <label><span>Waveform length</span><output id="noise_waveform_samples_out"></output><input id="noise_waveform_samples" type="range" min="512" max="32768" step="256"></label>
+            <label><span>Trap rise/fall</span><output id="noise_trap_rise_us_out"></output><input id="noise_trap_rise_us" type="range" min="0.5" max="30" step="0.1"></label>
+            <label><span>Trap flat top</span><output id="noise_trap_flat_us_out"></output><input id="noise_trap_flat_us" type="range" min="0" max="20" step="0.1"></label>
+            <label><span>Supply noise limit</span><output id="noise_supply_noise_pp_mv_out"></output><input id="noise_supply_noise_pp_mv" type="range" min="0" max="100" step="0.1"></label>
+            <label><span>Broadband lab pickup</span><output id="noise_lab_broadband_rms_mv_out"></output><input id="noise_lab_broadband_rms_mv" type="range" min="0" max="100" step="0.1"></label>
+            <label><span>Power-line pickup</span><output id="noise_mains_rms_mv_out"></output><input id="noise_mains_rms_mv" type="range" min="0" max="100" step="0.1"></label>
+            <label><span>Power-line frequency</span><output id="noise_mains_frequency_hz_out"></output><input id="noise_mains_frequency_hz" type="range" min="40" max="70" step="1"></label>
+            <label><span>Ge Fano factor</span><output id="noise_fano_factor_out"></output><input id="noise_fano_factor" type="range" min="0.05" max="0.15" step="0.0001"></label>
+            <div class="derived-dimensions" aria-label="Derived detector-noise values">
+              <span>Record duration <strong id="noiseRecordDuration">--</strong></span>
+              <span>Trap at mains <strong id="noiseTrapMainsAttenuation">--</strong></span>
+              <span>Predicted bias noise <strong id="noiseEquivalentEnergy">--</strong></span>
+              <span>Fano noise <strong id="noiseFanoLimit">--</strong></span>
+              <span>10% Fano target <strong id="noiseFanoTarget">--</strong></span>
+            </div>
+            <p class="solver-note">Supply and pickup values are provisional input-referred stress tests. Replace them with measured spectra and the current per-channel DSP settings before treating the result as a requirement.</p>
           </div>
 
           <div class="control-group control-panel" data-control-panel="geometry" hidden>
@@ -233,6 +256,48 @@
             </div>
             <p class="control-note" id="fieldFeaResourceLog">FEniCSx resource use is recorded with each solve.</p>
             <p class="control-note">Backend auto uses FEniCSx when ready and falls back to adaptive finite difference.</p>
+            <h2>Full-wave electromagnetic solver</h2>
+            <label title="Fine spatial resolution for the cylindrical MEEP Maxwell model, in grid cells per millimetre. With resonance verification enabled, the requested sweep first runs at half this resolution (but never below 1 cell/mm), then suspected resonances are bracketed at this resolution.">
+              <span>Full-wave cells / mm</span>
+              <output id="full_wave_resolution_per_mm_out"></output>
+              <input id="full_wave_resolution_per_mm" type="range" min="1" max="6" step="0.5">
+            </label>
+            <label title="Comma-separated low-frequency EQS sample points. Frequency suffixes such as Hz, kHz, MHz, and GHz are accepted.">
+              <span>EQS frequency points</span>
+              <input class="frequency-list-control" id="full_wave_eqs_frequencies" type="text" inputmode="text" value="50 Hz, 1 kHz, 1 MHz, 31.25 MHz, 100 MHz, 1 GHz">
+            </label>
+            <label title="Comma-separated cylindrical MEEP sample points. Include an overlap point shared with the EQS list and enough points above it to bracket the first resonance.">
+              <span>MEEP frequency points</span>
+              <input class="frequency-list-control" id="full_wave_frequencies" type="text" inputmode="text" value="1 GHz, 3 GHz, 10 GHz, 30 GHz">
+            </label>
+            <label class="check" title="Run the requested MEEP frequencies on a coarse grid, identify local maxima, add predictions from the low-loss coupled model, and solve seven fine-grid frequencies around each candidate. When zeta is below 1/sqrt(2), the matched RLC driven-response peak is shifted to fpeak = f0 sqrt(1 - 2 zeta^2); a more strongly damped mode has no amplitude peak. A resonance is reported as verified only when the fine solve brackets a local maximum with lower solved points on both sides."><input id="full_wave_verify_resonances" type="checkbox"> Verify resonances with fine solves</label>
+            <label title="Maximum wall-clock time allowed for one queued full-wave job. The job continues on the Pi if this browser tab is closed.">
+              <span>Full-wave timeout</span>
+              <output id="full_wave_timeout_hours_out"></output>
+              <input id="full_wave_timeout_hours" type="range" min="0.25" max="168" step="0.25">
+            </label>
+            <div class="actions solver-actions">
+              <button id="solveFullWave" type="button">Solve full-wave EM</button>
+            </div>
+            <div class="thermal-summary" aria-label="Full-wave electromagnetic memory use">
+              <span>Peak solver memory <strong id="fullWavePeakRss">Not solved</strong></span>
+              <span>Peak system memory used <strong id="fullWavePeakSystemMemory">--</strong></span>
+              <span>Lowest available memory <strong id="fullWaveLowestAvailableMemory">--</strong></span>
+              <span>Maximum swap used <strong id="fullWaveMaximumSwap">--</strong></span>
+              <span>Frequency points <strong id="fullWaveFrequencyCount">--</strong></span>
+              <span>Estimated solve time <strong id="fullWaveTimeEstimate">--</strong></span>
+              <span>Configured timeout <strong id="fullWaveTimeoutReadout">--</strong></span>
+              <span>Actual solve time <strong id="fullWaveActualTime">Not solved</strong></span>
+            </div>
+            <p class="control-note" id="fullWaveResourceLog">Full-wave resource use is recorded with each solve.</p>
+            <div class="thermal-warning" id="fullWaveStatus" role="status">Run the full-wave solve to include magnetic induction and fields escaping into free space.</div>
+            <div class="solver-explainer">
+              <strong>Full-wave model scope</strong>
+              <p>The displayed full-field sweep starts at 50 Hz using the FEniCSx electroquasistatic Maxwell limit. MEEP takes over at the shared 1 GHz overlap point. Optional resonance verification uses a coarse sweep followed by fine logarithmic brackets around measured peaks and low-loss RLC predictions.</p>
+              <p>The structure can be electrically small and still couple through fringing electric fields, common-mode currents, leads, and apertures. The grounded tube is therefore part of the electromagnetic model, not merely a cavity-resonance precaution.</p>
+              <p>Each core section receives its own effective conductivity, &sigma; = L/(RA). The input section uses the entered input resistance, every interior section uses the stage resistance, and the output section uses the entered output resistance.</p>
+              <p>The MEEP branch includes only rotationally symmetric <em>m</em> = 0 fields. Leads, a helical MELF film, and asymmetric antenna or cavity modes require a later 3D solve.</p>
+            </div>
             <div class="solver-explainer">
               <strong>What the repeating-cell approximation solves</strong>
               <p>FEniCSx meshes and solves only two unique axial regions:</p>
@@ -249,7 +314,7 @@
           <div class="control-group control-panel" data-control-panel="thermal" hidden>
             <h2>Thermal bond analysis</h2>
             <label title="A what-if assembly temperature for evaluating thermally induced stress; this is not a design target."><span>Temperature to evaluate</span><output id="thermal_min_temperature_c_out"></output><input id="thermal_min_temperature_c" type="range" min="-80" max="30" step="1"></label>
-            <label title="MG Chemicals does not publish Young's modulus for 9510. The saved calculation preserves a 2 to 4 GPa sensitivity range."><span>Assumed epoxy E</span><output id="thermal_epoxy_modulus_gpa_out"></output><input id="thermal_epoxy_modulus_gpa" type="range" min="2" max="4" step="0.1"></label>
+            <label title="The cited MG 9510 and Stycast 2850FT/CAT 23LV data sheets do not publish Young's modulus. The saved calculation preserves a 2 to 4 GPa sensitivity range."><span>Assumed epoxy E</span><output id="thermal_epoxy_modulus_gpa_out"></output><input id="thermal_epoxy_modulus_gpa" type="range" min="2" max="4" step="0.1"></label>
             <label title="Dimensionless fraction of the radial and circumferential (hoop) thermal-mismatch strains prevented in the closed-form plane-stress baseline. It assumes equal radial and hoop stress while axial and r-z shear stress are zero. k = 1 is not an upper bound on local FEA stress."><span>Radial + hoop restraint k</span><output id="thermal_restraint_factor_out"></output><input id="thermal_restraint_factor" type="range" min="0.25" max="1" step="0.05"></label>
             <label title="Target element size for the axisymmetric thermoelastic FEniCSx mesh."><span>Thermal FEA mesh</span><output id="thermal_mesh_size_mm_out"></output><input id="thermal_mesh_size_mm" type="range" min="0.1" max="1" step="0.05"></label>
             <div class="actions solver-actions">
@@ -284,7 +349,7 @@
               <p>This is a closed-form thermal-mismatch estimate, not a thermal-stress FEA. Below the 9510 glass transition at 70&nbsp;&deg;C, the rigid cured epoxy wants to contract much more than alumina or copper. The estimate uses &sigma; = kE&Delta;&alpha;&Delta;T/(1 &minus; &nu;) and compares it with the published 20&nbsp;MPa cured tensile strength.</p>
               <p><em>k</em> is the fraction of radial and circumferential (hoop) mismatch strain prevented in the closed-form approximation. It assumes &sigma;<sub>rr</sub> = &sigma;<sub>&theta;&theta;</sub> and &sigma;<sub>zz</sub> = &sigma;<sub>rz</sub> = 0. It is not a prescribed surface shift, and it does not control the FEA.</p>
               <p>Axisymmetry removes variation with circumferential angle, but radial displacement still changes circumference, so hoop strain and stress remain. The FEA includes &sigma;<sub>rr</sub>, &sigma;<sub>zz</sub>, &sigma;<sub>&theta;&theta;</sub>, and &sigma;<sub>rz</sub>. Local three-direction confinement can therefore exceed the radial-plus-hoop plane-stress baseline. At <em>k</em> = 0.5, the 20 MPa bulk-strength proxy crossing moves to <strong id="thermalHalfRestraintOnset">--</strong>.</p>
-              <p>The FEniCSx model solves the selected plate and tube conductors, alumina, epoxy, and core solids with axisymmetric linear elasticity and exact center-plane symmetry. Its interfaces are perfectly bonded, so it reports epoxy stress but cannot predict separation. A separation-temperature solve requires cohesive interface laws and adhesion or fracture data for the actual material pairs and surface preparations.</p>
+              <p>The FEniCSx model solves the selected plate and tube conductors, core, epoxy, and any distinct solid washer with axisymmetric linear elasticity and exact center-plane symmetry. Selecting an epoxy-filled gap removes the washer material interface. All remaining interfaces are perfectly bonded, so the model reports epoxy stress but cannot predict separation. A separation-temperature solve requires cohesive interface laws and adhesion or fracture data for the actual material pairs and surface preparations.</p>
               <p>The published 3.9% cure shrinkage is not added as elastic strain because the locked-in fraction after gel is unknown. Any retained cure stress reduces the available cold margin.</p>
               <p><a href="https://mgchemicals.com/downloads/tds/tds-9510.pdf">9510 TDS</a> &middot; <a href="https://www2.coorstek.com/media/4235/advanced-alumina.pdf">CoorsTek alumina</a> &middot; <a href="https://alloys.copper.org/alloy/C11000">C110 copper</a></p>
             </div>
@@ -373,6 +438,11 @@
               <span title="FEniCSx mutual capacitance between each adjacent pair of bias nodes, extracted from the full capacitance matrix. Values are listed in axial pair order.">FEA adjacent C<sub>par</sub></span>
               <strong id="feaParasiticCapacitance">--</strong>
               <small id="feaParasiticCapacitanceSource">axial pair order</small>
+            </div>
+            <div>
+              <span title="FEniCSx capacitance from the exposed input and output core-terminal electrodes directly to grounded metal. The terminal electrodes are included in the same Maxwell matrix as every bias plate, so their separate mutual capacitances to bias plates are also retained in SPICE. Exact mirror symmetry makes the two end values equal apart from numerical error.">FEA port C<sub>g</sub></span>
+              <strong id="feaPortGroundCapacitance">--</strong>
+              <small id="feaPortGroundCapacitanceSource">input / output</small>
             </div>
             <div>
               <span title="Load resistance inferred from the DC bias voltage and the selected load current.">Load R</span>
@@ -575,6 +645,7 @@
               <li>Exact mode uses the extracted Maxwell network; repeated mode uses the explicitly approximate screening network.</li>
               <li>The loaded curve includes the cable transmission line, detector capacitance, and DC load conductance once at the final node.</li>
               <li>The unloaded curve removes the cable and detector load to show voltage-noise attenuation at the bare filter output.</li>
+              <li>The 50 &Omega; test curve adds a tracking-generator source and analyzer load, including source mismatch without changing the filter input resistance.</li>
               <li>The intrinsic curve also removes the source-side network, matching the direct-drive, open-output ports used by the field solve.</li>
               <li>End resistors occur only where specified; the complete solve avoids multiplying an isolated one-section response.</li>
             </ul>
@@ -582,6 +653,41 @@
           <figure class="slide-figure">
             <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
             <figcaption>Complete RC ladder, including the intrinsic matched-port transfer used for the field-solve comparison</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Noise-based stopping point</p>
+            <h2>Bias Noise After the Energy Filter</h2>
+            <ul>
+              <li>A 2039 keV event creates about 689,000 electron-hole pairs, or 110 fC. The three-measurement weighted default F = 0.1145 gives about 0.831 keV rms of irreducible Fano fluctuation.</li>
+              <li>Bias noise is propagated through the complete loaded ladder and the selected discrete trapezoidal energy-filter response.</li>
+              <li>The public LEGEND reference estimator uses a 10 &micro;s rise and 4 &micro;s flat top; current production settings remain an input to confirm.</li>
+              <li>The design criterion is predicted bias-path noise below 0.10 times the calculated Fano RMS fluctuation; observed detector resolution is deliberately excluded.</li>
+              <li>The provisional source envelope remains deliberately adjustable because a peak-to-peak supply limit and an assumed laboratory pickup level do not define measured spectra.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideFanoNoiseCanvas" width="1100" height="620"></canvas>
+            <figcaption>Input-referred supply and pickup propagated through the RC ladder and trapezoidal energy estimator</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Geometry to expected performance</p>
+            <h2>From Full-Geometry FEA to SPICE</h2>
+            <ul>
+              <li>Electrostatic FEniCSx basis fields extract each bias node's C<sub>g</sub> and every mutual C<sub>par</sub> directly from the complete geometry.</li>
+              <li>A distributed electroquasistatic field solve agrees with the matched RC network within 0.62 dB through the saved 1 Hz&ndash;100 MHz sweep.</li>
+              <li>The axisymmetric full-wave result has no resonance-like feature through 1 GHz. An earlier exploratory sweep found a candidate wavelength-scale mode near 10 GHz, not RC agreement through 10 GHz.</li>
+              <li>The extracted capacitances and specified or geometry-derived resistances are used for the complete loaded SPICE ladder.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideSimulationChainCanvas" width="1100" height="620"></canvas>
+            <figcaption>Field-derived circuit values and the frequency regimes that control attenuation</figcaption>
           </figure>
         </article>
 
@@ -638,18 +744,37 @@
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Default geometry · matched open-circuit ports</p>
-            <h2>Field Solve Matches the Intrinsic SPICE Transfer</h2>
+            <h2>Electroquasistatic FEA Checks the Distributed RC Model</h2>
             <ul>
               <li>The input bias plate is fixed at 1 V, all interior plates float, and the output plate is measured open-circuit.</li>
               <li>No input resistor, output resistor, cable, detector capacitance, or load conductance appears in either curve.</li>
               <li>The complete complex admittance matrix comes from the distributed electric field and continuous resistive-core surrogate—not from inserted capacitances.</li>
               <li>At 1 kHz, FEniCSx gives -10.08 dB and intrinsic SPICE gives -10.03 dB; their worst saved difference is 0.62 dB.</li>
               <li>Reciprocity is exact numerically; the real admittance is passive; 1 kHz changes by only 0.00014 dB from 0.60 to 0.30 mm mesh.</li>
+              <li>This validates the electroquasistatic RC limit; it does not include magnetic induction, cavity modes, or radiation.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideEqsCanvas" width="1100" height="620"></canvas>
-            <figcaption>Open-circuit V<sub>out</sub>/V<sub>in</sub> from full-stack FEniCSx EQS and the matched intrinsic SPICE network</figcaption>
+            <figcaption>Open-circuit RC-limit comparison from full-stack electroquasistatic FEniCSx and matched-port SPICE</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Low-frequency field limit through first mode</p>
+            <h2>Full-Field Noise Transmission to First Resonance</h2>
+            <ul>
+              <li>The displayed full-field sweep starts at 50 Hz with the electroquasistatic Maxwell solution, which is the correct low-frequency limit for this millimetre-scale geometry.</li>
+              <li>At the shared 1 GHz overlap point it hands off to cylindrical <em>m</em> = 0 MEEP and continues logarithmically until the first local resonance is bracketed.</li>
+              <li>MEEP is normalized to the EQS transfer at 1 GHz because the present radial source is not yet an impedance-calibrated wave port.</li>
+              <li>Noise-power attenuation is &minus;10 log<sub>10</sub>(S<sub>out</sub>/S<sub>in</sub>) = &minus;20 log<sub>10</sub>|V<sub>out</sub>/V<sub>in</sub>| for the same voltage-noise reference.</li>
+              <li>The default design's first candidate mode is near 10 GHz. Leads, cable common mode, and non-axisymmetric modes still require 3D validation.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideFullWaveCanvas" width="1100" height="620"></canvas>
+            <figcaption>Log-frequency noise transmission from the power-line band to the first candidate full-wave mode</figcaption>
           </figure>
         </article>
 
@@ -704,7 +829,7 @@
             <ul>
               <li>The closed form assumes equal radial and hoop stress with zero axial and r-z shear stress.</li>
               <li>The FEA maximum-principal result combines radial, axial, hoop, and r-z shear stress and is the most limiting trend shown.</li>
-              <li>The +4&nbsp;&deg;C marker is where the closed-form stress crosses the published 20&nbsp;MPa bulk tensile strength; it is not a predicted separation temperature.</li>
+              <li>The 20&nbsp;MPa horizontal line is retained as a common bulk-strength comparison proxy from the 9510 data; it is not a Stycast tensile value or a predicted interface-separation temperature.</li>
               <li>FEA reports the 99th-percentile epoxy maximum-principal tensile stress; its raw material-corner peak remains mesh sensitive.</li>
               <li>9510 has no published bulk shear strength. Its substrate-specific lap-shear values cannot be used as the local FEA shear limit; the actual copper/alumina bonds need coupon data.</li>
               <li>The dashed <em>k</em> = 0.5 FEA trend is a linear stress-scaling sensitivity, not a second interface-compliance solve.</li>
@@ -782,18 +907,20 @@
 
         <article class="slide slide-visual prototype-geometry-slide">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Backup: prototype geometry</p>
-            <h2>One Geometry Accepts Either Core</h2>
+            <p class="eyebrow">Proposed prototype geometry</p>
+            <h2>Reference Design</h2>
             <ul>
               <li>Washer candidate: 6.6 mm ID, 20 mm OD, 1.5 mm thick alumina.</li>
               <li>Core-to-ground radial gap is 1.55 mm with 2.0 mm ferrite and 1.45 mm with the 2.2 mm MELF.</li>
               <li>The washer overlap gives 16.5 pF per washer, or 33.0 pF shunt capacitance per bias node.</li>
+              <li>Potting baseline: Stycast 2850FT with CAT 23LV, vacuum-degassed and cured 16&ndash;24 hours at room temperature.</li>
+              <li>Provide three or more radial fill/vent paths per washer; put locating pockets in the metal plates or specify custom green-machined/laser-cut alumina rather than hand-grooving fired stock.</li>
               <li>This is a fixed prototype reference; the earlier report slides continue to follow the current Designer inputs.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slidePrototypeGeometryCanvas" width="1100" height="620"></canvas>
-            <figcaption>Fixed copper and alumina envelope with interchangeable 2.0 and 2.2 mm inserts</figcaption>
+            <figcaption>Fixed copper/alumina envelope, CAT 23LV Stycast fill, and interchangeable 2.0 and 2.2 mm inserts</figcaption>
           </figure>
         </article>
 
@@ -967,7 +1094,7 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Backup: Cpar solver consistency</p>
+            <p class="eyebrow">Backup: C<sub>par</sub> solver consistency</p>
             <h2>Full, Mirror, and Repeated Models Agree</h2>
             <ul>
               <li>The reference meshes the complete stack and applies no symmetry to the extracted matrix.</li>
@@ -985,8 +1112,8 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Backup: Cpar analytical limit</p>
-            <h2>Cpar Converges Toward the Axial Approximation</h2>
+            <p class="eyebrow">Backup: C<sub>par</sub> analytical limit</p>
+            <h2>C<sub>par</sub> Converges Toward the Axial Approximation</h2>
             <ul>
               <li>Use three bias plates in a uniform &epsilon;<sub>r</sub> = 3.4 dielectric.</li>
               <li>Make the ground plate a narrow outer annulus and move it and the grounded tube radially outward.</li>
@@ -1003,7 +1130,7 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Backup: Cg end effects</p>
+            <p class="eyebrow">Backup: C<sub>g</sub> end effects</p>
             <h2>C<sub>g</sub> Matrix: Two vs Three Bias Plates</h2>
             <ul>
               <li>The two-bias matrix has one unique end-node basis field; the opposite end is its exact reflection.</li>
@@ -1021,8 +1148,8 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Backup: Cg solver consistency</p>
-            <h2>Cg Matrix Treatments Agree</h2>
+            <p class="eyebrow">Backup: C<sub>g</sub> solver consistency</p>
+            <h2>C<sub>g</sub> Matrix Treatments Agree</h2>
             <ul>
               <li>The campaign includes the previously omitted one-bias case, then two through five bias plates.</li>
               <li>The reference uses the complete stack with no matrix symmetry; exact mirror averages only reflected entries.</li>
@@ -1039,8 +1166,8 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Backup: Cg analytical limit</p>
-            <h2>Cg Converges Toward Two Flat Washers</h2>
+            <p class="eyebrow">Backup: C<sub>g</sub> analytical limit</p>
+            <h2>C<sub>g</sub> Converges Toward Two Flat Washers</h2>
             <ul>
               <li>Use one bias plate between two ground plates so center-plane mirror symmetry is exact.</li>
               <li>Use a 2.0 mm core, 2.2 mm ground ID, and uniform &epsilon;<sub>r</sub> = 3.4 dielectric.</li>
@@ -1057,7 +1184,7 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Backup: Cg validation audit trail</p>
+            <p class="eyebrow">Backup: C<sub>g</sub> validation audit trail</p>
             <h2>The Limiting-Case Harness Needed Correction</h2>
             <ul>
               <li>Initial three-bias wide-disc batches were stopped near 5.7 GiB RSS before swap or OOM.</li>

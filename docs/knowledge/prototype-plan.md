@@ -68,6 +68,79 @@ The 2.5 mm rod also fits the same washer and plate envelope, with a nominal
 1.30 mm core-to-ground radial gap, and can be retained as an alternate if its
 measured resistance is more useful.
 
+### Reference potting and assembly process
+
+The fixed reference design uses **LOCTITE STYCAST 2850FT with CAT 23LV**. The
+current Henkel TDS identifies CAT 23LV as the low-viscosity, long-pot-life,
+room-temperature catalyst. Published mixed properties are 5,600 cP at 25 C,
+one hour work life for a 100 g mass, and a 16 to 24 hour cure at 25 C. The same
+TDS reports relative permittivity 5.36, dielectric strength 14.8 kV/mm, room-
+temperature-cured Tg 40 C, pre-Tg CTE 39.4 ppm/C, Shore D92 hardness, and
+0.3% linear cure shrinkage. CAT 11 gives a four-hour work life but requires a
+heat cure, so it is not the reference catalyst.
+
+Henkel recommends vacuum deairing at 1 to 5 mm Hg until most bubbling stops,
+typically 3 to 10 minutes. The prior successful process of repeated pump-down
+and vent cycles is consistent with the goal, but the vent return cannot fill a
+sealed dead-end pocket. Fill from the lowest point, vent from the opposite high
+point, and keep an outer annular manifold open around the washer stack.
+
+The 1.5 mm stock washers need deliberate radial communication between inner
+and outer epoxy regions. For a prototype, use at least three equally spaced
+fill/vent paths per washer. Do not attempt ordinary end-mill machining on fired
+alumina. Suitable routes are:
+
+1. order custom washers with the channels green-machined before firing;
+2. have a ceramic supplier laser-machine or diamond-grind the fired washers;
+3. put shallow flow channels or metering features into the much easier-to-
+   machine metal parts, then include their edge radii in the electric-field
+   model.
+
+A starting vendor-discussion geometry is three radial channels at 120 degrees,
+approximately 0.2 to 0.3 mm deep and 0.8 to 1.2 mm wide, with generously
+rounded roots. This is not yet a released dimension: flow testing with the
+5,600 cP filled epoxy, ceramic strength review, capacitance correction, and
+field modeling are required. A groove through alumina replaces part of the
+high-permittivity washer with epoxy and introduces new dielectric interfaces.
+
+Prefer shallow concentric locating pockets in the bias plates to center the
+ends of each core section. They preserve axisymmetry and avoid adding a radial
+object between the HV core and grounded plate. If permanent pins are still
+needed, use smooth ceramic pins rather than metal or poorly bonded PTFE, give
+epoxy a continuous path around them, and add the pins explicitly to the
+electrostatic and capacitance geometry. Three radial pins touching the core and
+approaching the grounded plate are not electrically neutral: they create
+interfaces and can move the local peak field.
+
+Primary data: [Henkel STYCAST 2850FT/CAT 23LV TDS](https://datasheets.tdx.henkel.com/LOCTITE-STYCAST-2850FT-CAT-23LV-en_GL.pdf).
+
+### Continuous-epoxy construction branch
+
+The Designer also supports `washer_material = epoxy`. In this branch there is
+no mechanically distinct washer: the complete bias-to-ground gap and all
+rounded-edge pockets use the selected potting epoxy. Washer permittivity and
+provisional dielectric-strength guidance are linked to the epoxy selection,
+and the thermal mesh assigns the former washer volume epoxy properties. The
+washer ID and OD remain stored for reversible design comparison but do not
+create a material boundary in the field or thermal models.
+
+One candidate process is to solder or braze a self-supporting metal skeleton
+with deliberate flow and vent gaps, vacuum-immerse it in low-viscosity epoxy,
+then restore atmospheric pressure before cure. The pressure return can compress
+and help dissolve residual gas while the resin is liquid, but it cannot rescue
+a sealed dead-end pocket or guarantee that every microscopic void disappears.
+The fixture therefore needs continuous fill paths, upward vent paths, adequate
+spacing for viscous flow, and no trapped cups. Vacuum level and dwell must be
+qualified against resin foaming, volatile loss, and premature cooling.
+
+Flux and ionic residue are serious high-voltage risks. Prefer a fluxless or
+fully cleanable joining process, then verify cleaning and surface wetting on
+sectioned coupons. Cure shrinkage, metal-to-epoxy CTE mismatch, adhesion, and
+viscoelastic relaxation remain even after the alumina-washer interface is
+removed. The epoxy-filled model should therefore be compared with the alumina
+baseline using the thermal FEA and then validated by thermal-cycled, partial-
+discharge-tested coupons.
+
 ## Current circuit prediction
 
 For alumina `epsr = 10`, the washer overlap estimate gives:

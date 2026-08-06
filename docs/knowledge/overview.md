@@ -23,13 +23,16 @@ The proposed filter is cylindrical and approximately axisymmetric. It combines:
 3. Extract distributed complex admittance and noise versus frequency from the
    physical field model, retaining the FEA-capacitance SPICE ladder as the
    primary comparison.
-4. Quantify rotational-axisymmetry error with an exact 3D revolve followed by
+4. Propagate measured bias-supply and laboratory pickup spectra through the
+   ladder and the production trapezoidal energy estimator, then allocate the
+   resulting RMS energy against a calculated Ge Fano limit at the endpoint.
+5. Quantify rotational-axisymmetry error with an exact 3D revolve followed by
    controlled eccentricity, hole, void, grounding, and MELF perturbations.
-5. Simulate rounded plate edges and dielectric transitions.
-6. Prototype with simple screw-terminal input/output.
-7. Evaluate NiZn ferrite as a resistive core.
-8. Compare against a MELF resistor chain if ferrite noise, stability, or manufacturability is poor.
-9. Evolve the mechanical interface toward direct SHV bulkhead connectors.
+6. Simulate rounded plate edges and dielectric transitions.
+7. Prototype with simple screw-terminal input/output.
+8. Evaluate NiZn ferrite as a resistive core.
+9. Compare against a MELF resistor chain if ferrite noise, stability, or manufacturability is poor.
+10. Evolve the mechanical interface toward direct SHV bulkhead connectors.
 
 ## Current Status
 
@@ -53,13 +56,10 @@ The deployed FEniCSx solver passed a five-level rounded-edge mesh-convergence ch
 The field-map color scale is absolute electric field in V/mm. Dielectric breakdown values are displayed as reference/margin information only, so color intensity should now correspond directly to the colorbar scale.
 
 The web header includes a persistent language selector to the right of the
-light/dark control. English, French, and German cover the application chrome,
-major controls, viewer tabs, and presentation titles. The
-`𒅴𒂠`/Sumerian choice is explicitly experimental: it uses cuneiform for a
-small set of defensible navigation terms and leaves modern engineering
-vocabulary in English instead of inventing unattested ancient terminology.
-The South Carolina circa-1840 choice is a non-derogatory historical English
-register, not a racial caricature. The selection is stored under
+light/dark control. The visible choices are English, French, and German. The
+translation framework remains in place, but current slide development is
+English-first and incomplete translations are not being expanded. The
+selection is stored under
 `discoidal-capacitor-bias-filter-language`.
 
 Current Pi hostnames, IP addresses, checkout paths, and access URLs are deployment-local information. Keep them in ignored `.secrets/` notes and have the setup agent report the verified clickable URL after installation.

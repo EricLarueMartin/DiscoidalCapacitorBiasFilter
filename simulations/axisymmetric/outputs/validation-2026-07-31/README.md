@@ -13,7 +13,7 @@ not copied historical values. The six campaigns took approximately 18 minutes
 
 ## Provenance
 
-- Pi host: `pi-05-ioc.fel.duke.edu`
+- Compute host: Raspberry Pi deployment used for validation
 - Repository commit at run time: `119e2687942e7ba71e17084d1502e690a6593fe6`
 - `fenicsx_solver.py` SHA-256: `0ddd193e4d005836f6d2ba4842c3ad38fe162b573d9bf6376a3c31d72b318102`
 - `field_backend.py` SHA-256: `4b35b0b30b96f9d2dc7578004464c6090580817fdebf6293659ba9d5707b2dc1`

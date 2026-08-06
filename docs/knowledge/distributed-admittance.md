@@ -22,8 +22,9 @@ The required result is a multi-electrode field-derived matrix.
 
 ## Implemented First Model: Axisymmetric Electroquasistatics
 
-For dimensions of a few centimetres and the current 1 Hz to 100 MHz range, the
-first field model should be electroquasistatic (EQS), not a full-wave RF solve.
+For dimensions of a few centimetres and the current 1 Hz to 100 MHz circuit
+range, the first field model should be electroquasistatic (EQS), not a
+full-wave RF solve. The 62.5 MS/s ADC has a 31.25 MHz ordinary Nyquist edge.
 It retains spatially distributed conduction and displacement current while
 neglecting magnetic induction and radiation. Its strong form is
 
@@ -75,6 +76,73 @@ python3 software/bias_filter/admittance_fenicsx_solver.py \
 The current cable is a lumped capacitance in this EQS termination. That is a
 useful comparison through its electrically short range, not a substitute for
 a transmission-line or full-wave model at the high-frequency endpoint.
+
+## Implemented Axisymmetric Full-Wave Reference
+
+The first radiation-capable model is implemented in
+`software/bias_filter/full_wave_meep_solver.py` using MEEP's cylindrical
+full-wave Maxwell solver. It adds free space, PML absorption, magnetic
+induction, independently calibrated input/stage/output core conductivities,
+terminal-voltage probes, and outward Poynting-flux monitors. See
+[`full-wave-maxwell.md`](full-wave-maxwell.md) for the saved results, corrected
+monitor-coordinate issue, and validation limits.
+
+Electrical smallness is not evidence that shielding is irrelevant. A
+structure much shorter than a wavelength may still transfer energy through
+fringing electric fields, inductive/common-mode coupling, and electrically
+short leads or apertures. The displayed sweep begins at 50 Hz with EQS,
+hands off to overlap-normalized MEEP at the shared 1 GHz point, and continues until the first
+candidate local mode near 10 GHz is bracketed by the 30 GHz point. The
+grounded tube remains explicit in both field geometries.
+
+It is an `m = 0` rotationally symmetric reference, not the final 3D model.
+The following FEniCSx notes remain relevant to a later curl-conforming 3D
+implementation.
+
+## Future 3D Curl-Curl Extension
+
+FEniCSx can support the intended full-wave extension. DOLFINx provides
+curl-conforming Nedelec elements, Maxwell waveguide eigenmode examples, and
+electromagnetic scattering examples with perfectly matched layers. The filter
+model must solve the frequency-domain Maxwell curl-curl equation for vector
+electric and magnetic fields; the present scalar EQS equation cannot be
+relabelled as that result.
+
+Unspecified interior and exterior regions should default to free space
+(`epsilon_r = 1`, `mu_r = 1`, zero conductivity). Explicit epoxy, alumina,
+core, conductor, and ferrite regions override those values. Open exterior
+space requires a radiation boundary or PML so outward Poynting flux can be
+separated from conductor, dielectric, and core loss. A closed ideal ground
+tube has no radiation loss through its wall; energy can leave only through
+modeled openings, ports, or nonideal conductors.
+
+The first implementation should report input-to-output transfer, resonant
+frequencies and Q, stored electric and magnetic energy, dissipated power by
+material, and outward radiated power. An axisymmetric model is a useful first
+reference for rotationally symmetric modes, but a 3D solve is required for
+non-axisymmetric cavity/antenna modes, leads, connector openings, and the MELF
+film geometry.
+
+For an entered discrete resistance represented as a homogeneous surrogate,
+assign each modeled resistive volume an effective conductivity
+
+```text
+sigma_effective = L / (R_entered A)
+```
+
+so that its low-frequency terminal resistance is the specified value. If the
+user instead selects a bulk material, retain one common conductivity and let
+each region's resistance follow its own `L/A`. The input and output matching
+controls use this same distinction in the RC/SPICE model.
+
+Relevant DOLFINx references:
+
+- Maxwell waveguide eigenmode demo using curl-conforming elements:
+  https://docs.fenicsproject.org/dolfinx/v0.9.0/python/demos/demo_half_loaded_waveguide.html
+- Electromagnetic scattering with a perfectly matched layer:
+  https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_pml.html
+- Axisymmetric electromagnetic scattering formulation:
+  https://docs.fenicsproject.org/dolfinx/v0.7.0/python/demos/demo_axis.html
 
 ## Geometry and Materials
 
