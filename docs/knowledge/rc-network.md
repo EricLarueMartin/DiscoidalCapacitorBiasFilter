@@ -331,13 +331,14 @@ A `1 MHz` bypass corner at `10 Mohm` would require less than `16 fF`, before
 including epoxy and plate coupling.
 
 The evidence limits are intentionally stated precisely. The distributed EQS
-field solve agrees with the matched RC network within `0.62 dB` over the saved
-`1 Hz` to `100 MHz` sweep. The convergence-qualified axisymmetric MEEP branch
-begins departing in the multi-GHz range and has its first bracketed candidate
-mode near `10 GHz`. The combined presentation sweep starts at `50 Hz`, uses
-EQS through the shared `1 GHz` overlap point, overlap-normalizes the
-uncalibrated MEEP voltage ports there, and stops at that first mode. This is evidence of eventual full-wave
-departure, not proof that the RC model remains valid through `10 GHz`.
+field solve agrees with the matched RC network within `1.79 dB` over the saved
+`1 Hz` to `1 GHz` sweep. The convergence-qualified axisymmetric MEEP branch
+begins departing in the multi-GHz range. The combined presentation sweep starts at `50 Hz`, uses
+EQS through `1 GHz`, normalizes the uncalibrated MEEP voltage ports at the
+shared `300 MHz` point, and uses a second shared `1 GHz` point to test slope
+before handoff. It displays the sample after a candidate peak so the bracket
+is visible. This is evidence of eventual full-wave
+departure, not proof that the RC model remains valid through the first mode.
 
 The designer tab reports the same single-stage attenuation values numerically:
 

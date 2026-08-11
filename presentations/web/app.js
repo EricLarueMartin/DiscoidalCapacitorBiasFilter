@@ -43,7 +43,7 @@ const defaults = {
   noise_mains_rms_mv: 10,
   noise_mains_frequency_hz: 50,
   noise_fano_factor: DEFAULT_GE_FANO_FACTOR,
-  core_resistance_gohm: 0.02400005,
+  core_resistance_gohm: 0.03600005,
   core_od_mm: 2.2,
   use_package_core_od: true,
   core_material: "mmb0207_melf",
@@ -75,7 +75,7 @@ const defaults = {
   tube_conductivity_log10_s_per_m: Math.log10(5.8e7),
   tube_relative_permeability: 1,
   rf_compare_frequency_log10_mhz: 0,
-  plate_pairs: 2,
+  plate_pairs: 3,
   include_ground_tube: true,
   field_solver: "backend_auto",
   mesh_edge_radius_ratio: 0.2,
@@ -97,8 +97,8 @@ const defaults = {
   full_wave_resolution_per_mm: 2,
   full_wave_timeout_hours: 2,
   full_wave_verify_resonances: false,
-  full_wave_eqs_frequencies_hz: [50, 1e3, 1e6, 31.25e6, 100e6, 1e9],
-  full_wave_frequencies_hz: [1e9, 3e9, 10e9, 30e9]
+  full_wave_eqs_frequencies_hz: [50, 1e3, 1e6, 31.25e6, 100e6, 300e6, 1e9],
+  full_wave_frequencies_hz: [300e6, 1e9, 3e9, 10e9, 30e9]
 };
 
 const FIELD_SOLVER_ENDPOINT = "/api/field-solve";
@@ -311,9 +311,9 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   full_wave_resolution_per_mm:
     "Fine-grid cells per millimetre in the axisymmetric MEEP branch of the full-field sweep. With resonance verification enabled, requested MEEP points first run at half this resolution, never below 1 cell/mm; seven points around each candidate then run at this selected resolution. Each core section uses sigma = L/(R A). Repeat the verification at a higher resolution before treating a peak quantitatively; axisymmetry omits leads, the MELF spiral, and non-axisymmetric modes.",
   full_wave_eqs_frequencies:
-    "Comma-separated frequencies for the FEniCSx electroquasistatic branch, which supplies the low-frequency Maxwell limit. Suffixes Hz, kHz, MHz, and GHz are accepted. Include 50 or 60 Hz when checking power-line behavior and include one overlap frequency also present in the MEEP list so the two formulations can be normalized and compared.",
+    "Comma-separated frequencies for the FEniCSx electroquasistatic branch, which supplies the low-frequency Maxwell limit. Suffixes Hz, kHz, MHz, and GHz are accepted. Include 50 or 60 Hz when checking power-line behavior. Include at least two frequencies also present in the MEEP list: the lower shared point anchors the present port normalization and the upper shared point independently tests agreement of slope before handoff.",
   full_wave_frequencies:
-    "Comma-separated frequencies for the cylindrical m = 0 MEEP sweep. These are the coarse-search points when resonance verification is enabled and the final points when it is disabled. Use logarithmic coverage broad enough to place a lower and upper point around suspected modes; suffixes Hz, kHz, MHz, and GHz are accepted.",
+    "Comma-separated frequencies for the cylindrical m = 0 MEEP sweep. These are the coarse-search points when resonance verification is enabled and the final points when it is disabled. Include at least two points shared with the EQS list, plus frequencies below and above every suspected mode. A peak is not bracketed unless lower-transmission solved points exist on both sides; suffixes Hz, kHz, MHz, and GHz are accepted.",
   full_wave_verify_resonances:
     "Run the entered MEEP frequencies at a coarse grid, identify local transmission maxima, and add candidate frequencies predicted by the low-loss coupled-stage model. When zeta is below 1/sqrt(2), the matched RLC driven-response peak is shifted to fpeak = f0 sqrt(1 - 2 zeta^2); a more strongly damped mode has no RLC amplitude peak to add. Seven logarithmically spaced points spanning plus or minus 0.18 decade around each distinct candidate are then solved at the selected fine resolution. A resonance is reported as verified only if the largest fine response has lower solved points on both sides; this brackets a mode but does not replace a separate mesh-convergence run.",
   full_wave_timeout_hours:
@@ -379,7 +379,7 @@ const LANGUAGE_STORAGE_KEY = "discoidal-capacitor-bias-filter-language";
 const SUPPORTED_LANGUAGES = new Set(["en", "fr", "de"]);
 
 const LOCALE_LANGUAGES = ["en", "fr", "de"];
-const LOCALE_VERSION = "2026-07-30-locale-files-2";
+const LOCALE_VERSION = "2026-08-11-main-models-13";
 const TRANSLATIONS = Object.fromEntries(
   LOCALE_LANGUAGES.map((language) => [language, {}])
 );
@@ -420,6 +420,13 @@ function translateText(source, language = currentLanguage) {
   return TRANSLATIONS[language]?.[source] || source;
 }
 
+function translateTemplate(source, values = {}, language = currentLanguage) {
+  return Object.entries(values).reduce(
+    (text, [key, value]) => text.replaceAll(`{${key}}`, String(value)),
+    translateText(source, language)
+  );
+}
+
 function registerTranslatableText() {
   const knownSources = new Set(
     Object.values(TRANSLATIONS).flatMap((dictionary) => Object.keys(dictionary))
@@ -442,7 +449,7 @@ function registerTranslatableText() {
 
 function registerContentBlocks() {
   document.querySelectorAll(
-    ".metric-strip > div > span, .viewer-panel > figcaption, .figure-head > figcaption"
+    ".metric-strip > div > span, .viewer-panel > figcaption, .figure-head > figcaption, .solver-explainer > strong, .solver-explainer > p, .solver-explainer > ol > li"
   ).forEach((element) => {
     element.dataset.i18nRich = "true";
     i18nContentBlockRecords.push({
@@ -455,11 +462,13 @@ function registerContentBlocks() {
 
 function registerSlideBlocks() {
   document.querySelectorAll(
-    "#slides .slide h2, #slides .slide h3, #slides .slide p, #slides .slide li, #slides .slide figcaption, #slides .slide th"
+    "#slides .slide h2, #slides .slide h3, #slides .slide p, #slides .slide li, #slides .slide figcaption, #slides .slide th, #slides .slide td, #slides .slide dt"
   ).forEach((element) => {
+    const source = element.textContent.trim().replace(/\s+/g, " ");
+    element.dataset.i18nSource = source;
     i18nSlideBlockRecords.push({
       element,
-      source: element.textContent.trim().replace(/\s+/g, " "),
+      source,
       sourceHtml: element.innerHTML
     });
   });
@@ -559,9 +568,10 @@ function refreshDynamicLanguageLabels() {
   });
   populateEpoxyChoiceTable();
   if (localizationRuntimeReady) {
-    updateCircuitEstimates();
-    updateRfMaterialReadouts();
-    updateThermalReadouts();
+    syncControls();
+    if (lastResult) {
+      updateFeaResourceReadouts("fieldFea", lastResult);
+    }
     if (!lastResult) {
       document.getElementById("maxField").textContent = translateText("Not solved");
       document.getElementById("rawMaxField").textContent = translateText("raw point not solved");
@@ -602,6 +612,7 @@ function setLanguage(language, persist = false) {
   }
   document.title = translateText("Discoidal Capacitor Bias Filter");
   setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+  refreshSlideTocLanguage();
   refreshDynamicLanguageLabels();
 
   if (document.getElementById("slides")?.classList.contains("deck-ready")) {
@@ -906,7 +917,7 @@ const PROTOTYPE_GEOMETRY = {
   ground_plate_inner_diameter_mm: 5.1,
   tube_id_mm: 26,
   edge_radius_mm: 0.75,
-  plate_pairs: 2,
+  plate_pairs: 3,
   bias_voltage_v: 6000,
   load_current_na: 1,
   load_cable_length_m: 10,
@@ -1048,7 +1059,7 @@ function formatTemperatureC(value) {
 function updateThermalReadouts() {
   const estimate = thermalStressEstimate(params);
   const halfRestraint = thermalStressEstimate(params, 0.5);
-  document.getElementById("thermalControllingInterface").textContent = estimate.label;
+  document.getElementById("thermalControllingInterface").textContent = translateText(estimate.label);
   document.getElementById("thermalDeltaCte").textContent = `${estimate.deltaCtePpmPerC.toFixed(1)} ppm/°C`;
   document.getElementById("thermalRadialMismatch").textContent = `${estimate.radialMismatchUm.toFixed(1)} µm`;
   document.getElementById("thermalStress").textContent = `${estimate.stressMpa.toFixed(1)} MPa`;
@@ -1058,7 +1069,7 @@ function updateThermalReadouts() {
   const status = document.getElementById("thermalStatus");
   if (!["mg_9510", "stycast_2850ft_23lv"].includes(params.epoxy_material)) {
     status.classList.remove("risk", "pass");
-    status.textContent = "The electrical preset is active, but this material does not yet have a thermal FEA preset.";
+    status.textContent = translateText("The electrical preset is active, but this material does not yet have a thermal FEA preset.");
     updateThermalFeaReadouts();
     return;
   }
@@ -1066,8 +1077,12 @@ function updateThermalReadouts() {
   status.classList.toggle("risk", atRisk);
   status.classList.toggle("pass", !atRisk);
   status.textContent = atRisk
-    ? `Estimated stress exceeds the 20 MPa cured tensile strength at ${params.thermal_min_temperature_c.toFixed(0)} °C.`
-    : `Estimated strength margin remains above 1 at ${params.thermal_min_temperature_c.toFixed(0)} °C; bonded-coupon qualification is still required.`;
+    ? translateTemplate("Estimated stress exceeds the 20 MPa cured tensile strength at {temperature} °C.", {
+        temperature: params.thermal_min_temperature_c.toFixed(0)
+      })
+    : translateTemplate("Estimated strength margin remains above 1 at {temperature} °C; bonded-coupon qualification is still required.", {
+        temperature: params.thermal_min_temperature_c.toFixed(0)
+      });
   updateThermalFeaReadouts();
 }
 
@@ -1105,16 +1120,16 @@ function updateFeaResourceReadouts(prefix, result) {
   document.getElementById(`${prefix}MaximumSwap`).textContent = formatResourceBytes(usage?.maximum_system_swap_used_bytes);
   const log = document.getElementById(`${prefix}ResourceLog`);
   log.textContent = result?.resource_log
-    ? `Recorded on the server in ${result.resource_log}.`
+    ? translateTemplate("Recorded on the server in {path}.", { path: result.resource_log })
     : prefix === "fullWave"
-      ? "Full-wave resource use is recorded with each solve."
-      : "FEniCSx resource use is recorded with each solve.";
+      ? translateText("Full-wave resource use is recorded with each solve.")
+      : translateText("FEniCSx resource use is recorded with each solve.");
   if (prefix === "fieldFea") {
     const network = result?.capacitance?.capacitance_network;
     const used = Number(network?.energy_solve_count);
     const unreduced = Number(network?.energy_solve_count_without_symmetry);
     document.getElementById("fieldFeaCapacitanceSolves").textContent = Number.isFinite(used)
-      ? `${used}${Number.isFinite(unreduced) ? ` of ${unreduced}` : ""}`
+      ? `${used}${Number.isFinite(unreduced) ? ` ${translateText("of")} ${unreduced}` : ""}`
       : "--";
   }
 }
@@ -1131,31 +1146,34 @@ function updateThermalFeaReadouts() {
   document.getElementById("thermalFeaRawPeak").textContent = Number.isFinite(rawPeak) ? `${rawPeak.toFixed(2)} MPa` : "--";
   document.getElementById("thermalFeaRatio").textContent = Number.isFinite(p99) && baseline > 0 ? `${(p99 / baseline).toFixed(2)}x` : "--";
   document.getElementById("thermalFeaMesh").textContent = result?.mesh?.cells
-    ? `${result.mesh.cells.toLocaleString()} cells at ${result.mesh.target_size_mm.toFixed(2)} mm`
+    ? translateTemplate("{count} cells at {size} mm", {
+        count: result.mesh.cells.toLocaleString(),
+        size: result.mesh.target_size_mm.toFixed(2)
+      })
     : "--";
   updateFeaResourceReadouts("thermalFea", result);
   drawThermalFeaViewer();
   status.classList.remove("risk", "pass");
   if (thermalFeaPending) {
-    status.textContent = "Thermal FEA is running on the backend.";
+    status.textContent = translateText("Thermal FEA is running on the backend.");
     return;
   }
   if (thermalFeaError) {
     status.classList.add("risk");
-    status.textContent = `Thermal FEA failed: ${thermalFeaError}`;
+    status.textContent = translateTemplate("Thermal FEA failed: {error}", { error: thermalFeaError });
     return;
   }
   if (result) {
     const overStrength = p99 >= thermalScreenFor(params).epoxyTensileStrengthMpa;
     status.classList.add(overStrength ? "risk" : "pass");
     status.textContent = overStrength
-      ? "FEA epoxy P99 exceeds the published cured tensile strength; the raw corner peak is diagnostic only."
-      : "FEA epoxy P99 remains below the published cured tensile strength; perfect bonding and linear elasticity are assumed.";
+      ? translateText("FEA epoxy P99 exceeds the published cured tensile strength; the raw corner peak is diagnostic only.")
+      : translateText("FEA epoxy P99 remains below the published cured tensile strength; perfect bonding and linear elasticity are assumed.");
     return;
   }
   status.textContent = thermalFeaCache
-    ? "Inputs changed since the thermal FEA solve; rerun for this design."
-    : "Run the thermal FEA for a geometry-based comparison.";
+    ? translateText("Inputs changed since the thermal FEA solve; rerun for this design.")
+    : translateText("Run the thermal FEA for a geometry-based comparison.");
 }
 
 function thermalStressColor(value, scaleMax) {
@@ -1418,7 +1436,7 @@ function updateFullWaveReadouts() {
   updateFeaResourceReadouts("fullWave", result);
   document.getElementById("fullWaveFrequencyCount").textContent = Array.isArray(result?.samples)
     ? (result.resonance_verification?.enabled
-        ? `${result.coarse_samples?.length || 0} coarse + ${result.refined_samples?.length || 0} fine + ${result.eqs_samples?.length || 0} EQS`
+        ? `${result.coarse_samples?.length || 0} ${translateText("coarse")} + ${result.refined_samples?.length || 0} ${translateText("fine")} + ${result.eqs_samples?.length || 0} EQS`
         : `${result.samples.length} MEEP + ${result.eqs_samples?.length || 0} EQS`)
     : `${params.full_wave_frequencies_hz.length} MEEP + ${params.full_wave_eqs_frequencies_hz.length} EQS`;
   const estimate = fullWaveRuntimeEstimate(params);
@@ -1429,8 +1447,8 @@ function updateFullWaveReadouts() {
   const measuredSeconds = Number(result?.resource_usage?.duration_seconds ?? result?.elapsed_seconds);
   const runningSeconds = fullWaveStartedAtMs === null ? Number.NaN : (Date.now() - fullWaveStartedAtMs) / 1000;
   document.getElementById("fullWaveActualTime").textContent = fullWavePending && Number.isFinite(runningSeconds)
-    ? `${formatDuration(runningSeconds)} elapsed`
-    : (Number.isFinite(measuredSeconds) ? formatDuration(measuredSeconds) : "Not solved");
+    ? `${formatDuration(runningSeconds)} ${translateText("elapsed")}`
+    : (Number.isFinite(measuredSeconds) ? formatDuration(measuredSeconds) : translateText("Not solved"));
   status.classList.remove("risk", "pass");
   if (fullWavePending) {
     const elapsedSeconds = fullWaveStartedAtMs === null
@@ -1439,10 +1457,13 @@ function updateFullWaveReadouts() {
     const minutes = Math.floor(elapsedSeconds / 60);
     const seconds = elapsedSeconds % 60;
     const jobText = fullWaveJobId ? ` Job ${fullWaveJobId.slice(0, 8)} is ${fullWaveJobState || "running"}.` : "";
-    status.textContent = `Full-wave Maxwell solve is running on the Pi: ${minutes}:${String(seconds).padStart(2, "0")} elapsed.${jobText}`;
+    status.textContent = translateTemplate("Full-wave Maxwell solve is running on the Pi: {time} elapsed.{job}", {
+      time: `${minutes}:${String(seconds).padStart(2, "0")}`,
+      job: jobText
+    });
   } else if (fullWaveError) {
     status.classList.add("risk");
-    status.textContent = `Full-wave solve failed: ${fullWaveError}`;
+    status.textContent = translateTemplate("Full-wave solve failed: {error}", { error: fullWaveError });
   } else if (result) {
     const converged = result.all_frequency_points_converged === true;
     const verification = result.resonance_verification;
@@ -1450,13 +1471,20 @@ function updateFullWaveReadouts() {
     status.classList.add(converged ? "pass" : "risk");
     status.textContent = converged
       ? (verification?.enabled
-          ? `Coarse sweep completed at ${result.coarse_resolution_per_mm.toFixed(1)} cells/mm and fine brackets at ${result.resolution_per_mm.toFixed(1)} cells/mm; ${verifiedCount} resonance${verifiedCount === 1 ? "" : "s"} bracketed.`
-          : `Axisymmetric full-wave result converged at ${result.resolution_per_mm.toFixed(1)} cells/mm; enable resonance verification or repeat at another resolution before using resonances quantitatively.`)
-      : "One or more full-wave frequency points did not meet the requested residual; inspect or rerun before using this curve.";
+          ? translateTemplate("Coarse sweep completed at {coarse} cells/mm and fine brackets at {fine} cells/mm; {count} {resonances} bracketed.", {
+              coarse: result.coarse_resolution_per_mm.toFixed(1),
+              fine: result.resolution_per_mm.toFixed(1),
+              count: verifiedCount,
+              resonances: translateText(verifiedCount === 1 ? "resonance" : "resonances")
+            })
+          : translateTemplate("Axisymmetric full-wave result converged at {resolution} cells/mm; enable resonance verification or repeat at another resolution before using resonances quantitatively.", {
+              resolution: result.resolution_per_mm.toFixed(1)
+            }))
+      : translateText("One or more full-wave frequency points did not meet the requested residual; inspect or rerun before using this curve.");
   } else if (fullWaveCache) {
-    status.textContent = "Inputs changed since the full-wave solve; rerun for this design.";
+    status.textContent = translateText("Inputs changed since the full-wave solve; rerun for this design.");
   } else {
-    status.textContent = "Run the full-wave solve to include magnetic induction and fields escaping into free space.";
+    status.textContent = translateText("Run the full-wave solve to include magnetic induction and fields escaping into free space.");
   }
 }
 
@@ -2738,7 +2766,7 @@ function formatControlOutput(id, value) {
   if (id === "plate_relative_permeability" || id === "tube_relative_permeability") {
     return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
-  return `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}${units[id]}`;
+  return `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}${translateText(units[id])}`;
 }
 
 function formatCapacitance(pf) {
@@ -5626,26 +5654,46 @@ function matchedModalOscillator(circuit, resonanceFrequencyHz, resistanceOhm) {
   };
 }
 
+function coupledModePredictions(circuit, p, minimumHz = 1e6, maximumHz = 5e9) {
+  const lowLossResistanceOhm = 0.35;
+  const physicalResistanceOhm = Math.max(0.01, Number(circuit.stageResistanceOhm) || 0.01);
+  const reference = electromagneticResponseSamples(
+    circuit,
+    p,
+    lowLossResistanceOhm,
+    Math.max(1, minimumHz),
+    Math.max(minimumHz * 1.01, maximumHz),
+    720
+  );
+  const modes = reference.filter((sample, index) => (
+    index > 0
+    && index + 1 < reference.length
+    && sample.magnitudeDb > reference[index - 1].magnitudeDb
+    && sample.magnitudeDb > reference[index + 1].magnitudeDb
+  )).map((sample) => {
+    const modal = matchedModalOscillator(circuit, sample.frequencyHz, physicalResistanceOhm);
+    return {
+      naturalFrequencyHz: sample.frequencyHz,
+      lowLossMagnitudeDb: sample.magnitudeDb,
+      loadedPeakFrequencyHz: modal.resonantPeakFrequencyHz,
+      dampingRatio: modal.dampingRatio
+    };
+  });
+  return { lowLossResistanceOhm, physicalResistanceOhm, modes };
+}
+
 function fullWaveResonanceHints() {
   const frequencies = params.full_wave_frequencies_hz || [];
   if (frequencies.length < 2) return [];
   const minimumHz = Math.min(...frequencies);
   const maximumHz = Math.max(...frequencies);
   const circuit = electromagneticCircuitForCurrentDesign();
-  const samples = electromagneticResponseSamples(circuit, params, 0.35, minimumHz, maximumHz, 480);
-  const peaks = [];
-  for (let index = 1; index < samples.length - 1; index += 1) {
-    if (samples[index].magnitudeDb > samples[index - 1].magnitudeDb && samples[index].magnitudeDb > samples[index + 1].magnitudeDb) {
-      peaks.push(samples[index]);
-    }
-  }
-  peaks.sort((left, right) => right.magnitudeDb - left.magnitudeDb);
-  const physicalResistance = Math.max(0.01, Number(circuit.stageResistanceOhm) || 0.01);
+  const prediction = coupledModePredictions(circuit, params, minimumHz, maximumHz);
+  const modes = [...prediction.modes].sort((left, right) => right.lowLossMagnitudeDb - left.lowLossMagnitudeDb);
   const hints = [];
-  peaks.slice(0, 4).forEach((peak) => {
-    hints.push(peak.frequencyHz);
-    const modal = matchedModalOscillator(circuit, peak.frequencyHz, physicalResistance);
-    if (Number.isFinite(modal.resonantPeakFrequencyHz)) hints.push(modal.resonantPeakFrequencyHz);
+  modes.slice(0, 4).forEach((mode) => {
+    hints.push(mode.naturalFrequencyHz);
+    if (Number.isFinite(mode.loadedPeakFrequencyHz)) hints.push(mode.loadedPeakFrequencyHz);
   });
   return [...new Set(hints
     .filter((frequency) => Number.isFinite(frequency) && frequency >= minimumHz && frequency <= maximumHz)
@@ -5671,7 +5719,13 @@ function drawElectromagneticSlide(canvas) {
   const peakOf = (samples) => samples.reduce((best, sample) => (
     Number.isFinite(sample.magnitudeDb) && (!best || sample.magnitudeDb > best.magnitudeDb) ? sample : best
   ), null);
-  const referencePeak = peakOf(reference);
+  const referencePeaks = reference.filter((sample, index) => (
+    index > 0
+    && index + 1 < reference.length
+    && sample.magnitudeDb > reference[index - 1].magnitudeDb
+    && sample.magnitudeDb > reference[index + 1].magnitudeDb
+  ));
+  const referencePeak = referencePeaks[0] || peakOf(reference);
   const modal = matchedModalOscillator(
     circuit,
     referencePeak?.frequencyHz || 1 / (2 * Math.PI * Math.sqrt(inductanceH * Math.max(1e-18, circuit.shuntCapPf * 1e-12))),
@@ -5748,8 +5802,8 @@ function drawElectromagneticSlide(canvas) {
   drawCurve(damped, "#b73e3e", [9, 6]);
   drawCurve(modal.samples, "#7354a3", [3, 5]);
 
-  if (referencePeak) {
-    const resonanceX = xFor(referencePeak.frequencyHz);
+  referencePeaks.forEach((peak, index) => {
+    const resonanceX = xFor(peak.frequencyHz);
     ctx.save();
     ctx.strokeStyle = "#7354a3";
     ctx.lineWidth = 1.5;
@@ -5759,7 +5813,11 @@ function drawElectromagneticSlide(canvas) {
     ctx.lineTo(resonanceX, plot.y1);
     ctx.stroke();
     ctx.restore();
-  }
+    ctx.fillStyle = "#7354a3";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`f0,${index + 1}`, resonanceX, plot.y0 + 16 + index * 15);
+  });
 
   drawSlideLegend(ctx, [
     { label: `Low-loss reference (${formatResistance(lowLossResistance)}/stage)`, color: "#1f6f78" },
@@ -5773,9 +5831,9 @@ function drawElectromagneticSlide(canvas) {
   const cards = [
     ["Partial L / stage", `${(inductanceH * 1e9).toFixed(2)} nH`],
     ["Matched effective L", `${(modal.effectiveInductanceH * 1e9).toFixed(2)} nH`],
-    ["Zero-R natural f", referencePeak ? formatFrequency(referencePeak.frequencyHz) : "--"],
+    ["Low-loss natural modes", referencePeaks.length ? referencePeaks.slice(0, 2).map((peak) => formatFrequency(peak.frequencyHz)).join(" / ") : "--"],
     ["Physical damping ratio", modal.dampingRatio >= 1000 ? modal.dampingRatio.toExponential(1) : modal.dampingRatio.toFixed(2)],
-    ["Coupled suppression @ f0", referencePeak && dampedAtReference ? `${Math.max(0, referencePeak.magnitudeDb - dampedAtReference.magnitudeDb).toFixed(0)} dB` : "--"]
+    ["RLC peak with physical R", Number.isFinite(modal.resonantPeakFrequencyHz) ? formatFrequency(modal.resonantPeakFrequencyHz) : "none; overdamped"]
   ];
   cards.forEach(([label, value], index) => {
     const x = 845;
@@ -5796,7 +5854,7 @@ function drawElectromagneticSlide(canvas) {
   drawWrappedLines(ctx, [
     "Capacitance: current exact FEniCSx matrix when available.",
     `Modal check: mean Cg ${formatCapacitance(cgPf)}; Leff is chosen so zero-R f0 equals the first coupled peak.`,
-    "With the physical R, the matched oscillator is overdamped; agreement is damping-regime and resonance-scale validation, not an independent field solution.",
+    "For zeta < 1/sqrt(2), fpeak = f0 sqrt(1 - 2 zeta^2). With the physical R this mode is overdamped, so no shifted amplitude peak exists.",
     "The cable is excluded because a lumped cable capacitor is invalid in this frequency range."
   ], 86, 522, 18, "#5b6670", "13px Arial", 955);
 }
@@ -5880,11 +5938,15 @@ function drawEqsSlide(canvas) {
   }
 
   const validation = sweep?.validation || {};
+  const meshTransferValues = Object.values(validation.mesh1kHzDb || {}).map(Number).filter(Number.isFinite);
+  const meshTransferRangeDb = meshTransferValues.length >= 2
+    ? Math.max(...meshTransferValues) - Math.min(...meshTransferValues)
+    : NaN;
   const cards = [
     ["FEA mesh", sweep ? `${sweep.meshMm.toFixed(2)} mm · ${sweep.cells.toLocaleString()} cells` : "--"],
     ["1 kHz transfer", samples.length ? `${samples.find((sample) => sample.frequencyHz === 1000)?.magnitudeDb.toFixed(2)} dB` : "--"],
     ["High-f plateau", samples.length ? `${samples.at(-1).magnitudeDb.toFixed(2)} dB` : "--"],
-    ["Mesh change @ 1 kHz", validation.mesh1kHzDb ? "0.00014 dB" : "--"],
+    ["Mesh change @ 1 kHz", Number.isFinite(meshTransferRangeDb) ? `${meshTransferRangeDb.toFixed(5)} dB` : "--"],
     ["C diagonal vs electrostatic", Number.isFinite(validation.capacitanceComparison?.diagonalDifferencePercent) ? `${validation.capacitanceComparison.diagonalDifferencePercent.toFixed(2)}%` : "--"],
     ["C mutual vs electrostatic", Number.isFinite(validation.capacitanceComparison?.mutualDifferencePercent) ? `${validation.capacitanceComparison.mutualDifferencePercent.toFixed(2)}%` : "--"]
   ];
@@ -5989,6 +6051,10 @@ function drawIntrinsicComparisonSlide(canvas, spiceOnly = false) {
   }
 
   const oneKhz = samples.find((sample) => sample.frequencyHz === 1000);
+  const meshTransferValues = Object.values(validation.mesh1kHzDb || {}).map(Number).filter(Number.isFinite);
+  const meshTransferRangeDb = meshTransferValues.length >= 2
+    ? Math.max(...meshTransferValues) - Math.min(...meshTransferValues)
+    : NaN;
   const cards = spiceOnly ? [
     ["Input condition", "Plate 1 = 1 V"],
     ["Output condition", "Open circuit"],
@@ -6001,7 +6067,7 @@ function drawIntrinsicComparisonSlide(canvas, spiceOnly = false) {
     ["1 kHz FEniCSx", oneKhz ? `${oneKhz.intrinsicFieldDb.toFixed(2)} dB` : "--"],
     ["1 kHz SPICE", oneKhz ? `${oneKhz.intrinsicSpiceDb.toFixed(2)} dB` : "--"],
     ["Worst curve difference", Number.isFinite(validation.maxLumpedComparisonDifferenceDb) ? `${validation.maxLumpedComparisonDifferenceDb.toFixed(2)} dB` : "--"],
-    ["Mesh change @ 1 kHz", validation.mesh1kHzDb ? "0.00014 dB" : "--"],
+    ["Mesh change @ 1 kHz", Number.isFinite(meshTransferRangeDb) ? `${meshTransferRangeDb.toFixed(5)} dB` : "--"],
     ["Output condition", "Open circuit"]
   ];
   cards.forEach(([label, value], index) => {
@@ -6678,6 +6744,7 @@ function wrappedLegendLines(ctx, text, maxWidth) {
 
 function drawSlideLegend(ctx, entries, x, y, options = {}) {
   ctx.save();
+  ctx.textAlign = "left";
   let yy = y;
   const font = options.font || "17px Arial";
   const lineHeight = options.lineHeight || 20;
@@ -8023,7 +8090,7 @@ function updateNoiseReadouts() {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   };
-  set("noiseRecordDuration", `${budget.waveformDurationUs.toFixed(1)} us`);
+  set("noiseRecordDuration", `${budget.waveformDurationUs.toFixed(1)} µs`);
   set("noiseTrapMainsAttenuation", formatAttenuationDb(attenuationDbFromMagnitude(budget.mainsTrapMagnitude)));
   set("noiseEquivalentEnergy", `${budget.equivalentEnergyEv.toFixed(1)} eV rms`);
   set("noiseFanoLimit", `${budget.fanoSigmaEv.toFixed(0)} eV rms`);
@@ -9351,7 +9418,14 @@ function drawFullWaveSlide(canvas) {
     const fraction = Math.log(frequencyHz / lower.frequencyHz) / Math.log(upper.frequencyHz / lower.frequencyHz);
     return lower.intrinsicFieldDb + fraction * (upper.intrinsicFieldDb - lower.intrinsicFieldDb);
   };
-  const overlapFrequency = 1e9;
+  const meepRaw = result.samples
+    .filter((sample) => Number.isFinite(sample.frequency_hz) && Number.isFinite(sample.magnitude_db))
+    .sort((a, b) => a.frequency_hz - b.frequency_hz);
+  const sharedFrequencies = meepRaw.map((sample) => sample.frequency_hz).filter((frequency) => (
+    eqsSaved.some((sample) => Math.abs(Math.log(sample.frequencyHz / frequency)) < 1e-9)
+  ));
+  const normalizationFrequency = sharedFrequencies[0] || 1e9;
+  const overlapFrequency = sharedFrequencies.at(-1) || normalizationFrequency;
   const fiftyHzField = eqsSaved.find((sample) => sample.frequencyHz === 50);
   const eqsCurve = [
     { frequency: 50, transmissionDb: fiftyHzField?.intrinsicFieldDb ?? interpolateTransmissionDb(50), source: "EQS" },
@@ -9361,37 +9435,66 @@ function drawFullWaveSlide(canvas) {
       source: "EQS"
     }))
   ].map((sample) => ({ ...sample, attenuationDb: -sample.transmissionDb }));
-  const meepRaw = result.samples
-    .filter((sample) => Number.isFinite(sample.frequency_hz) && Number.isFinite(sample.magnitude_db))
-    .sort((a, b) => a.frequency_hz - b.frequency_hz);
-  const overlapEqsDb = interpolateTransmissionDb(overlapFrequency);
-  const overlapMeep = meepRaw.reduce((best, sample) => (
-    !best || Math.abs(Math.log(sample.frequency_hz / overlapFrequency)) < Math.abs(Math.log(best.frequency_hz / overlapFrequency))
+  const normalizationEqsDb = interpolateTransmissionDb(normalizationFrequency);
+  const normalizationMeep = meepRaw.reduce((best, sample) => (
+    !best || Math.abs(Math.log(sample.frequency_hz / normalizationFrequency)) < Math.abs(Math.log(best.frequency_hz / normalizationFrequency))
       ? sample
       : best
   ), null);
-  const meepOffsetDb = overlapMeep ? overlapEqsDb - overlapMeep.magnitude_db : 0;
+  const meepOffsetDb = normalizationMeep ? normalizationEqsDb - normalizationMeep.magnitude_db : 0;
   const normalizedMeep = meepRaw
-    .filter((sample) => sample.frequency_hz >= overlapFrequency)
+    .filter((sample) => sample.frequency_hz >= normalizationFrequency)
     .map((sample) => ({
       frequency: sample.frequency_hz,
       transmissionDb: sample.magnitude_db + meepOffsetDb,
       attenuationDb: -(sample.magnitude_db + meepOffsetDb),
       convergence: sample.convergence
     }));
-  let resonanceIndex = -1;
-  for (let index = 1; index + 1 < normalizedMeep.length; index += 1) {
-    if (normalizedMeep[index].transmissionDb > normalizedMeep[index - 1].transmissionDb
-        && normalizedMeep[index].transmissionDb > normalizedMeep[index + 1].transmissionDb) {
-      resonanceIndex = index;
-      break;
+  const verifiedModes = Array.isArray(result.resonance_verification?.verified_resonances)
+    ? [...result.resonance_verification.verified_resonances].sort((a, b) => a.frequency_hz - b.frequency_hz)
+    : [];
+  let resonanceIndex = verifiedModes.length
+    ? normalizedMeep.findIndex((sample) => Math.abs(Math.log(sample.frequency / verifiedModes[0].frequency_hz)) < 1e-9)
+    : -1;
+  if (resonanceIndex < 0 && !result.resonance_verification?.enabled) {
+    for (let index = 1; index + 1 < normalizedMeep.length; index += 1) {
+      if (normalizedMeep[index].transmissionDb > normalizedMeep[index - 1].transmissionDb
+          && normalizedMeep[index].transmissionDb > normalizedMeep[index + 1].transmissionDb) {
+        resonanceIndex = index;
+        break;
+      }
     }
   }
   const resonance = resonanceIndex >= 0 ? normalizedMeep[resonanceIndex] : null;
-  const meepCurve = normalizedMeep.slice(0, resonanceIndex >= 0 ? resonanceIndex + 1 : normalizedMeep.length);
+  const meepCurve = normalizedMeep.slice(0, resonanceIndex >= 0 ? resonanceIndex + 2 : normalizedMeep.length);
   const allCurve = [...eqsCurve, ...meepCurve];
   const fMin = 50;
-  const fMax = resonance?.frequency || meepCurve.at(-1)?.frequency || overlapFrequency;
+  const fMax = meepCurve.at(-1)?.frequency || overlapFrequency;
+  const ladderPrediction = coupledModePredictions(
+    electromagneticCircuitForCurrentDesign(),
+    params,
+    1e6,
+    fMax
+  );
+  const ladderModes = ladderPrediction.modes
+    .filter((mode) => mode.naturalFrequencyHz >= fMin && mode.naturalFrequencyHz <= fMax)
+    .slice(0, 4);
+  const loadedLadderModes = ladderModes.filter((mode) => (
+    Number.isFinite(mode.loadedPeakFrequencyHz)
+    && mode.loadedPeakFrequencyHz >= fMin
+    && mode.loadedPeakFrequencyHz <= fMax
+  ));
+  const overlapResiduals = sharedFrequencies.map((frequency) => {
+    const meep = normalizedMeep.find((sample) => Math.abs(Math.log(sample.frequency / frequency)) < 1e-9);
+    return {
+      frequency,
+      differenceDb: meep ? meep.transmissionDb - interpolateTransmissionDb(frequency) : Number.NaN
+    };
+  });
+  const handoffResidual = overlapResiduals.find((sample) => sample.frequency === overlapFrequency)?.differenceDb;
+  const overlapValidated = sharedFrequencies.length >= 2
+    && Number.isFinite(handoffResidual)
+    && Math.abs(handoffResidual) <= 1;
   const attenuationValues = allCurve.map((sample) => sample.attenuationDb).filter(Number.isFinite);
   const yMin = Math.min(0, Math.floor((Math.min(...attenuationValues) - 5) / 20) * 20);
   const yMax = Math.max(20, Math.ceil((Math.max(...attenuationValues) + 5) / 20) * 20);
@@ -9465,6 +9568,19 @@ function drawFullWaveSlide(canvas) {
   drawCurve(eqsCurve, "#1f6f78");
   drawCurve(meepCurve, "#b73e3e");
 
+  const anchorX = xFor(normalizationFrequency);
+  ctx.save();
+  ctx.strokeStyle = "#8a6a18";
+  ctx.setLineDash([2, 5]);
+  ctx.beginPath();
+  ctx.moveTo(anchorX, frame.top);
+  ctx.lineTo(anchorX, frame.bottom);
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = "#8a6a18";
+  ctx.font = "12px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("normalization anchor", anchorX - 6, frame.top + 18);
   const handoffX = xFor(overlapFrequency);
   ctx.save();
   ctx.strokeStyle = "#8a6a18";
@@ -9477,7 +9593,39 @@ function drawFullWaveSlide(canvas) {
   ctx.fillStyle = "#8a6a18";
   ctx.font = "13px Arial";
   ctx.textAlign = "right";
-  ctx.fillText("EQS / MEEP handoff", handoffX - 7, frame.top + 19);
+  ctx.fillText("EQS / MEEP handoff check", handoffX - 7, frame.top + 38);
+  ladderModes.forEach((mode, index) => {
+    const naturalX = xFor(mode.naturalFrequencyHz);
+    ctx.save();
+    ctx.strokeStyle = "#1f6f78";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([2, 5]);
+    ctx.beginPath();
+    ctx.moveTo(naturalX, frame.top);
+    ctx.lineTo(naturalX, frame.bottom);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = "#1f6f78";
+    ctx.font = "11px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`ladder f0,${index + 1}`, naturalX, frame.bottom - 10 - index * 14);
+  });
+  loadedLadderModes.forEach((mode, index) => {
+    const loadedX = xFor(mode.loadedPeakFrequencyHz);
+    ctx.save();
+    ctx.strokeStyle = "#7354a3";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 4]);
+    ctx.beginPath();
+    ctx.moveTo(loadedX, frame.top);
+    ctx.lineTo(loadedX, frame.bottom);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = "#7354a3";
+    ctx.font = "11px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`loaded fpeak,${index + 1}`, loadedX, frame.top + 58 + index * 14);
+  });
   if (resonance) {
     const resonanceX = xFor(resonance.frequency);
     ctx.fillStyle = "#7354a3";
@@ -9487,42 +9635,50 @@ function drawFullWaveSlide(canvas) {
   }
 
   const panelX = 825;
+  const eqsValidationDifference = Number(window.DISCOIDAL_DEFAULT_EQS_SWEEP?.validation?.maxLumpedComparisonDifferenceDb);
   ctx.fillStyle = "#17202a";
   ctx.font = "bold 20px Arial";
   ctx.textAlign = "left";
   ctx.fillText("Sweep interpretation", panelX, 85);
   const rows = [
-    ["Start", "50 Hz"],
-    ["EQS evidence", "≤ 0.62 dB from RC"],
-    ["Handoff", "1 GHz"],
-    ["MEEP normalization", `${meepOffsetDb >= 0 ? "+" : ""}${meepOffsetDb.toFixed(1)} dB`],
-    ["First local mode", resonance ? formatFrequency(resonance.frequency) : "not bracketed"],
+    ["EQS vs RC", Number.isFinite(eqsValidationDifference) ? `max ${eqsValidationDifference.toFixed(2)} dB` : "not available"],
+    ["Normalize at", formatFrequency(normalizationFrequency)],
+    ["Handoff check", `${formatFrequency(overlapFrequency)}; ${Number.isFinite(handoffResidual) ? `${handoffResidual >= 0 ? "+" : ""}${handoffResidual.toFixed(2)} dB` : "no shared point"}`],
+    ["Overlap status", overlapValidated ? "consistent within 1 dB" : "handoff not validated"],
+    ["Low-loss ladder f0", ladderModes.length ? ladderModes.slice(0, 2).map((mode) => formatFrequency(mode.naturalFrequencyHz)).join(" / ") : "not found"],
+    ["Predicted loaded peaks", loadedLadderModes.length ? loadedLadderModes.slice(0, 2).map((mode) => formatFrequency(mode.loadedPeakFrequencyHz)).join(" / ") : "none; overdamped"],
+    [result.resonance_verification?.enabled ? "First verified mode" : "First coarse bracket", resonance ? formatFrequency(resonance.frequency) : "not bracketed"],
     ["ADC Nyquist", "31.25 MHz"]
   ];
   rows.forEach(([label, value], index) => {
-    const y = 112 + index * 59;
+    const y = 96 + index * 46;
     ctx.fillStyle = "#f5f2ea";
-    ctx.fillRect(panelX, y, 238, 49);
+    ctx.fillRect(panelX, y, 238, 39);
     ctx.fillStyle = "#5b6670";
-    ctx.font = "12px Arial";
-    ctx.fillText(label, panelX + 12, y + 17);
-    ctx.fillStyle = "#17202a";
-    ctx.font = "18px Arial";
-    ctx.fillText(value, panelX + 12, y + 40);
+    ctx.font = "11px Arial";
+    ctx.fillText(label, panelX + 12, y + 14);
+    ctx.fillStyle = label === "Overlap status" && !overlapValidated ? "#b73e3e" : "#17202a";
+    ctx.font = "16px Arial";
+    ctx.fillText(value, panelX + 12, y + 33);
   });
   ctx.fillStyle = "#1f6f78";
-  ctx.fillRect(panelX, 485, 24, 5);
+  ctx.fillRect(panelX, 476, 24, 5);
   ctx.fillStyle = "#17202a";
   ctx.font = "13px Arial";
-  ctx.fillText("EQS field limit", panelX + 34, 491);
+  ctx.fillText("EQS field limit / low-loss f0", panelX + 34, 482);
   ctx.fillStyle = "#b73e3e";
-  ctx.fillRect(panelX, 510, 24, 5);
+  ctx.fillRect(panelX, 500, 24, 5);
   ctx.fillStyle = "#17202a";
-  ctx.fillText("MEEP, overlap-normalized", panelX + 34, 516);
+  ctx.fillText("MEEP, lower-point normalized", panelX + 34, 506);
+  ctx.fillStyle = "#7354a3";
+  ctx.fillRect(panelX, 524, 24, 5);
+  ctx.fillStyle = "#17202a";
+  ctx.fillText("RLC-predicted loaded fpeak", panelX + 34, 530);
   drawWrappedLines(ctx, [
-    "The post-resonance point is used to detect the local maximum but the displayed sweep stops at that first mode.",
+    "The point after the candidate peak remains visible; a mode is labeled only when lower solved points exist on both sides.",
+    "Low-loss ladder f0 is converted with fpeak = f0 sqrt(1 - 2 zeta^2); overdamped modes have no predicted amplitude peak.",
     "Negative attenuation is voltage-noise resonance, not passive power gain."
-  ], 78, 535, 22, "#5b6670", "13px Arial", 985);
+  ], 78, 536, 18, "#5b6670", "12px Arial", 985);
 }
 
 function drawSimulationChainSlide(canvas) {
@@ -11473,6 +11629,16 @@ function slideTitle(slide) {
   return slide.querySelector("h2")?.textContent.replace(/\s+/g, " ").trim() || "Untitled slide";
 }
 
+function slideSourceTitle(slide) {
+  return slide.querySelector("h2")?.dataset.i18nSource || slideTitle(slide);
+}
+
+function refreshSlideTocLanguage() {
+  document.querySelectorAll(".slide-toc [data-i18n-source]").forEach((element) => {
+    element.textContent = translateText(element.dataset.i18nSource);
+  });
+}
+
 function slideIdForTitle(title) {
   return `slide-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 }
@@ -11484,7 +11650,7 @@ function organizeSlideDeck() {
   if (!deck || !tocList || !controls || deck.dataset.organized === "true") return;
 
   const originalSlides = Array.from(deck.children).filter((element) => element.classList.contains("slide"));
-  const byTitle = new Map(originalSlides.map((slide) => [slideTitle(slide), slide]));
+  const byTitle = new Map(originalSlides.map((slide) => [slideSourceTitle(slide), slide]));
   const orderedSlides = [];
   const assigned = new Set();
   SLIDE_SECTION_DEFINITIONS.forEach((section) => {
@@ -11511,19 +11677,21 @@ function organizeSlideDeck() {
     group.className = "slide-toc-section";
     const heading = document.createElement("a");
     heading.className = "slide-toc-section-link";
-    heading.textContent = section.label;
+    heading.dataset.i18nSource = section.label;
+    heading.textContent = translateText(section.label);
     group.appendChild(heading);
     const list = document.createElement("ol");
     sectionSlides.forEach((slide) => {
       const index = orderedSlides.indexOf(slide);
-      const title = slideTitle(slide);
-      slide.id = slide.id || slideIdForTitle(title);
+      const sourceTitle = slideSourceTitle(slide);
+      slide.id = slide.id || slideIdForTitle(sourceTitle);
       const item = document.createElement("li");
       const link = document.createElement("a");
       link.href = `#${slide.id}`;
       link.dataset.slideIndex = String(index);
       link.dataset.slideNumber = String(index + 1);
-      link.textContent = title;
+      link.dataset.i18nSource = sourceTitle;
+      link.textContent = translateText(sourceTitle);
       link.addEventListener("click", (event) => {
         event.preventDefault();
         showSlide(index);

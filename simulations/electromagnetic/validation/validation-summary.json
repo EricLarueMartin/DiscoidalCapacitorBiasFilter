@@ -2,14 +2,53 @@
   "solver": "axisymmetric-electroquasistatic-multiport-fenicsx",
   "fenicsx_version": "0.9.0",
   "default_sweep": "../default-eqs-sweep.json",
+  "plate_count": 3,
   "checks": {
-    "calibrated_core_resistance": {"target_ohm": 12000000.0, "field_matrix_off_diagonal_conductance_s": -8.3329e-8, "passed": true},
-    "reciprocity": {"max_absolute_error_s": 0.0, "passed": true},
-    "passivity": {"minimum_real_admittance_eigenvalue_s": 8.2777e-13, "passed": true},
-    "electrostatic_limit": {"eqs_diagonal_pf": 39.9981, "electrostatic_diagonal_pf": 39.9556, "diagonal_difference_percent": 0.107, "eqs_mutual_pf": 0.12903, "electrostatic_mutual_pf": 0.12797, "mutual_difference_percent": 0.827, "passed": true},
-    "mesh_convergence_1khz": {"transfer_db_by_mesh_mm": {"0.60": -38.062692, "0.45": -38.062610, "0.30": -38.062554}, "maximum_change_db": 0.000138, "passed": true},
-    "lumped_g_plus_jwc_comparison": {"maximum_transfer_difference_db": 0.618, "port_condition": "first bias plate driven directly; final bias plate open-circuit; no external source or output network", "note": "Difference includes distributed core/dielectric behavior; the reference uses the independent electrostatic Maxwell matrix.", "passed": true}
+    "calibrated_core_resistance": {
+      "target_ohm": 12000000.0,
+      "field_matrix_off_diagonal_conductance_s": -8.333332745527369e-08,
+      "passed": true
+    },
+    "reciprocity": {
+      "max_absolute_error_s": 0.0,
+      "passed": true
+    },
+    "passivity": {
+      "minimum_real_admittance_eigenvalue_s": 8.197006236702442e-13,
+      "passed": true
+    },
+    "electrostatic_limit": {
+      "eqs_diagonal_pf": 43.013503399525725,
+      "electrostatic_diagonal_pf": 42.926910250935094,
+      "diagonal_difference_percent": 0.2017222951394315,
+      "eqs_mutual_pf": 0.13034157076879666,
+      "electrostatic_mutual_pf": 0.12955278277743892,
+      "mutual_difference_percent": 0.6088545336095206,
+      "passed": true
+    },
+    "mesh_convergence_1khz": {
+      "transfer_db_by_mesh_mm": {
+        "0.60": -49.7585797433686,
+        "0.45": -49.75640170610541,
+        "0.30": -49.75504602043297
+      },
+      "maximum_change_db": 0.0035337229356287025,
+      "passed": true
+    },
+    "lumped_g_plus_jwc_comparison": {
+      "maximum_transfer_difference_db": 1.793977803874526,
+      "port_condition": "first bias plate driven directly; final bias plate open-circuit; no external source or output network",
+      "note": "Difference includes distributed core/dielectric behavior; the reference uses the independent electrostatic Maxwell matrix.",
+      "passed": true
+    }
   },
   "all_implemented_checks_passed": true,
-  "not_yet_validated": ["3d_melf_geometry", "curl_curl_full_wave_limit", "skin_and_proximity_effect", "transmission_line_output_above_electrically_short_range", "frequency_dependent_dielectric_loss", "measured_s_parameter_or_impedance_sweep", "field_derived_johnson_noise"]
+  "not_yet_validated": [
+    "3d_melf_geometry",
+    "skin_and_proximity_effect",
+    "transmission_line_output_above_electrically_short_range",
+    "frequency_dependent_dielectric_loss",
+    "measured_s_parameter_or_impedance_sweep",
+    "field_derived_johnson_noise"
+  ]
 }

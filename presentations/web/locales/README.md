@@ -19,6 +19,11 @@ Preserve source keys exactly. Values in `slides` and `content` may contain
 HTML such as `<sub>` and `<strong>`; formulas and tags should be retained in
 translations.
 
+French and German currently cover the complete main presentation, the
+**Models & FEA results** section, parameter tooltips, and the principal dynamic
+canvas labels. Newer backup-slide blocks may still fall back to English until
+their technical translations are reviewed.
+
 To add a language, copy a catalog, translate its values, add its language code
 to `LOCALE_LANGUAGES` in `app.js`, and add an `<option>` to `languageSelect` in
 `index.html`.

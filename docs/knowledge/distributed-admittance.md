@@ -90,9 +90,10 @@ monitor-coordinate issue, and validation limits.
 Electrical smallness is not evidence that shielding is irrelevant. A
 structure much shorter than a wavelength may still transfer energy through
 fringing electric fields, inductive/common-mode coupling, and electrically
-short leads or apertures. The displayed sweep begins at 50 Hz with EQS,
-hands off to overlap-normalized MEEP at the shared 1 GHz point, and continues until the first
-candidate local mode near 10 GHz is bracketed by the 30 GHz point. The
+short leads or apertures. The displayed sweep begins at 50 Hz with EQS. A
+single constant offset aligns MEEP to EQS at their shared 300 MHz point, while
+the second shared 1 GHz point is retained as an independent handoff check. The
+sweep continues through a solved point above the first verified local maximum so the mode is bracketed. The
 grounded tube remains explicit in both field geometries.
 
 It is an `m = 0` rotationally symmetric reference, not the final 3D model.

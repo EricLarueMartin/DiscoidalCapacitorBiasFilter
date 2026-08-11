@@ -1156,6 +1156,13 @@ def make_handler(state: BackendState) -> type[BaseHTTPRequestHandler]:
             relative = unquote(relative)
             candidate = (state.static_dir / relative).resolve()
             if candidate.is_dir():
+                if not request_path.endswith("/"):
+                    self.send_response(HTTPStatus.PERMANENT_REDIRECT)
+                    self._send_common_headers()
+                    self.send_header("Location", request_path + "/")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
                 candidate = (candidate / "index.html").resolve()
             if not candidate.is_file() or state.static_dir not in candidate.parents:
                 self._send_json({"error": "Not found"}, HTTPStatus.NOT_FOUND)

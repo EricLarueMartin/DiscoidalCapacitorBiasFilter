@@ -91,7 +91,7 @@ CTE-offset invariance, full-stack symmetry, and six mesh sizes from 0.60 to
 boundary, and full-stack controls use private validation parameters and are
 not exposed by the Designer.
 
-The backend SPICE sweep and matching web attenuation plots are fixed at 1 Hz to 100 MHz. This makes the low-frequency rolloff around power-line noise easier to read while retaining margin above the 31.25 MHz Nyquist band of the 62.5 MS/s ADC. The full-field presentation starts at 50 Hz with FEniCSx EQS, extends that electrically small limit to a shared 1 GHz overlap point, and uses MEEP at 1 GHz, 3 GHz, 10 GHz, and 30 GHz to bracket the first candidate local mode. The earlier 100 MHz and 300 MHz MEEP CW points were removed because they were redundant with EQS and dominated runtime for longer stacks.
+The backend SPICE sweep and matching web attenuation plots are fixed at 1 Hz to 100 MHz. This makes the low-frequency rolloff around power-line noise easier to read while retaining margin above the 31.25 MHz Nyquist band of the 62.5 MS/s ADC. The full-field presentation starts at 50 Hz with FEniCSx EQS and uses shared 300 MHz and 1 GHz MEEP points. The 300 MHz point supplies one constant port-normalization offset; the 1 GHz point independently checks the handoff slope. The MEEP sweep then uses 3 GHz and resonance-refinement samples through at least one solved point beyond the first verified local maximum. A displayed resonance therefore requires a lower and upper bracket rather than treating the highest requested frequency as a peak.
 
 The web Designer exposes the same distinction as a dropdown: `Backend adaptive FD` means Python-backed finite difference, not FEniCSx. `FEniCSx required` is the explicit conforming FEA path.
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import io
+import http.client
 import importlib
 import json
 import math
@@ -190,19 +191,19 @@ class FieldBackendTests(unittest.TestCase):
             (root / "simulations" / "electromagnetic" / "intrinsic-spice-eqs-comparison.json").read_text(encoding="utf-8")
         )
         self.assertEqual(result["solver"], "axisymmetric-electroquasistatic-multiport-fenicsx")
-        self.assertEqual(len(result["samples"]), 9)
-        self.assertEqual(result["ports"], ["bias_plate_1", "bias_plate_2"])
+        self.assertEqual(len(result["samples"]), 12)
+        self.assertEqual(result["ports"], ["bias_plate_1", "bias_plate_2", "bias_plate_3"])
         for sample in result["samples"]:
             self.assertTrue(math.isfinite(sample["transfer"]["magnitude_db"]))
             self.assertTrue(math.isfinite(sample["transfer"]["phase_deg"]))
             self.assertLessEqual(sample["reciprocity_max_abs_s"], 1e-15)
-            self.assertEqual(len(sample["y_real_s"]), 2)
-            self.assertEqual(len(sample["y_imag_s"]), 2)
+            self.assertEqual(len(sample["y_real_s"]), 3)
+            self.assertEqual(len(sample["y_imag_s"]), 3)
         self.assertTrue(validation["all_implemented_checks_passed"])
         self.assertTrue(all(check["passed"] for check in validation["checks"].values()))
         self.assertEqual(intrinsic["output"], "final bias plate measured at infinite impedance")
-        self.assertEqual(len(intrinsic["samples"]), 9)
-        self.assertLess(intrinsic["maximum_absolute_difference_db"], 0.7)
+        self.assertEqual(len(intrinsic["samples"]), 12)
+        self.assertLess(intrinsic["maximum_absolute_difference_db"], 2.0)
 
     def test_static_page_bundles_eqs_result_and_requested_materials(self) -> None:
         root = Path(__file__).resolve().parents[2]
@@ -242,14 +243,142 @@ class FieldBackendTests(unittest.TestCase):
             self.assertAlmostEqual(sum(sample["outward_flux_fraction"].values()), 1.0)
         bundled_frequencies = [sample["frequency_hz"] for sample in result["samples"]]
         self.assertTrue(set(full_wave_meep_solver.DEFAULT_FREQUENCIES_HZ).issubset(bundled_frequencies))
+        eqs_frequencies = {sample["frequency_hz"] for sample in result["eqs_samples"]}
+        self.assertGreaterEqual(len(eqs_frequencies.intersection(bundled_frequencies)), 2)
+        overlap = result["overlap_validation"]
+        self.assertTrue(overlap["validated"])
+        self.assertLess(abs(overlap["handoff_residual_db"]), overlap["tolerance_db"])
+        verified = result["resonance_verification"]["verified_resonances"]
+        self.assertGreaterEqual(len(verified), 1)
+        self.assertLess(verified[0]["bracket_hz"][0], verified[0]["frequency_hz"])
+        self.assertGreater(verified[0]["bracket_hz"][1], verified[0]["frequency_hz"])
         self.assertEqual(result["eqs_samples"][0]["frequency_hz"], 50.0)
         self.assertGreaterEqual(result["eqs_samples"][-1]["frequency_hz"], 100e6)
-        self.assertEqual(full_wave_meep_solver.DEFAULT_FREQUENCIES_HZ, (1e9, 3e9, 10e9, 30e9))
+        self.assertEqual(full_wave_meep_solver.DEFAULT_FREQUENCIES_HZ, (300e6, 1e9, 3e9, 10e9, 30e9))
         self.assertEqual(full_wave_meep_solver.DEFAULT_EQS_FREQUENCIES_HZ[-1], 1e9)
         self.assertIn("function drawIntrinsicComparisonSlide", app)
         self.assertNotIn('id="slideIntrinsicSpiceCanvas"', index)
         self.assertIn("Intrinsic filter, EM ports", app)
         self.assertIn("DISCOIDAL_DEFAULT_EQS_SWEEP", eqs)
+
+    def test_french_and_german_cover_current_main_model_slides(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        locale_root = root / "presentations" / "web" / "locales"
+        required_slides = {
+            "What Is Modeled",
+            "Bias Noise After the Energy Filter",
+            "From Full-Geometry FEA to SPICE",
+            "Reference Design",
+            "Washer candidate: 6.6 mm ID, 20 mm OD, 1.5 mm thick alumina.",
+            "Potting baseline: Stycast 2850FT with CAT 23LV, vacuum-degassed and cured 16–24 hours at room temperature.",
+            "Way Forward",
+            "Design direction",
+            "Close the evidence gaps",
+            "Compare the complete prototype with the SPICE and EM predictions.",
+            "Discrete HV Capacitors Stay a Backup",
+            "Partial Discharge Is a System Property",
+            "Dominant PD concern",
+            "Use only with component-level DC and PD qualification.",
+            "Thin Epoxy Reduces Volume, Not Necessarily Local Stress",
+            "Soft Metal Helps Only the Bulk-Epoxy Layout",
+            "CTE-Matched Metal Trades Tension for Lower Shear",
+            "P99 tension",
+            "All values are fitted-alumina P99 stresses in MPa. Green is lower and red is higher than the copper baseline; the plastic case uses its matched-mesh linear-copper reference. Perfect bonding is assumed.",
+            "Bias-to-Ground Capacitance from FEA",
+            "Bias-to-Bias Parasitic Capacitance from FEA",
+            "Electroquasistatic FEA Checks the Distributed RC Model",
+            "Full-Field Noise Transmission to First Resonance",
+            "From Damped Resonances to Field-Derived Transfer",
+        }
+        required_canvas = {
+            "Intrinsic coupled-stage electromagnetic response",
+            "Predicted loaded peaks",
+            "First verified mode",
+            "RLC-predicted loaded fpeak",
+            "Shared radial envelope",
+            "Fixed two-pair simulation",
+            "Ground tube ID 26.0 mm",
+            "Node shunt C",
+            "The washer and copper geometry remain fixed. Only the central resistive insert and its termination method change.",
+            "Stress (MPa)",
+            "Epoxy cell fraction",
+            "Electrical conductivity relative to copper",
+            "18 elastic + 2 matched references + 2 J2 sensitivity cases, generated 2026-08-01",
+        }
+        required_text = {
+            "Contents",
+            "Filter study",
+            "Sections",
+            "Main presentation",
+            "Models & FEA results",
+            "Validation & limiting cases",
+            "Engineering decisions",
+            "Noise",
+            "Field FEA",
+            "Detector noise",
+            "ADC sampling frequency",
+            "Predicted bias noise",
+            "Electrostatic solver",
+            "Peak FEA process memory",
+            "Full-wave electromagnetic solver",
+            "Verify resonances with fine solves",
+            "Actual solve time",
+            "FEA epoxy tensile P99",
+            "Bulk-strength proxy crossing",
+        }
+        required_content = {
+            "Full-wave model scope",
+            "The MEEP branch includes only rotationally symmetric m = 0 fields. Leads, a helical MELF film, and asymmetric antenna or cavity modes require a later 3D solve.",
+            "What the repeating-cell approximation solves",
+            "Interior half-cell: the center of that first bias plate through the center of the next interior ground plate—the second ground plate when the end cap is counted.",
+            "Calculation method",
+            "k is the fraction of radial and circumferential (hoop) mismatch strain prevented in the closed-form approximation. It assumes σrr = σθθ and σzz = σrz = 0. It is not a prescribed surface shift, and it does not control the FEA.",
+            "9510 TDS · CoorsTek alumina · C110 copper",
+        }
+        required_tooltips = {
+            "noise_sample_rate_msps",
+            "noise_waveform_samples",
+            "noise_trap_rise_us",
+            "noise_trap_flat_us",
+            "noise_supply_noise_pp_mv",
+            "noise_lab_broadband_rms_mv",
+            "noise_mains_rms_mv",
+            "noise_mains_frequency_hz",
+            "noise_fano_factor",
+            "field_solver",
+            "mesh_edge_radius_ratio",
+            "use_repeating_cell_approximation",
+            "full_wave_resolution_per_mm",
+            "full_wave_eqs_frequencies",
+            "full_wave_frequencies",
+            "full_wave_verify_resonances",
+            "full_wave_timeout_hours",
+            "thermal_min_temperature_c",
+            "thermal_epoxy_modulus_gpa",
+            "thermal_restraint_factor",
+            "thermal_mesh_size_mm",
+        }
+        for language in ("fr", "de"):
+            text = (locale_root / f"{language}.json").read_text(encoding="utf-8")
+            catalog = json.loads(text)
+            self.assertFalse(catalog["meta"]["experimental"])
+            self.assertGreaterEqual(len(catalog["tooltips"]), 54)
+            for source in required_text:
+                self.assertIn(source, catalog["text"])
+                self.assertNotEqual(catalog["text"][source], source)
+            for source in required_content:
+                self.assertIn(source, catalog["content"])
+                self.assertNotEqual(catalog["content"][source], source)
+            for control_id in required_tooltips:
+                self.assertIn(control_id, catalog["tooltips"])
+            for source in required_slides:
+                self.assertIn(source, catalog["slides"])
+                self.assertNotEqual(catalog["slides"][source], source)
+            for source in required_canvas:
+                self.assertIn(source, catalog["canvas"])
+                self.assertNotEqual(catalog["canvas"][source], source)
+            for mojibake in ("Ã", "Â", "â€", "Î", "Ï"):
+                self.assertNotIn(mojibake, text)
 
     def test_two_washer_cg_uses_shared_overlap_and_both_sides(self) -> None:
         params = {
@@ -1125,7 +1254,7 @@ class FieldBackendTests(unittest.TestCase):
                 payload = json.loads(bundled[len(prefix):].strip().removesuffix(";"))
                 self.assertEqual(payload["format"], "discoidal-capacitor-bias-filter-bundled-field")
                 self.assertEqual(payload["version"], 2)
-                self.assertEqual(payload["settings"]["plate_pairs"], 2)
+                self.assertEqual(payload["settings"]["plate_pairs"], 3)
                 self.assertEqual(payload["result"]["source"], "fea-backend-fenicsx")
                 self.assertEqual(payload["result"]["solverStatus"]["effective"], "fenicsx")
                 self.assertEqual(payload["result"]["grid"]["mesh"]["type"], "gmsh-dolfinx-conforming")
@@ -1196,6 +1325,43 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn(round(washer_outer, 6), radii)
                 self.assertIn(round(params["ground_plate_inner_diameter_mm"] / 2.0, 6), radii)
                 self.assertIn(round(params["hv_plate_od_mm"] / 2.0, 6), radii)
+            finally:
+                server.shutdown()
+                server.server_close()
+                state.stop()
+                thread.join(timeout=2.0)
+
+    def test_static_directory_redirect_preserves_relative_asset_base(self) -> None:
+        with self._temporary_job_dir() as temp_dir:
+            root = Path(temp_dir)
+            static_dir = root / "static"
+            app_dir = static_dir / "filter"
+            app_dir.mkdir(parents=True)
+            (app_dir / "index.html").write_text(
+                '<!doctype html><script src="app.js"></script>',
+                encoding="utf-8",
+            )
+            (app_dir / "app.js").write_text("window.loaded = true;", encoding="utf-8")
+
+            state = field_backend.BackendState(static_dir, root / "jobs")
+            server = ThreadingHTTPServer(("127.0.0.1", 0), field_backend.make_handler(state))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+
+            try:
+                connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+                connection.request("GET", "/filter")
+                response = connection.getresponse()
+                self.assertEqual(response.status, 308)
+                self.assertEqual(response.getheader("Location"), "/filter/")
+                response.read()
+                connection.close()
+
+                index = urllib.request.urlopen(
+                    f"http://127.0.0.1:{server.server_port}/filter/",
+                    timeout=5,
+                ).read().decode("utf-8")
+                self.assertIn('src="app.js"', index)
             finally:
                 server.shutdown()
                 server.server_close()
@@ -1474,7 +1640,9 @@ class FieldBackendTests(unittest.TestCase):
         return ScratchDir()
 
     def _wait_for_complete(self, base_url: str, job_id: str) -> dict[str, object]:
-        deadline = time.time() + 10.0
+        # Auto mode invokes the real FEniCSx subprocess on a capable host. A
+        # three-plate default can legitimately exceed the former 10 s window.
+        deadline = time.time() + 30.0
         while time.time() < deadline:
             payload = self._get_json(f"{base_url}/api/field-solve/{job_id}")
             if payload["status"] == "complete":

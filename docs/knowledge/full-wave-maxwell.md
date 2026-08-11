@@ -80,13 +80,13 @@ source and reflected field.
 ## Frequency Range
 
 The displayed full-field sweep starts at 50 Hz. FEniCSx EQS supplies the
-low-frequency limit through a shared 1 GHz overlap point; asking the wavelength-oriented
+low-frequency limit through shared 300 MHz and 1 GHz overlap points; asking the wavelength-oriented
 MEEP/PML model to solve 50 Hz directly would be both ill-conditioned and a
 poor radiation-boundary model for a free-space wavelength of thousands of
-kilometres. MEEP checks 1 GHz, 3 GHz, 10 GHz, and 30 GHz. The 30 GHz point brackets the first local
-transmission maximum near 10 GHz, so the displayed curve stops at that mode.
-The full-field backend job regenerates both branches for the current design:
-it first solves the nine-point EQS sweep from 50 Hz through 1 GHz, then
+kilometres. MEEP checks 300 MHz, 1 GHz, 3 GHz, 10 GHz, and 30 GHz before any
+local refinement. The point after a candidate peak remains on the plot so its
+bracket is visible. The full-field backend job regenerates both branches for the current design:
+it first solves EQS from 50 Hz through 1 GHz, then
 runs the MEEP resonance search. It therefore does not combine a newly solved
 high-frequency curve with stale low-frequency results from another geometry.
 
@@ -99,10 +99,11 @@ A_noise = -10 log10(Sout / Sin) = -20 log10|Vout / Vin|
 The equality assumes the same voltage-noise reference at input and output; it
 is not an impedance-normalized `S21` power measurement. Because the current
 radial MEEP excitation is not a calibrated wave port, its transfer curve is
-shifted by a constant so that it equals EQS at 1 GHz. This preserves the
-MEEP frequency-dependent shape and resonance location while making the
-display continuous. Absolute full-wave transfer still requires calibrated
-ports.
+shifted by one constant so that it equals EQS at 300 MHz. The separately
+solved 1 GHz point is not forced to agree: its residual reports whether EQS
+and MEEP have the same slope through the overlap. A large residual invalidates
+the handoff rather than being hidden by a two-parameter fit. Absolute
+full-wave transfer still requires calibrated ports.
 
 The filter is much smaller than a wavelength throughout most of this range,
 which makes a strong geometrical cavity resonance unlikely. It does not make
@@ -176,7 +177,7 @@ This failure is retained because the impossible output exposed the error.
 Remaining validation:
 
 1. Repeat transfer and flux at multiple spatial resolutions.
-2. Replace constant overlap normalization with calibrated common port definitions.
+2. Replace constant lower-point normalization with calibrated common port definitions; retain at least two shared points to test slope.
 3. Add calibrated impedance ports when direct S-parameters are needed.
 4. Compare with a 3D model containing leads and realistic openings.
 5. Compare with prototype impedance or S-parameter measurements.
@@ -193,5 +194,21 @@ f_{\mathrm{peak}} = f_0\sqrt{1-2\zeta^2}.
 \]
 
 For larger damping the RLC model contributes no shifted amplitude-peak candidate, although the zero-loss mode and coarse field sweep can still seed refinement. Each distinct candidate is then surrounded by seven logarithmically spaced solves spanning \(\pm 0.18\) decade at the selected full-wave resolution. The software calls a resonance verified only when the largest fine-grid response has solved points on both sides and both neighboring responses are lower. A model prediction by itself is not reported as a verified resonance.
+
+The full-field presentation overlays these ladder predictions on the same
+log-frequency axis as EQS and MEEP. Dotted markers identify the low-loss
+ladder natural frequencies. Separate loaded-peak markers use the equation
+above with the selected stage resistance. When no real loaded peak exists,
+the result panel says `none; overdamped` rather than placing a misleading
+frequency marker. These are model predictions to compare with MEEP, not
+substitutes for a bracketed field-solver maximum.
+
+The coupled-ladder plot deliberately uses `350 mOhm` per stage to expose its
+otherwise hidden LC natural modes. That curve is not the physical filter. For
+the default `12 Mohm` stages, the matched-mode damping ratio is far above
+`1/sqrt(2)`, so the equation above has no real amplitude-peak frequency: the
+mode is overdamped rather than shifted. A MEEP peak that survives with the
+physical core conductivity therefore needs to be treated as a different field
+coupling path or a port/model artifact until overlap, mesh, and 3D checks pass.
 
 The result JSON preserves `coarse_samples`, `refined_samples`, candidate provenance, refinement brackets, and verified peaks. The browser reports both the estimated runtime and the measured backend duration. Mesh convergence still requires repeating the verification at a higher selected resolution; a bracketed peak on one mesh is evidence of a mode, not a completed convergence study.

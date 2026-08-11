@@ -33,12 +33,10 @@ except ImportError:  # Direct execution on the Pi.
 EPSILON_0_F_PER_M = 8.8541878128e-12
 SPEED_OF_LIGHT_M_PER_S = 299_792_458.0
 LENGTH_UNIT_M = 1e-3  # MEEP geometry coordinates are millimetres.
-# EQS carries the displayed sweep from 50 Hz through the shared 1 GHz overlap
-# point. Very-low-frequency MEEP CW systems are poorly conditioned; moving the
-# overlap from 100 MHz to 1 GHz removes the two slowest redundant solves while
-# retaining points below, near, and above the first candidate cavity mode.
-DEFAULT_FREQUENCIES_HZ = (1e9, 3e9, 10e9, 30e9)
-DEFAULT_EQS_FREQUENCIES_HZ = (50.0, 100.0, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9)
+# EQS and MEEP share 300 MHz and 1 GHz. The first point anchors the provisional
+# port normalization; the second independently checks slope before handoff.
+DEFAULT_FREQUENCIES_HZ = (300e6, 1e9, 3e9, 10e9, 30e9)
+DEFAULT_EQS_FREQUENCIES_HZ = (50.0, 100.0, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 300e6, 1e9)
 RESONANCE_REFINEMENT_POINT_COUNT = 7
 RESONANCE_REFINEMENT_HALF_SPAN_DECADES = 0.18
 
@@ -525,7 +523,7 @@ def solve_sweep(raw_parameters: dict[str, Any], frequencies_hz: Iterable[float] 
         "coarse_resolution_per_mm": coarse_resolution,
         "frequency_range_hz": [min(frequencies), max(frequencies)],
         "display_frequency_start_hz": 50.0,
-        "low_frequency_solver": "FEniCSx electroquasistatic Maxwell limit through the 1 GHz overlap point",
+        "low_frequency_solver": "FEniCSx electroquasistatic Maxwell limit through shared 300 MHz and 1 GHz overlap points",
         "resonance_search": "optional coarse MEEP sweep followed by fine-grid bracketing around measured and low-loss RLC candidates",
         "resonance_verification": {
             "enabled": verify,
@@ -553,6 +551,7 @@ def main() -> int:
     parser.add_argument("--parameters", type=Path, default=axisymmetric_model.DEFAULT_PARAMETERS)
     parser.add_argument("--frequencies", nargs="+", type=float, default=list(DEFAULT_FREQUENCIES_HZ))
     parser.add_argument("--resolution-per-mm", type=float, default=2.0)
+    parser.add_argument("--verify-resonances", action="store_true")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--dependency-status", action="store_true")
     parser.add_argument("--solve-stdin", action="store_true")
@@ -565,6 +564,8 @@ def main() -> int:
     else:
         parameters = axisymmetric_model.load_parameters(args.parameters)
         parameters["full_wave_resolution_per_mm"] = args.resolution_per_mm
+        if args.verify_resonances:
+            parameters["full_wave_verify_resonances"] = True
     result = solve_sweep(parameters, None if args.solve_stdin else args.frequencies)
     payload = json.dumps(result, indent=2, allow_nan=False)
     if args.output:

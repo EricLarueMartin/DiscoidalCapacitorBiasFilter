@@ -17,11 +17,11 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=2026-08-05-noise-budget-4">
-    <script defer src="default-fenicsx-field.js?v=2026-08-06-port-capacitance-1"></script>
-    <script defer src="default-eqs-sweep.js?v=2026-08-06-bundle-sync-1"></script>
-    <script defer src="default-full-wave.js?v=2026-08-06-bundle-sync-1"></script>
-    <script defer src="app.js?v=2026-08-06-port-capacitance-1"></script>
+    <link rel="stylesheet" href="style.css?v=2026-08-11-locale-main-models-9">
+    <script defer src="default-fenicsx-field.js?v=2026-08-11-locale-main-models-4"></script>
+    <script defer src="default-eqs-sweep.js?v=2026-08-11-locale-main-models-4"></script>
+    <script defer src="default-full-wave.js?v=2026-08-11-locale-main-models-4"></script>
+    <script defer src="app.js?v=2026-08-11-locale-main-models-13"></script>
   </head>
   <body>
     <header class="topbar">
@@ -264,11 +264,11 @@
             </label>
             <label title="Comma-separated low-frequency EQS sample points. Frequency suffixes such as Hz, kHz, MHz, and GHz are accepted.">
               <span>EQS frequency points</span>
-              <input class="frequency-list-control" id="full_wave_eqs_frequencies" type="text" inputmode="text" value="50 Hz, 1 kHz, 1 MHz, 31.25 MHz, 100 MHz, 1 GHz">
+              <input class="frequency-list-control" id="full_wave_eqs_frequencies" type="text" inputmode="text" value="50 Hz, 1 kHz, 1 MHz, 31.25 MHz, 100 MHz, 300 MHz, 1 GHz">
             </label>
-            <label title="Comma-separated cylindrical MEEP sample points. Include an overlap point shared with the EQS list and enough points above it to bracket the first resonance.">
+            <label title="Comma-separated cylindrical MEEP sample points. Include at least two overlap points shared with EQS and solved points below and above each suspected resonance.">
               <span>MEEP frequency points</span>
-              <input class="frequency-list-control" id="full_wave_frequencies" type="text" inputmode="text" value="1 GHz, 3 GHz, 10 GHz, 30 GHz">
+              <input class="frequency-list-control" id="full_wave_frequencies" type="text" inputmode="text" value="300 MHz, 1 GHz, 3 GHz, 10 GHz, 30 GHz">
             </label>
             <label class="check" title="Run the requested MEEP frequencies on a coarse grid, identify local maxima, add predictions from the low-loss coupled model, and solve seven fine-grid frequencies around each candidate. When zeta is below 1/sqrt(2), the matched RLC driven-response peak is shifted to fpeak = f0 sqrt(1 - 2 zeta^2); a more strongly damped mode has no amplitude peak. A resonance is reported as verified only when the fine solve brackets a local maximum with lower solved points on both sides."><input id="full_wave_verify_resonances" type="checkbox"> Verify resonances with fine solves</label>
             <label title="Maximum wall-clock time allowed for one queued full-wave job. The job continues on the Pi if this browser tab is closed.">
@@ -293,7 +293,7 @@
             <div class="thermal-warning" id="fullWaveStatus" role="status">Run the full-wave solve to include magnetic induction and fields escaping into free space.</div>
             <div class="solver-explainer">
               <strong>Full-wave model scope</strong>
-              <p>The displayed full-field sweep starts at 50 Hz using the FEniCSx electroquasistatic Maxwell limit. MEEP takes over at the shared 1 GHz overlap point. Optional resonance verification uses a coarse sweep followed by fine logarithmic brackets around measured peaks and low-loss RLC predictions.</p>
+              <p>The displayed full-field sweep starts at 50 Hz using the FEniCSx electroquasistatic Maxwell limit. EQS and MEEP share 300 MHz and 1 GHz: the lower point anchors provisional port normalization and the upper point tests agreement before handoff. Optional resonance verification uses a coarse sweep followed by fine logarithmic brackets around measured peaks and low-loss RLC predictions.</p>
               <p>The structure can be electrically small and still couple through fringing electric fields, common-mode currents, leads, and apertures. The grounded tube is therefore part of the electromagnetic model, not merely a cavity-resonance precaution.</p>
               <p>Each core section receives its own effective conductivity, &sigma; = L/(RA). The input section uses the entered input resistance, every interior section uses the stage resistance, and the output section uses the entered output resistance.</p>
               <p>The MEEP branch includes only rotationally symmetric <em>m</em> = 0 fields. Leads, a helical MELF film, and asymmetric antenna or cavity modes require a later 3D solve.</p>
@@ -584,10 +584,10 @@
         <aside class="slide-toc" aria-label="Presentation table of contents">
           <div class="slide-toc-heading">
             <div>
-              <p class="eyebrow">Contents</p>
-              <strong>Filter study</strong>
+              <p class="eyebrow" data-i18n-source="Contents">Contents</p>
+              <strong data-i18n-source="Filter study">Filter study</strong>
             </div>
-            <button id="slideTocToggle" type="button" aria-expanded="true" aria-controls="slideTocList">Sections</button>
+            <button id="slideTocToggle" type="button" aria-expanded="true" aria-controls="slideTocList" data-i18n-source="Sections">Sections</button>
           </div>
           <div class="slide-toc-list" id="slideTocList"></div>
         </aside>
@@ -680,8 +680,8 @@
             <h2>From Full-Geometry FEA to SPICE</h2>
             <ul>
               <li>Electrostatic FEniCSx basis fields extract each bias node's C<sub>g</sub> and every mutual C<sub>par</sub> directly from the complete geometry.</li>
-              <li>A distributed electroquasistatic field solve agrees with the matched RC network within 0.62 dB through the saved 1 Hz&ndash;100 MHz sweep.</li>
-              <li>The axisymmetric full-wave result has no resonance-like feature through 1 GHz. An earlier exploratory sweep found a candidate wavelength-scale mode near 10 GHz, not RC agreement through 10 GHz.</li>
+              <li>A distributed electroquasistatic field solve agrees with the matched RC network within 1.79 dB through the saved 1 Hz&ndash;1 GHz sweep.</li>
+              <li>Shared 300 MHz and 1 GHz points test the EQS-to-MEEP handoff; a full-wave mode is reported only when solved points bracket its local maximum.</li>
               <li>The extracted capacitances and specified or geometry-derived resistances are used for the complete loaded SPICE ladder.</li>
             </ul>
           </div>
@@ -749,8 +749,8 @@
               <li>The input bias plate is fixed at 1 V, all interior plates float, and the output plate is measured open-circuit.</li>
               <li>No input resistor, output resistor, cable, detector capacitance, or load conductance appears in either curve.</li>
               <li>The complete complex admittance matrix comes from the distributed electric field and continuous resistive-core surrogate—not from inserted capacitances.</li>
-              <li>At 1 kHz, FEniCSx gives -10.08 dB and intrinsic SPICE gives -10.03 dB; their worst saved difference is 0.62 dB.</li>
-              <li>Reciprocity is exact numerically; the real admittance is passive; 1 kHz changes by only 0.00014 dB from 0.60 to 0.30 mm mesh.</li>
+              <li>At 1 kHz, the three-plate FEniCSx result is -22.76 dB and the matched lumped model is -22.65 dB; their worst saved difference is 1.79 dB near the deep 100 kHz transition.</li>
+              <li>Reciprocity is exact numerically; the real admittance is passive; loaded 1 kHz transfer changes by only 0.00354 dB from 0.60 to 0.30 mm mesh.</li>
               <li>This validates the electroquasistatic RC limit; it does not include magnetic induction, cavity modes, or radiation.</li>
             </ul>
           </div>
@@ -766,10 +766,11 @@
             <h2>Full-Field Noise Transmission to First Resonance</h2>
             <ul>
               <li>The displayed full-field sweep starts at 50 Hz with the electroquasistatic Maxwell solution, which is the correct low-frequency limit for this millimetre-scale geometry.</li>
-              <li>At the shared 1 GHz overlap point it hands off to cylindrical <em>m</em> = 0 MEEP and continues logarithmically until the first local resonance is bracketed.</li>
-              <li>MEEP is normalized to the EQS transfer at 1 GHz because the present radial source is not yet an impedance-calibrated wave port.</li>
+              <li>EQS and cylindrical <em>m</em> = 0 MEEP overlap at 300 MHz and 1 GHz. The 300 MHz point anchors the provisional port normalization; the independent 1 GHz point checks whether their slopes agree before handoff.</li>
+              <li>The low-loss frequency-domain ladder supplies each natural frequency <em>f</em><sub>0</sub>. The plot also marks the loaded prediction <em>f</em><sub>peak</sub> = <em>f</em><sub>0</sub>&radic;(1 &minus; 2&zeta;<sup>2</sup>) whenever the selected resistance leaves an underdamped amplitude peak.</li>
+              <li>The plot retains the solved point after a candidate peak so a claimed resonance visibly has lower-transmission points on both sides.</li>
               <li>Noise-power attenuation is &minus;10 log<sub>10</sub>(S<sub>out</sub>/S<sub>in</sub>) = &minus;20 log<sub>10</sub>|V<sub>out</sub>/V<sub>in</sub>| for the same voltage-noise reference.</li>
-              <li>The default design's first candidate mode is near 10 GHz. Leads, cable common mode, and non-axisymmetric modes still require 3D validation.</li>
+              <li>A mode frequency is reported only after fine or coarse samples bracket a local maximum. Leads, cable common mode, and non-axisymmetric modes still require 3D validation.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -784,9 +785,9 @@
             <h2>From Damped Resonances to Field-Derived Transfer</h2>
             <ul>
               <li>The frequency-domain network combines the FEniCSx Maxwell capacitance matrix with geometry-derived partial inductance for each axial current path.</li>
-              <li>A low-loss reference exposes the coupled LC modes; the physical interstage resistance strongly damps those peaks.</li>
+              <li>The 350 m&Omega; low-loss reference exposes the coupled LC natural modes; it is not the physical filter resistance.</li>
               <li>A single-mode RLC check chooses L<sub>eff</sub> so its zero-resistance natural frequency matches the first coupled-model peak, then applies the same physical resistance.</li>
-              <li>The matched oscillator and coupled network should agree on resonance scale and whether the physical design is underdamped or overdamped; their full transfer amplitudes need not match.</li>
+              <li>For an underdamped mode, the physical-resistance peak follows f<sub>peak</sub> = f<sub>0</sub>&radic;(1 &minus; 2&zeta;<sup>2</sup>). With the default 12 M&Omega; stages the model is overdamped, so it predicts no shifted amplitude peak.</li>
               <li>The intrinsic comparison applies 1 V directly to the input plate, leaves interior plates floating, measures the output open-circuit, and calculates V<sub>out</sub>/V<sub>in</sub> from a field-derived complex admittance matrix.</li>
               <li>EQS includes distributed conduction and displacement current, but not magnetic induction, skin effect, radiation, or the 3D MELF helix.</li>
               <li>After EQS-to-SPICE validation, the next check is a 3D curl-curl solution followed by a measured S-parameter or impedance sweep.</li>

@@ -10,17 +10,85 @@
     "detector capacitance",
     "DC load conductance"
   ],
-  "retained": ["interstage resistance", "bias-to-ground capacitance", "bias-to-bias capacitance"],
-  "samples": [
-    {"frequency_hz": 1.0, "fenicsx_eqs_db": -0.000126, "spice_db": -0.000039, "difference_db": -0.000087},
-    {"frequency_hz": 10.0, "fenicsx_eqs_db": -0.004077, "spice_db": -0.003940, "difference_db": -0.000138},
-    {"frequency_hz": 100.0, "fenicsx_eqs_db": -0.382060, "spice_db": -0.377274, "difference_db": -0.004786},
-    {"frequency_hz": 1000.0, "fenicsx_eqs_db": -10.083564, "spice_db": -10.032322, "difference_db": -0.051242},
-    {"frequency_hz": 10000.0, "fenicsx_eqs_db": -29.657525, "spice_db": -29.543311, "difference_db": -0.114214},
-    {"frequency_hz": 100000.0, "fenicsx_eqs_db": -47.339443, "spice_db": -46.721077, "difference_db": -0.618367},
-    {"frequency_hz": 1000000.0, "fenicsx_eqs_db": -49.796236, "spice_db": -49.843039, "difference_db": 0.046803},
-    {"frequency_hz": 10000000.0, "fenicsx_eqs_db": -49.826834, "spice_db": -49.888973, "difference_db": 0.062139},
-    {"frequency_hz": 100000000.0, "fenicsx_eqs_db": -49.827141, "spice_db": -49.889435, "difference_db": 0.062294}
+  "retained": [
+    "interstage resistance",
+    "bias-to-ground capacitance",
+    "bias-to-bias capacitance"
   ],
-  "maximum_absolute_difference_db": 0.618367
+  "plate_count": 3,
+  "samples": [
+    {
+      "frequency_hz": 1.0,
+      "fenicsx_eqs_db": -0.0005793427317347742,
+      "spice_db": -0.0003166990287752808,
+      "difference_db": -0.00026264370295949336
+    },
+    {
+      "frequency_hz": 10.0,
+      "fenicsx_eqs_db": -0.032448210150136776,
+      "spice_db": -0.031560829741857185,
+      "difference_db": -0.0008873804082795908
+    },
+    {
+      "frequency_hz": 50.0,
+      "fenicsx_eqs_db": -0.7435903194448803,
+      "spice_db": -0.7298490121784247,
+      "difference_db": -0.013741307266455616
+    },
+    {
+      "frequency_hz": 100.0,
+      "fenicsx_eqs_db": -2.4435441202129216,
+      "spice_db": -2.4061188030622476,
+      "difference_db": -0.03742531715067399
+    },
+    {
+      "frequency_hz": 1000.0,
+      "fenicsx_eqs_db": -22.756714744037648,
+      "spice_db": -22.645685762264513,
+      "difference_db": -0.11102898177313492
+    },
+    {
+      "frequency_hz": 10000.0,
+      "fenicsx_eqs_db": -60.711305285029155,
+      "spice_db": -60.36030662296173,
+      "difference_db": -0.35099866206742547
+    },
+    {
+      "frequency_hz": 100000.0,
+      "fenicsx_eqs_db": -96.38920713005044,
+      "spice_db": -94.59522932617591,
+      "difference_db": -1.793977803874526
+    },
+    {
+      "frequency_hz": 1000000.0,
+      "fenicsx_eqs_db": -100.6929006340263,
+      "spice_db": -100.73121949747221,
+      "difference_db": 0.038318863445908846
+    },
+    {
+      "frequency_hz": 10000000.0,
+      "fenicsx_eqs_db": -100.74406650605808,
+      "spice_db": -100.82086557826648,
+      "difference_db": 0.07679907220840221
+    },
+    {
+      "frequency_hz": 100000000.0,
+      "fenicsx_eqs_db": -100.74457915016767,
+      "spice_db": -100.82176672820955,
+      "difference_db": 0.0771875780418867
+    },
+    {
+      "frequency_hz": 300000000.0,
+      "fenicsx_eqs_db": -100.7445837531214,
+      "spice_db": -100.82177481976613,
+      "difference_db": 0.07719106664472974
+    },
+    {
+      "frequency_hz": 1000000000.0,
+      "fenicsx_eqs_db": -100.74458427670747,
+      "spice_db": -100.82177574018117,
+      "difference_db": 0.07719146347369588
+    }
+  ],
+  "maximum_absolute_difference_db": 1.793977803874526
 }
