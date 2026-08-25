@@ -271,10 +271,11 @@ class FieldBackendTests(unittest.TestCase):
             "Reference Design",
             "Washer candidate: 6.6 mm ID, 20 mm OD, 1.5 mm thick alumina.",
             "Potting baseline: Stycast 2850FT with CAT 23LV, vacuum-degassed and cured 16–24 hours at room temperature.",
-            "Way Forward",
-            "Design direction",
-            "Close the evidence gaps",
-            "Compare the complete prototype with the SPICE and EM predictions.",
+            "Using the Modeler",
+            "Build the physical stack",
+            "Or enter component R and C",
+            "Use the right level of confidence",
+            "Entered R and C are mapped to effective material properties, much like modeling the gap as a resistive and capacitive medium. Useful for sensitivity studies—not component-level peak-field qualification.",
             "Discrete HV Capacitors Stay a Backup",
             "Partial Discharge Is a System Property",
             "Dominant PD concern",
@@ -379,6 +380,18 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertNotEqual(catalog["canvas"][source], source)
             for mojibake in ("Ã", "Â", "â€", "Î", "Ï"):
                 self.assertNotIn(mojibake, text)
+
+    def test_reference_full_wave_result_is_restored_after_control_changes(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        app = (root / "presentations" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn(
+            "if (fullWaveCache?.key === fullWaveKey(params)) return fullWaveCache.result;",
+            app,
+        )
+        self.assertIn(
+            "return loadBundledDefaultFullWaveResult() ? fullWaveCache.result : null;",
+            app,
+        )
 
     def test_two_washer_cg_uses_shared_overlap_and_both_sides(self) -> None:
         params = {
@@ -1228,7 +1241,8 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn('src="default-eqs-sweep.js?', index)
                 self.assertIn('id="slideEqsCanvas"', index)
                 self.assertIn('id="slideElectromagneticCanvas"', index)
-                self.assertIn('<h2>Way Forward</h2>', index)
+                self.assertIn('<h2>Using the Modeler</h2>', index)
+                self.assertIn('id="slideModelerCanvas"', index)
                 self.assertIn('id="slideThermalConductorStudyCanvas"', index)
                 self.assertIn('Soft Metal Helps Only the Bulk-Epoxy Layout', index)
                 self.assertIn('CTE-Matched Metal Trades Tension for Lower Shear', index)

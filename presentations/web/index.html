@@ -17,11 +17,11 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=2026-08-11-locale-main-models-9">
+    <link rel="stylesheet" href="style.css?v=2026-08-25-modeler-slide-2">
     <script defer src="default-fenicsx-field.js?v=2026-08-11-locale-main-models-4"></script>
     <script defer src="default-eqs-sweep.js?v=2026-08-11-locale-main-models-4"></script>
     <script defer src="default-full-wave.js?v=2026-08-11-locale-main-models-4"></script>
-    <script defer src="app.js?v=2026-08-11-locale-main-models-13"></script>
+    <script defer src="app.js?v=2026-08-25-modeler-slide-2"></script>
   </head>
   <body>
     <header class="topbar">
@@ -799,28 +799,38 @@
           </figure>
         </article>
 
-        <article class="slide slide-copy-wide way-forward-slide">
-          <p class="eyebrow">Current thinking</p>
-          <h2>Way Forward</h2>
-          <div class="way-forward-grid">
-            <section>
-              <h3>Design direction</h3>
-              <ul>
-                <li>Keep the symmetric washer/core stack as the baseline.</li>
-                <li>Prefer ferrite only if measured resistance and excess noise justify it.</li>
-                <li>Keep matched discrete HV capacitors as a symmetric fallback, not the primary design.</li>
-              </ul>
-            </section>
-            <section>
-              <h3>Close the evidence gaps</h3>
-              <ol>
-                <li>Converge electrostatic peak field and capacitance.</li>
-                <li>Measure core resistance, noise, leakage, and partial discharge.</li>
-                <li>Run and validate the 3D frequency-domain electromagnetic model.</li>
-                <li>Compare the complete prototype with the SPICE and EM predictions.</li>
-              </ol>
-            </section>
+        <article class="slide slide-visual modeler-usage-slide">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Geometry or capacitance input</p>
+            <h2>Using the Modeler</h2>
+            <ol class="modeler-steps">
+              <li>
+                <strong>Build the physical stack</strong>
+                <span>Enter the plate and washer dimensions, gaps, edge radii, materials, and number of plate pairs.</span>
+              </li>
+              <li>
+                <strong>Or enter component R and C</strong>
+                <span>Resistance and capacitance are independent choices. Select <em>Enter stage R</em> and/or <em>Enter resistor C<sub>par</sub></em> to specify component values directly; otherwise the model derives them from the selected resistive medium, dielectric properties, and geometry.</span>
+              </li>
+              <li>
+                <strong>Use the right level of confidence</strong>
+                <span>The circuit uses the entered capacitance directly. The field result is an approximate screening model because the actual capacitor electrodes, package, and local fringing fields are not resolved.</span>
+              </li>
+            </ol>
           </div>
+          <figure class="slide-figure modeler-figure">
+            <canvas id="slideModelerCanvas" width="1100" height="460"></canvas>
+            <figcaption>Current settings rendered from the same normalized geometry used by the Designer</figcaption>
+            <div class="modeler-surrogate">
+              <div>
+                <strong>Component-defined gap</strong>
+                <span>&epsilon;<sub>eff</sub> &asymp; C<sub>gap</sub>L / (&epsilon;<sub>0</sub>A)</span>
+                <span>&sigma;<sub>eff</sub> &asymp; L / (R<sub>stage</sub>A)</span>
+              </div>
+              <p>Entered R and C are mapped to effective material properties, much like modeling the gap as a resistive and capacitive medium. Useful for sensitivity studies—not component-level peak-field qualification.</p>
+            </div>
+            <p class="modeler-circuit-note"><em>Optional added C<sub>g</sub> per bias plate</em> changes the circuit model only; it does not alter the electrostatic FEA geometry.</p>
+          </figure>
         </article>
 
         <article class="slide slide-visual">

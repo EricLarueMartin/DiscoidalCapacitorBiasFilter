@@ -379,7 +379,7 @@ const LANGUAGE_STORAGE_KEY = "discoidal-capacitor-bias-filter-language";
 const SUPPORTED_LANGUAGES = new Set(["en", "fr", "de"]);
 
 const LOCALE_LANGUAGES = ["en", "fr", "de"];
-const LOCALE_VERSION = "2026-08-11-main-models-13";
+const LOCALE_VERSION = "2026-08-25-modeler-slide-2";
 const TRANSLATIONS = Object.fromEntries(
   LOCALE_LANGUAGES.map((language) => [language, {}])
 );
@@ -1373,8 +1373,8 @@ function fullWaveKey(p = params) {
 }
 
 function fullWaveResultForCurrentDesign() {
-  if (!fullWaveCache || fullWaveCache.key !== fullWaveKey(params)) return null;
-  return fullWaveCache.result;
+  if (fullWaveCache?.key === fullWaveKey(params)) return fullWaveCache.result;
+  return loadBundledDefaultFullWaveResult() ? fullWaveCache.result : null;
 }
 
 function loadBundledDefaultFullWaveResult() {
@@ -9801,6 +9801,7 @@ function drawSlideGraphics() {
   const slideView = { ...defaultCadView, zoom: 1.16, panY: 10 };
   drawCadModel(slideCad, slideView, false);
   drawMaterialSlide(document.getElementById("slideMaterialCanvas"));
+  drawMaterialSlide(document.getElementById("slideModelerCanvas"));
   drawSimulationResultsSlide(document.getElementById("slideResultsCanvas"));
   drawThermalSlide(document.getElementById("slideThermalCanvas"));
   drawEdgeSlide(document.getElementById("slideEdgeCanvas"));
@@ -11571,7 +11572,7 @@ const SLIDE_SECTION_DEFINITIONS = [
       "SPICE Simulation of the Complete Filter",
       "Bias Noise After the Energy Filter",
       "Reference Design",
-      "Way Forward"
+      "Using the Modeler"
     ]
   },
   {
