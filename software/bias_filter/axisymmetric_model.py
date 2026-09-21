@@ -22,6 +22,11 @@ DEFAULT_CAD_DIR = ROOT / "hardware" / "geometry" / "generated"
 FIELD_ADAPTIVE_PROBE_SWEEPS = 90
 FIELD_ADAPTIVE_MAX_POINTS = 24
 FIELD_ADAPTIVE_THRESHOLD_FRACTION = 0.45
+# Shrink the rounded-edge inclusion test by one part in 1e12 so a sample
+# lying exactly on a conductor surface classifies identically at mirrored
+# stack positions instead of following floating-point rounding.
+SURFACE_TIE_SCALE = 1.0 - 1e-12
+
 SUPPORTED_PEAK_PERCENTILE = 0.75
 SUPPORTED_PEAK_OUTLIER_RATIO = 1.35
 WASHER_ID_MODES = {"ground_id", "ground_flat_id", "custom"}
@@ -376,7 +381,13 @@ def rounded_outer_plate(r: float, z: float, zc: float, r_inner: float, r_outer: 
     dz = abs(z - zc)
     if r <= r_outer - radius or dz <= half - radius:
         return True
-    return (r - (r_outer - radius)) ** 2 + (dz - (half - radius)) ** 2 <= radius**2
+    # Grid refinement deliberately places samples at exactly center +/- radius,
+    # i.e. exactly on this arc. An exact `<= radius**2` tie is then decided by
+    # floating-point rounding, and mirror-image points reach the comparison by
+    # different arithmetic paths, so they can round opposite ways and break the
+    # model's z-symmetry. Bias the tie so an on-surface sample is consistently
+    # dielectric, keeping the probe point usable for field evaluation.
+    return (r - (r_outer - radius)) ** 2 + (dz - (half - radius)) ** 2 <= radius**2 * SURFACE_TIE_SCALE
 
 
 def rounded_inner_plate(r: float, z: float, zc: float, r_inner: float, r_outer: float, thickness: float, radius: float) -> bool:
@@ -389,7 +400,7 @@ def rounded_inner_plate(r: float, z: float, zc: float, r_inner: float, r_outer: 
     dz = abs(z - zc)
     if r >= r_inner + radius or dz <= half - radius:
         return True
-    return (r - (r_inner + radius)) ** 2 + (dz - (half - radius)) ** 2 <= radius**2
+    return (r - (r_inner + radius)) ** 2 + (dz - (half - radius)) ** 2 <= radius**2 * SURFACE_TIE_SCALE
 
 
 def rounded_outer_profile(r_inner: float, r_outer: float, z0: float, z1: float, radius: float, steps: int = 8) -> list[tuple[float, float]]:
@@ -1141,8 +1152,111 @@ def solve(p: dict[str, Any]) -> dict[str, Any]:
         "raw_dielectric_peaks": result.get("raw_dielectric_peaks"),
         "peak_quality": result.get("peak_quality"),
         "field": result["field"],
+        "region_peaks": region_field_peaks(p, result["grid"], result["field"]),
         "adaptive": adaptive_summary,
     }
+
+
+
+def region_field_peaks(
+    p: dict[str, Any],
+    grid: dict[str, Any],
+    field: list[list[float]],
+) -> list[dict[str, Any]]:
+    """Peak dielectric field for every HV-conductor / ground-conductor pair.
+
+    Each dielectric sample is attributed to its nearest HV element (the core or
+    a specific bias plate) and its nearest ground element (the shell or a
+    specific ground plate). Reporting a maximum per pair keeps the physically
+    distinct hot spots visible separately -- core to ground-plate ID, bias
+    plate OD to shell, and bias plate edge to the adjacent ground plate across
+    the axial gap -- instead of collapsing them into one global number that
+    hides which gap is actually critical.
+    """
+    core_r = p["core_od_mm"] / 2.0
+    hv_outer = p["hv_plate_od_mm"] / 2.0
+    ground_inner = p["ground_plate_inner_diameter_mm"] / 2.0
+    tube_inner = p["tube_id_mm"] / 2.0
+    include_tube = bool(p.get("include_ground_tube", True))
+    bias_half = bias_plate_thickness_mm(p) / 2.0
+    ground_half = ground_plate_thickness_mm(p) / 2.0
+    bias_radius = max(0.0, min(edge_radius_mm(p, "hv"), bias_half, hv_outer / 2.0))
+    ground_radius = max(0.0, min(edge_radius_mm(p, "ground"), ground_half))
+
+    def bias_distance(r: float, z: float, zc: float) -> float:
+        arc_r = hv_outer - bias_radius
+        dz = abs(z - zc)
+        if r <= arc_r:
+            return dz - bias_half
+        return math.hypot(r - arc_r, max(0.0, dz - (bias_half - bias_radius))) - bias_radius
+
+    def ground_distance(r: float, z: float, zc: float) -> float:
+        arc_r = ground_inner + ground_radius
+        dz = abs(z - zc)
+        if r >= arc_r:
+            return dz - ground_half
+        return math.hypot(r - arc_r, max(0.0, dz - (ground_half - ground_radius))) - ground_radius
+
+    hv_elements: list[tuple[str, Any]] = [("core", None)]
+    ground_elements: list[tuple[str, Any]] = []
+    if include_tube:
+        ground_elements.append(("shell", None))
+    bias_index = 0
+    ground_index = 0
+    for kind, zc in plate_centers(p):
+        if kind == "hv":
+            bias_index += 1
+            hv_elements.append((f"bias#{bias_index}", zc))
+        else:
+            ground_index += 1
+            ground_elements.append((f"ground#{ground_index}", zc))
+    if not ground_elements:
+        return []
+
+    nr = grid["nr"]
+    nz = grid["nz"]
+    labels = grid["labels"]
+    r_coords = grid["r_coords"]
+    z_coords = grid["z_coords"]
+    best: dict[tuple[str, str], tuple[float, float, float]] = {}
+
+    for i in range(1, nr - 1):
+        r = r_coords[i]
+        for j in range(1, nz - 1):
+            if labels[i][j] != "dielectric":
+                continue
+            value = field[i][j]
+            if not math.isfinite(value) or value <= 0.0:
+                continue
+            z = z_coords[j]
+            hv_name = ""
+            hv_best = float("inf")
+            for name, zc in hv_elements:
+                d = (r - core_r) if zc is None else bias_distance(r, z, zc)
+                if d < hv_best:
+                    hv_best = d
+                    hv_name = name
+            gnd_name = ""
+            gnd_best = float("inf")
+            for name, zc in ground_elements:
+                d = (tube_inner - r) if zc is None else ground_distance(r, z, zc)
+                if d < gnd_best:
+                    gnd_best = d
+                    gnd_name = name
+            key = (hv_name, gnd_name)
+            current = best.get(key)
+            if current is None or value > current[0]:
+                best[key] = (value, r, z)
+
+    return [
+        {
+            "hv": hv_name,
+            "ground": gnd_name,
+            "maxField": value,
+            "maxLocation": {"r": r, "z": z},
+        }
+        for (hv_name, gnd_name), (value, r, z) in sorted(best.items(), key=lambda item: -item[1][0])
+    ]
 
 
 def geometry_summary(p: dict[str, Any]) -> dict[str, Any]:
