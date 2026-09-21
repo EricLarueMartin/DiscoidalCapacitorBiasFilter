@@ -18,7 +18,10 @@ import os
 import shlex
 import subprocess
 
-from mcp.server.fastmcp import FastMCP
+try:  # mcp >= 2 renamed FastMCP to MCPServer
+    from mcp.server.mcpserver import MCPServer as _MCPServer
+except ImportError:  # mcp < 2
+    from mcp.server.fastmcp import FastMCP as _MCPServer
 
 # --- Scope -----------------------------------------------------------------
 PI_HOST = "pi-05-ioc.fel.duke.edu"
@@ -32,7 +35,7 @@ DEFAULT_TIMEOUT_S = 120
 MAX_TIMEOUT_S = 900
 MAX_OUTPUT_CHARS = 60_000
 
-mcp = FastMCP("pi-05-ioc")
+mcp = _MCPServer("pi-05-ioc")
 
 
 def _ssh_base() -> list[str]:
