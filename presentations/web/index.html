@@ -18,13 +18,13 @@
       })();
     </script>
     <link rel="stylesheet" href="style.css?v=2026-09-03-spice-tab">
-    <script defer src="default-fenicsx-field-dp270.js?v=2026-09-22-caen-dp270"></script>
+    <script defer src="default-fenicsx-field-dp270.js?v=seven-plates-2026-09-22-caen-dp270"></script>
     <script defer src="default-thermal-fea.js?v=2026-09-22-caen-dp270"></script>
-    <script defer src="default-eqs-sweep-dp270.js?v=2026-09-22-caen-dp270"></script>
+    <script defer src="default-eqs-sweep-dp270.js?v=2026-09-22-seven-plates"></script>
     <script defer src="default-full-wave-dp270.js?v=2026-09-22-caen-dp270"></script>
     <script defer src="noise-cables.js?v=2026-09-22-caen-dp270"></script>
     <script defer src="epoxy-cure.js?v=2026-09-22-dp270-default"></script>
-    <script defer src="app.js?v=2026-09-22-noise-sigma"></script>
+    <script defer src="app.js?v=2026-09-22-seven-plates"></script>
   </head>
   <body>
     <header class="topbar">
@@ -217,8 +217,8 @@
               <span>Capacitance source <strong id="spiceCapacitanceReuse">--</strong></span>
               <span>Backend <strong id="spiceBackend">Not run</strong></span>
               <span>Frequency points <strong id="spiceFrequencyCount">--</strong></span>
-              <span>50 Hz regulator path <strong id="spiceRegulator50Hz">--</strong></span>
-              <span>50 Hz filter-input path <strong id="spiceFilterInput50Hz">--</strong></span>
+              <span><span data-power-line-hz>50 Hz</span> regulator path <strong id="spiceRegulator50Hz">--</strong></span>
+              <span><span data-power-line-hz>50 Hz</span> filter-input path <strong id="spiceFilterInput50Hz">--</strong></span>
             </div>
             <div class="thermal-warning" id="spiceSolveStatus" role="status">Run a matching field FEA before the circuit simulation.</div>
             <div class="solver-explainer">
@@ -504,7 +504,7 @@
               <strong id="parasiticRatio">--</strong>
             </div>
             <div>
-              <span title="Single-stage voltage-noise attenuation at 50 Hz, using the same Rstage, Cg, and Cpar model as the RC ladder slide.">Stage atten 50 Hz</span>
+              <span title="Single-stage voltage-noise attenuation at the Designer power-line frequency, using the same Rstage, Cg, and Cpar model as the RC ladder slide.">Stage atten <span data-power-line-hz>50 Hz</span></span>
               <strong id="stageAttenuation50Hz">--</strong>
               <small>-20 log<sub>10</sub>|V<sub>out</sub>/V<sub>in</sub>|</small>
             </div>
@@ -726,7 +726,7 @@
             <h2>Three Noise Sources in the Complete SPICE Model</h2>
             <ul>
               <li>Supply: the CAEN A1560 sketch shows a final series resistor, 1 nF to ground, and a 300 M&Omega; divider. Use 40 k&Omega; for the sketch's unspecified “few tens of k”, as selected for this study.</li>
-              <li>A1560H maximum ripple: 10 mV p-p at 20&ndash;1000 Hz; 5 mV p-p at 1 kHz&ndash;20 MHz. These terminal-ripple limits are applied conservatively upstream of the final RC for comparison; the internal HV filter and regulation loop are unspecified. Each band uses its worst-frequency sine scenario; 50 Hz is shown separately.</li>
+              <li>A1560H maximum ripple: 10 mV p-p at 20&ndash;1000 Hz; 5 mV p-p at 1 kHz&ndash;20 MHz. These terminal-ripple limits are applied conservatively upstream of the final RC for comparison; the internal HV filter and regulation loop are unspecified. Each band uses its worst-frequency sine scenario; the Designer power-line frequency is shown separately.</li>
               <li>Outside cryostat: insert a series pickup voltage at the RG-58 filter end, retaining the regulator and entire input cable.</li>
               <li>Inside cryostat: insert a separate series pickup voltage between the output cable and detector cathode, retaining the filter termination.</li>
               <li>One source is active per AC solve. All three share the detector/LMFE and differential R30 output; noise powers are weighted by the trapezoid and calibrated with a known charge.</li>
@@ -801,7 +801,7 @@
             <h2>Output Capacitance versus Energy Noise</h2>
             <ul>
               <li>Pickup voltage is represented by I<sub>pickup</sub> = V<sub>pickup</sub>/Z<sub>0</sub>, propagated through the cable and LMFE, and measured across R30.</li>
-              <li>The Designer/Noise cryostat 50/60 Hz and broadband RMS values set the pickup amplitude.</li>
+              <li>The Designer/Noise cryostat power-line and broadband RMS values set the pickup amplitude.</li>
               <li>The selected discrete trapezoidal response is applied before line and broadband terms are combined in quadrature.</li>
               <li>The preceding known-charge transient converts the shaped R30 RMS voltage into equivalent detector-energy RMS.</li>
               <li>The seven solved capacitances span 0.1&times;, 0.3&times;, 1&times;, 3&times;, 10&times;, 30&times;, and 100&times; the reference output-stage C<sub>g</sub>.</li>
@@ -841,10 +841,10 @@
               <li>CAEN supply ripple passes through the 40 k&Omega; / 1 nF CAEN output network, RG-58 input cable, filter, cryostat cable, detector, amplifier, and trapezoidal energy estimator.</li>
               <li>Outside and inside cryostat pickup are separate localized series voltage excitations, with all passive components retained. Entered pickup voltages describe induced EMFs, not clamped node voltages.</li>
               <li>Each R30 noise response uses the shaped known-charge signal calibration. Missing complete SPICE results are labeled as a legacy approximation.</li>
-              <li>With the sinusoidal conversion used in this model, the A1560H ripple limits are 3.54 mV &sigma; at 20&ndash;1000 Hz and 1.77 mV &sigma; at 1 kHz&ndash;20 MHz. Band powers are added; the 50/60 Hz low-band scenario is an alternative, never counted twice.</li>
+              <li>With the sinusoidal conversion used in this model, the A1560H ripple limits are 3.54 mV &sigma; at 20&ndash;1000 Hz and 1.77 mV &sigma; at 1 kHz&ndash;20 MHz. Band powers are added; the low-band scenario at the Designer power-line frequency is an alternative, never counted twice.</li>
               <li>The public LEGEND reference estimator uses a 10 &micro;s rise and 4 &micro;s flat top; current production settings remain an input to confirm.</li>
               <li>The design criterion is predicted bias-path noise below 0.10 times the calculated Fano &sigma;; observed detector resolution is deliberately excluded.</li>
-              <li>Both pickup sources default to 0.20 mV &sigma; at 50 Hz plus 0.05 mV &sigma; broadband. Independent powers are added; a separate same-phase mains sum shows possible coherent interference.</li>
+              <li>Both pickup sources default to 0.20 mV &sigma; at the selected power-line frequency (<span data-power-line-hz>50 Hz</span>) plus 0.05 mV &sigma; broadband. Independent powers are added; a separate same-phase mains sum shows possible coherent interference.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -1036,7 +1036,7 @@
         </article>
 
         <article class="slide slide-copy-wide caen-comparison-slide">
-          <p class="eyebrow">CAEN sketch · DP270 default · 50 Hz AC comparison</p>
+          <p class="eyebrow">CAEN sketch · saved three-plate DP270 reference · 50 Hz AC comparison</p>
           <h2 style="font-size:34px;margin:8px 0 14px">CAEN Output Network and 50 Hz Pickup</h2>
           <p style="font-size:17px;line-height:1.4;margin:10px 0">Filtered internal source → <strong>40 kΩ series</strong> → CAEN output → 10 m input cable → discoidal filter. At the CAEN output: <strong>1 nF ∥ 300 MΩ to ground</strong>.</p>
           <p style="font-size:17px;line-height:1.4;margin:10px 0">The sketch specifies “a few tens of k”; 40 kΩ is the selected approximation. The upstream HV filter and regulator feedback impedance remain unspecified.</p>
@@ -1060,7 +1060,7 @@
             <ul>
               <li>DP270 default: provisional 40&nbsp;&deg;C stress-free reference, cooling to 20&nbsp;&deg;C. The manufacturer does not specify a complete cure duration at 40&nbsp;&deg;C.</li>
               <li>CTE is 80 ppm/K below the 43&nbsp;&deg;C Tg onset and 180 ppm/K above it. E = 3 GPa is assumed; actual stress lock-in depends on gelation and relaxation. The encapsulated MELF uses a ceramic-body proxy.</li>
-              <li>At 20&nbsp;&deg;C: closed form 6.63&nbsp;MPa at the ceramic proxy (5.82&nbsp;MPa at copper); FEA P99 tension 11.80&nbsp;MPa, raw corner 25.71&nbsp;MPa. Corner peaks are mesh-sensitive. Copper lap shear is not a tensile failure criterion; no bulk tensile safety margin is assigned.</li>
+              <li>At 20&nbsp;&deg;C: closed form 6.63&nbsp;MPa at the ceramic proxy (5.82&nbsp;MPa at copper); saved three-plate FEA P99 tension 11.80&nbsp;MPa, raw corner 25.71&nbsp;MPa. The seven-plate thermal FEA has not been rerun. Corner peaks are mesh-sensitive. Copper lap shear is not a tensile failure criterion; no bulk tensile safety margin is assigned.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -1069,14 +1069,16 @@
           </figure>
         </article>
 
-        <article class="slide slide-copy-wide">
-          <p class="eyebrow">Candidate limitation</p>
-          <h2>Available MELF Resistance Falls Short at 50/60 Hz</h2>
+        <article class="slide slide-copy-wide" style="align-content:start;gap:0.6rem">
+          <p class="eyebrow">Default stack decision</p>
+          <h2 style="font-size:34px;margin:0">Seven Bias Plates Set the Supply-Noise Target</h2>
           <ul>
-            <li>The available 12 M&Omega; MELF value is much lower than the desired per-stage resistance.</li>
-            <li>Alumina is practical and robust, but its modest permittivity limits the shunt capacitance.</li>
-            <li>Its intrinsic section attenuation is about 0.1 dB at 50 Hz; the full loaded response still falls short of the desired suppression.</li>
-            <li>The retained options are more MELF stages, higher-value low-noise metal-film parts, or greater qualified shunt capacitance.</li>
+            <li style="font-size:20px;line-height:1.4">Use seven bias plates with six interplate 10 M&Omega; MELF resistors, plus the configured input and output resistors.</li>
+            <li style="font-size:20px;line-height:1.4">The installation uses 50 Hz mains. Noise comparisons follow the Designer power-line setting, which defaults to 50 Hz.</li>
+            <li style="font-size:20px;line-height:1.4">Seven plates bring the two-band supply-noise bound below the 0.10 &times; Fano &sigma; allocation after energy shaping.</li>
+            <li id="supplyNoiseDesignCurrent" style="font-size:20px;line-height:1.4">Evaluating the current SPICE supply-noise contribution...</li>
+            <li style="font-size:20px;line-height:1.4">The single-frequency ripple scenario is an alternative to the two-band supply bound. Cable pickup contributes separately to total noise.</li>
+            <li style="font-size:20px;line-height:1.4">Three-plate FEA supplies repeated Cg and Cpar classes; seven-plate performance requires only a new SPICE solve.</li>
           </ul>
         </article>
 
@@ -1088,7 +1090,7 @@
             <section class="prototype-path ferrite-path">
               <h3>Ferrite path: set aside</h3>
               <ul>
-                <li>It offered potentially higher resistance and stronger 50/60 Hz attenuation.</li>
+                <li>It offered potentially higher resistance and stronger power-line attenuation.</li>
                 <li>Multimeter resistance readings were too noisy and unstable to support a predictable first prototype.</li>
                 <li>It is retained here as a documented possibility, but it is no longer under consideration for the current design.</li>
               </ul>
@@ -1349,7 +1351,7 @@
           </div>
           <figure class="slide-figure">
             <canvas id="slideStageValidationCanvas" width="1100" height="620"></canvas>
-            <figcaption>Single-section identity and loaded-ladder divergence at 50 Hz</figcaption>
+            <figcaption>Single-section identity and loaded-ladder divergence at <span data-power-line-hz>50 Hz</span></figcaption>
           </figure>
         </article>
 

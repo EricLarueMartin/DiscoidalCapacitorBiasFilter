@@ -87,7 +87,7 @@ const defaults = {
   tube_conductivity_log10_s_per_m: Math.log10(5.8e7),
   tube_relative_permeability: 1,
   rf_compare_frequency_log10_mhz: 0,
-  plate_pairs: 3,
+  plate_pairs: 7,
   include_ground_tube: true,
   field_solver: "backend_auto",
   mesh_edge_radius_ratio: 0.2,
@@ -324,7 +324,7 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   noise_cryostat_mains_rms_mv:
     "Cryostat mains pickup is a series voltage source between output cable and cathode with all impedances retained. Default 0.20 mV RMS is an unverified induced EMF. Shaping and known-charge calibration determine equivalent energy. Mains sources can be correlated; a separate same-phase sum accompanies the independent-power budget. Current-injection sensitivity studies use the different I=V/Z0 convention.",
   noise_mains_frequency_hz:
-    "Power-line frequency for the coherent pickup calculation. The Gran Sasso laboratory uses 50 Hz; use 60 Hz for measurements made on North American mains.",
+    "Power-line frequency for the coherent pickup calculation. The installation default is 50 Hz. Power-line comparisons follow this Designer setting.",
   noise_fano_factor:
     "Fano factor F used to calculate the irreducible electron-hole-pair fluctuation in germanium at the 2039 keV Ge-76 endpoint: sigma_E = sqrt(F w E), with w = 2.96 eV per pair. The 0.1145 default is the inverse-variance weighted mean of three retained cryogenic gamma-ray measurements with quoted uncertainties: Bilger 1967 (0.129 +/- 0.003), Croft and Bond 1991 (0.112 +/- 0.001), and Priharti et al. 2015 (0.123 +/- 0.003). Lalovic et al. 1971 (0.058 +/- 0.011) is excluded as a discrepant low result. The retained measurements still have excess scatter and were mostly made near 77 K rather than directly at 2039 keV and liquid-argon temperature, so use the slider for sensitivity studies; the small formal weighted-mean error would understate the systematic uncertainty.",
   thermal_restraint_factor:
@@ -334,7 +334,7 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   full_wave_resolution_per_mm:
     "Fine-grid cells per millimetre in the axisymmetric MEEP branch of the full-field sweep. With resonance verification enabled, requested MEEP points first run at half this resolution, never below 1 cell/mm; seven points around each candidate then run at this selected resolution. Each core section uses sigma = L/(R A). Repeat the verification at a higher resolution before treating a peak quantitatively; axisymmetry omits leads, the MELF spiral, and non-axisymmetric modes.",
   full_wave_eqs_frequencies:
-    "Comma-separated frequencies for the FEniCSx electroquasistatic branch, which supplies the low-frequency Maxwell limit. Suffixes Hz, kHz, MHz, and GHz are accepted. Include 50 or 60 Hz when checking power-line behavior. Include at least two frequencies also present in the MEEP list: the lower shared point anchors the present port normalization and the upper shared point independently tests agreement of slope before handoff.",
+    "Comma-separated frequencies for the FEniCSx electroquasistatic branch, which supplies the low-frequency Maxwell limit. Suffixes Hz, kHz, MHz, and GHz are accepted. Include the Designer power-line frequency when checking mains behavior. Include at least two frequencies also present in the MEEP list: the lower shared point anchors the present port normalization and the upper shared point independently tests agreement of slope before handoff.",
   full_wave_frequencies:
     "Comma-separated frequencies for the cylindrical m = 0 MEEP sweep. These are the coarse-search points when resonance verification is enabled and the final points when it is disabled. Include at least two points shared with the EQS list, plus frequencies below and above every suspected mode. A peak is not bracketed unless lower-transmission solved points exist on both sides; suffixes Hz, kHz, MHz, and GHz are accepted.",
   full_wave_verify_resonances:
@@ -4576,7 +4576,7 @@ function updateCircuitEstimates() {
     ? `${(100 * feaCircuit.parasiticRatio).toLocaleString(undefined, { maximumFractionDigits: 2 })}% avg`
     : "--";
   document.getElementById("stageAttenuation50Hz").textContent = feaCircuit
-    ? formatAttenuationDb(singleStageAttenuationDb(feaCircuit, 50))
+    ? formatAttenuationDb(singleStageAttenuationDb(feaCircuit, powerLineFrequencyHz()))
     : "--";
   document.getElementById("stageAttenuationHighFrequency").textContent = feaCircuit
     ? formatAttenuationDb(highFrequencyCapRatioAttenuationDb(feaCircuit))
@@ -6804,7 +6804,7 @@ function drawRcDiagram(canvas) {
 function drawAttenuationPlot(ctx, circuit, p, x, y, width, height) {
   const { samples, fMin, fMax } = attenuationSamples(circuit, p);
   const capRatioLimitDb = highFrequencyCapRatioAttenuationDb(circuit);
-  const fiftyHzAttenuationDb = singleStageAttenuationDb(circuit, 50);
+  const fiftyHzAttenuationDb = singleStageAttenuationDb(circuit, powerLineFrequencyHz());
   const plottedMax = Math.max(
     ...samples.map((sample) => sample.attenuationDb),
     Number.isFinite(capRatioLimitDb) ? capRatioLimitDb : 0,
@@ -6880,8 +6880,8 @@ function drawAttenuationPlot(ctx, circuit, p, x, y, width, height) {
     ], x + width - 300, labelY, { color: "#8b5a2b", font: "16px Arial", background: "#fffdf8" });
   }
 
-  if (Number.isFinite(fiftyHzAttenuationDb) && 50 >= fMin && 50 <= fMax) {
-    const xx = xFor(50);
+  if (Number.isFinite(fiftyHzAttenuationDb) && powerLineFrequencyHz() >= fMin && powerLineFrequencyHz() <= fMax) {
+    const xx = xFor(powerLineFrequencyHz());
     const yy = yFor(fiftyHzAttenuationDb);
     ctx.fillStyle = "#b73e3e";
     ctx.strokeStyle = "#fffdf8";
@@ -6896,7 +6896,7 @@ function drawAttenuationPlot(ctx, circuit, p, x, y, width, height) {
     ctx.moveTo(xx - 8, yy - 8);
     ctx.lineTo(xx - 62, yy - 38);
     ctx.stroke();
-    drawRcLabel(ctx, `50 Hz ${formatAttenuationDb(fiftyHzAttenuationDb)}`, xx - 68, yy - 34, {
+    drawRcLabel(ctx, `${powerLineFrequencyHz()} Hz ${formatAttenuationDb(fiftyHzAttenuationDb)}`, xx - 68, yy - 34, {
       align: "right",
       color: "#b73e3e",
       font: "16px Arial",
@@ -8194,7 +8194,7 @@ function drawLoadedLadderSlide(canvas) {
   const fMin = ATTENUATION_PLOT_FMIN_HZ;
   const fMax = ATTENUATION_PLOT_FMAX_HZ;
   const samples = loadedLadderSamples(circuit, params, fMin, fMax);
-  const fiftyLoaded = attenuationDbFromMagnitude(ladderTransferMagnitude(circuit, params, 50, { includeLoad: true }));
+  const fiftyLoaded = attenuationDbFromMagnitude(ladderTransferMagnitude(circuit, params, powerLineFrequencyHz(), { includeLoad: true }));
   const plottedValues = [
     ...samples.loaded.map((sample) => sample.attenuationDb),
     ...samples.unloaded.map((sample) => sample.attenuationDb),
@@ -8213,7 +8213,7 @@ function drawLoadedLadderSlide(canvas) {
   drawLogCurve(ctx, samples.unloaded, plot.xFor, plot.yFor, "attenuationDb", "#8a5b30", { dashed: [4, 6], lineWidth: 3 });
   drawLogCurve(ctx, samples.loaded, plot.xFor, plot.yFor, "attenuationDb", "#b73e3e");
 
-  const fiftyX = plot.xFor(50);
+  const fiftyX = plot.xFor(powerLineFrequencyHz());
   ctx.strokeStyle = "#557a38";
   ctx.lineWidth = 2;
   ctx.setLineDash([5, 6]);
@@ -8224,7 +8224,7 @@ function drawLoadedLadderSlide(canvas) {
   ctx.setLineDash([]);
   ctx.fillStyle = "#557a38";
   ctx.font = "14px Arial";
-  ctx.fillText("50 Hz", fiftyX + 8, 128);
+  ctx.fillText(`${powerLineFrequencyHz()} Hz`, fiftyX + 8, 128);
 
   drawSlideLegend(ctx, [
     { label: "Full ladder + load", color: "#b73e3e" },
@@ -8234,7 +8234,7 @@ function drawLoadedLadderSlide(canvas) {
   const cardRows = [
     ["Load C", formatCapacitance(externalLoadCapPf), `${formatCapacitance(cableCapPf)} cable + ${formatCapacitance(detectorCapPf)} det.`],
     ["Load G", formatAdmittance(loadG), `Iload ${formatCurrentFromNa(params.load_current_na)}`],
-    ["50 Hz", formatAttenuationDb(fiftyLoaded), "full ladder + load"]
+    [`${powerLineFrequencyHz()} Hz`, formatAttenuationDb(fiftyLoaded), "full ladder + load"]
   ];
   cardRows.forEach((row, index) => {
     const x = 88 + index * 315;
@@ -8288,7 +8288,7 @@ function updateSpiceSolverPanel() {
   const key = spiceLadderRequestKey();
   const pending = Boolean(key && spiceLadderPendingKey === key);
   const payload = cachedSpiceLadderResultForCurrentDesign();
-  const summary50 = payload?.summary?.at50Hz || {};
+  const summary50 = spicePowerLineSummary(payload);
   const count = biasPlateCount(params);
   const sourceCount = network?.reconstructed_from_plate_count || Number(lastResult?.parameters?.plate_pairs);
   const reuse = network && sourceCount !== count;
@@ -8482,8 +8482,8 @@ function drawSpiceLadderSlide(canvas) {
   drawLogCurve(ctx, detectorSamples, plot.xFor, plot.yFor, "attenuationDb", "#2f7d4f", { dashed: [7, 4], lineWidth: 4 });
   drawLogCurve(ctx, everythingSamples, plot.xFor, plot.yFor, "attenuationDb", "#8b3f76", { dashed: [11, 4, 2, 4], lineWidth: 4 });
 
-  const fiftyX = plot.xFor(50);
-  if (50 >= fMin && 50 <= fMax) {
+  const fiftyX = plot.xFor(powerLineFrequencyHz());
+  if (powerLineFrequencyHz() >= fMin && powerLineFrequencyHz() <= fMax) {
     ctx.strokeStyle = "#557a38";
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 6]);
@@ -8494,7 +8494,7 @@ function drawSpiceLadderSlide(canvas) {
     ctx.setLineDash([]);
     ctx.fillStyle = "#557a38";
     ctx.font = "14px Arial";
-    ctx.fillText("50 Hz", fiftyX + 8, 128);
+    ctx.fillText(`${powerLineFrequencyHz()} Hz`, fiftyX + 8, 128);
   }
 
   drawSlideLegend(ctx, [
@@ -8505,14 +8505,14 @@ function drawSpiceLadderSlide(canvas) {
     { label: "Everything: regulator to shaped energy", color: "#8b3f76", dashed: [11, 4, 2, 4] }
   ], 845, 120, { maxWidth: 190, font: "14px Arial", lineHeight: 16, rowGap: 3 });
 
-  const summary50 = payload.summary?.at50Hz || {};
+  const summary50 = spicePowerLineSummary(payload);
   const circuit = payload.circuit || {};
-  const detector50 = backendSpiceMagnitudeFromCurve(detectorSamples, 50);
-  const everything50 = backendSpiceMagnitudeFromCurve(everythingSamples, 50);
+  const detector50 = backendSpiceMagnitudeFromCurve(detectorSamples, powerLineFrequencyHz());
+  const everything50 = backendSpiceMagnitudeFromCurve(everythingSamples, powerLineFrequencyHz());
   const cardRows = [
-    ["50 Hz regulator path", formatAttenuationDb(summary50.regulatorInputUnloadedAttenuationDb), `${formatResistance(circuit.biasSourceResistanceOhm)} + input T-line`],
-    ["50 Hz detector path", Number.isFinite(detector50) ? formatAttenuationDb(-20 * Math.log10(detector50)) : "--", "signal/trapezoid normalized"],
-    ["50 Hz everything", Number.isFinite(everything50) ? formatAttenuationDb(-20 * Math.log10(everything50)) : "--", "regulator to shaped energy"],
+    [`${powerLineFrequencyHz()} Hz regulator path`, formatAttenuationDb(summary50.regulatorInputUnloadedAttenuationDb), `${formatResistance(circuit.biasSourceResistanceOhm)} + input T-line`],
+    [`${powerLineFrequencyHz()} Hz detector path`, Number.isFinite(detector50) ? formatAttenuationDb(-20 * Math.log10(detector50)) : "--", "signal/trapezoid normalized"],
+    [`${powerLineFrequencyHz()} Hz everything`, Number.isFinite(everything50) ? formatAttenuationDb(-20 * Math.log10(everything50)) : "--", "regulator to shaped energy"],
     ["Backend", shortSpicePackageLabel(payload.spicePackage), payload.method || payload.source]
   ];
   cardRows.forEach((row, index) => {
@@ -9605,12 +9605,35 @@ function fanoNoiseBudget(p = params) {
   return result;
 }
 
+function powerLineFrequencyHz(p = params) {
+  return Math.max(1, Number(p.noise_mains_frequency_hz) || 50);
+}
+
+function spicePowerLineSummary(payload, p = params) {
+  const frequency = powerLineFrequencyHz(p);
+  const at = (mode) => {
+    const magnitude = backendSpiceMagnitudeFromCurve(backendSpiceCurve(payload?.samples, mode), frequency);
+    return Number.isFinite(magnitude) ? attenuationDbFromMagnitude(magnitude) : NaN;
+  };
+  return {
+    regulatorInputTlineAttenuationDb: at("regulatorInputTline"),
+    fullTlineAttenuationDb: at("fullTline"),
+    regulatorInputUnloadedAttenuationDb: at("regulatorInputUnloaded")
+  };
+}
+
 function updateNoiseReadouts() {
+  document.querySelectorAll("[data-power-line-hz]").forEach((element) => {
+    element.textContent = `${powerLineFrequencyHz()} Hz`;
+  });
   const budget = fanoNoiseBudget(params);
   const set = (id, value) => {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   };
+  set("supplyNoiseDesignCurrent", budget.fullNoiseModel
+    ? `Current ${biasPlateCount(params)}-plate model: two-band supply bound ${budget.supplyEquivalentEnergyEv.toFixed(1)} eV σ = ${(budget.supplyEquivalentEnergyEv / budget.fanoSigmaEv).toFixed(3)} times Fano σ (${budget.fanoSigmaEv.toFixed(0)} eV). The ${powerLineFrequencyHz()} Hz ripple scenario gives ${budget.supplyMainsEquivalentEnergyEv.toFixed(1)} eV σ.`
+    : "Run SPICE for the current circuit to evaluate the supply-noise target.");
   set("noiseRecordDuration", `${budget.waveformDurationUs.toFixed(1)} µs`);
   set("noiseTrapMainsAttenuation", formatAttenuationDb(attenuationDbFromMagnitude(budget.mainsTrapMagnitude)));
   set("noiseEquivalentEnergy", `${budget.equivalentEnergyEv.toFixed(1)} eV rms`);
@@ -9733,7 +9756,7 @@ function drawStageValidationSlide(canvas) {
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
   const h = canvas.height;
-  const data = stageMultiplicationValidationData(params, 50);
+  const data = stageMultiplicationValidationData(params, powerLineFrequencyHz());
   const plot = { left: 82, top: 92, right: 770, bottom: 520 };
   const maxValue = Math.max(...data.loaded.flatMap((item) => [item.fullDb, item.multipliedDb]), 1);
   const yMax = Math.max(50, Math.ceil(maxValue / 50) * 50);
@@ -9745,7 +9768,7 @@ function drawStageValidationSlide(canvas) {
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = "#17202a";
   ctx.font = "22px Arial";
-  ctx.fillText("One stage isolated; 2+ stages use the default load at 50 Hz", plot.left, 52);
+  ctx.fillText(`One stage isolated; 2+ stages use the default load at ${powerLineFrequencyHz()} Hz`, plot.left, 52);
 
   ctx.strokeStyle = "#d8d1c3";
   ctx.lineWidth = 1;
@@ -11765,7 +11788,7 @@ function drawPrototypePerformanceSlide(canvas) {
     drawLogCurve(ctx, entry.samples.unloaded, plot.xFor, plot.yFor, "attenuationDb", entry.color, { dashed: [5, 7], lineWidth: 2.5 });
   });
 
-  const fiftyX = plot.xFor(50);
+  const fiftyX = plot.xFor(powerLineFrequencyHz());
   ctx.save();
   ctx.strokeStyle = "#557a38";
   ctx.lineWidth = 2;
@@ -11777,7 +11800,7 @@ function drawPrototypePerformanceSlide(canvas) {
   ctx.restore();
   ctx.fillStyle = "#557a38";
   ctx.font = "14px Arial";
-  ctx.fillText("50 Hz", fiftyX + 8, 118);
+  ctx.fillText(`${powerLineFrequencyHz()} Hz`, fiftyX + 8, 118);
 
   drawSlideLegend(ctx, [
     { label: "MELF loaded", color: "#b73e3e" },
@@ -11788,20 +11811,17 @@ function drawPrototypePerformanceSlide(canvas) {
 
   const summaryRows = caseSamples.map((entry) => {
     const loaded50 = attenuationDbFromMagnitude(
-      ladderTransferMagnitude(entry.circuit, entry.params, 50, { includeLoad: true })
+      ladderTransferMagnitude(entry.circuit, entry.params, powerLineFrequencyHz(), { includeLoad: true })
     );
     const unloaded50 = attenuationDbFromMagnitude(
-      ladderTransferMagnitude(entry.circuit, entry.params, 50)
+      ladderTransferMagnitude(entry.circuit, entry.params, powerLineFrequencyHz())
     );
-    const loaded60 = attenuationDbFromMagnitude(
-      ladderTransferMagnitude(entry.circuit, entry.params, 60, { includeLoad: true })
-    );
-    return { ...entry, loaded50, unloaded50, loaded60 };
+    return { ...entry, loaded50, unloaded50 };
   });
 
   ctx.fillStyle = "#17202a";
   ctx.font = "17px Arial";
-  ctx.fillText("50/60 Hz comparison", 818, 260);
+  ctx.fillText(`${powerLineFrequencyHz()} Hz comparison`, 818, 260);
   summaryRows.forEach((entry, index) => {
     const y = 288 + index * 142;
     ctx.strokeStyle = entry.color;
@@ -11819,9 +11839,8 @@ function drawPrototypePerformanceSlide(canvas) {
     drawEngineeringText(ctx, `Cpar ${formatCapacitance(entry.circuit.parasiticPf)}`, 818, y + 46);
     ctx.fillStyle = "#17202a";
     ctx.font = "15px Arial";
-    ctx.fillText(`50 Hz loaded ${formatAttenuationDb(entry.loaded50)}`, 818, y + 70);
-    ctx.fillText(`50 Hz unloaded ${formatAttenuationDb(entry.unloaded50)}`, 818, y + 91);
-    ctx.fillText(`60 Hz loaded ${formatAttenuationDb(entry.loaded60)}`, 818, y + 112);
+    ctx.fillText(`${powerLineFrequencyHz()} Hz loaded ${formatAttenuationDb(entry.loaded50)}`, 818, y + 70);
+    ctx.fillText(`${powerLineFrequencyHz()} Hz unloaded ${formatAttenuationDb(entry.unloaded50)}`, 818, y + 91);
   });
 
   drawWrappedLines(ctx, [
@@ -13199,7 +13218,7 @@ const SLIDE_SECTION_DEFINITIONS = [
     titles: [
       "DP270 Default Thermal Screen",
       "Ferrite and MELF Core Paths Considered",
-      "Available MELF Resistance Falls Short at 50/60 Hz",
+      "Seven Bias Plates Set the Supply-Noise Target",
       "Ferrite Offered Higher Resistance but Was Set Aside",
       "Continuous Epoxy Removes the Washer Seam",
       "Avoid High-K Capacitors Without PD Qualification",

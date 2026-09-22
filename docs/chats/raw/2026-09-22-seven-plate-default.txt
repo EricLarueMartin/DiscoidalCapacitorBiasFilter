@@ -1,0 +1,9 @@
+Reconstructed collaboration record; routine tools omitted.
+
+User: Hold the GitHub push. Use the Designer power-line frequency (50 Hz by default), remove 50/60 Hz references, default to seven bias plates, and document the approximately one-tenth-Fano supply-noise decision on an engineering slide.
+
+Assistant: Updated defaults and frequency-dependent readouts, reused the saved three-plate FEA capacitance classes in a seven-plate SPICE run, and recorded 78.2 eV sigma two-band supply noise (0.094 times Fano), with 45.2 eV sigma for the 50 Hz scenario. Retained exact three-plate result provenance. GitHub push remains on hold.
+
+User: commit and push
+
+Assistant: Commit the seven-plate defaults and Designer-frequency updates, then push the pending commits to the previously identified public GitHub origin.

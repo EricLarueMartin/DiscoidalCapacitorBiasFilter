@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
 const app = fs.readFileSync(path.join(root, 'presentations/web/app.js'), 'utf8');
 const bundle = JSON.parse(fs.readFileSync(path.join(root,'presentations/web/default-fenicsx-field-dp270.js'),'utf8').replace(/^window\.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT = /,'').trim().replace(/;$/, ''));
-const p = bundle.settings;
+const p = {...bundle.settings, plate_pairs: 3};
 const network = bundle.result.capacitance.capacitance_network;
 const ctx = vm.createContext({structuredClone, params:p, defaults:p, EPSILON_0_F_PER_M:8.8541878128e-12});
 const names = ['clamp','averageFinite','maxwellMatrixFromGroundAndMutual','repeatedNetworkForPlateCount',
@@ -19,7 +19,7 @@ for (const name of names) {
  vm.runInContext(app.slice(start,end),ctx);
 }
 const key=ctx.comparableResultParameters(p);
-for (const n of [3,4,5,8]) {
+for (const n of [3,4,5,7,8]) {
  const q={...p,plate_pairs:n};
  assert.equal(ctx.comparableResultParameters(q),key);
  if(n!==3) assert.notEqual(ctx.geometryCacheKey(q),ctx.geometryCacheKey(p));
@@ -48,7 +48,7 @@ assert.equal(expanded.electrical_mutual_pf_matrix[0][4],0,'opposite terminal mus
 assert.equal(expanded.electrical_mutual_pf_matrix[0][6],0,'old end-to-end coupling must not bridge a longer stack');
 assert.equal(JSON.stringify(network),before,'source FEA is immutable');
 if(process.argv[2]) {
- const cases=[{...p,plate_pairs:3},{...p,plate_pairs:5},{...p,plate_pairs:5,melf_stage_resistance_mohm:20,input_series_resistance_mohm:20,melf_stage_resistance_log10_ohm:Math.log10(20e6)}];
+ const cases=[{...p,plate_pairs:7},{...p,plate_pairs:3},{...p,plate_pairs:5},{...p,plate_pairs:5,melf_stage_resistance_mohm:20,input_series_resistance_mohm:20,melf_stage_resistance_log10_ohm:Math.log10(20e6)}];
  fs.writeFileSync(process.argv[2],JSON.stringify(cases.map(parameters=>({parameters,network:ctx.repeatedNetworkForPlateCount(network,parameters.plate_pairs,parameters)}))));
 }
-console.log('PASS: reused 3→4/5/8 plates, resistor-only cache keys, physical geometry, invalidating geometry changes, terminal indexing, immutable FEA source.');
+console.log('PASS: reused 3→4/5/7/8 plates, resistor-only cache keys, physical geometry, invalidating geometry changes, terminal indexing, immutable FEA source.');

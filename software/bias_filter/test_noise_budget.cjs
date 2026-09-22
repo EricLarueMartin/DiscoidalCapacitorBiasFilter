@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
 const app = fs.readFileSync(path.join(root, 'presentations/web/app.js'), 'utf8');
-const bundle = JSON.parse(fs.readFileSync(path.join(root, 'presentations/web/default-fenicsx-field-23lv.js'), 'utf8')
+const bundle = JSON.parse(fs.readFileSync(path.resolve(root, process.argv[2] || 'presentations/web/default-fenicsx-field-23lv.js'), 'utf8')
   .replace(/^window.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT = /, '').trim().replace(/;$/, ''));
 const context = vm.createContext({
   params: bundle.settings, spiceLadderCache: {key: 'reference'}, fanoNoiseBudgetCache: null,
@@ -14,7 +14,8 @@ const context = vm.createContext({
   backendSpiceCurve: () => [],
 });
 for (const name of ['detectorCapacitancePf', 'interpolatePositiveLogSample', 'trapezoidSignalCalibration',
-  'trapezoidTransferMagnitude', 'fanoNoiseBudget']) {
+  'trapezoidTransferMagnitude', 'fanoNoiseBudget', 'powerLineFrequencyHz',
+  'attenuationDbFromMagnitude', 'backendSpiceCurve', 'backendSpiceMagnitudeFromCurve', 'spicePowerLineSummary']) {
   const start = app.indexOf(`function ${name}(`);
   assert(start >= 0, name);
   const end = app.indexOf('\n}', start) + 2;
@@ -74,3 +75,16 @@ assert(Number.isFinite(corrected.equivalentEnergyEv));
 console.log('PASS: joint bypass, exponential recovery, independent PZ+trap FIR frequency response');
 console.log({pzSupplyMainsElectrons: corrected.supplyMainsEquivalentEnergyEv/2.96,
   bypassSupplyMainsElectrons: context.fanoNoiseBudget(bypass).supplyMainsEquivalentEnergyEv/2.96});
+
+// Changing the Designer frequency must change the supply scenario and SPICE readout.
+const alternate = {...p, noise_mains_frequency_hz: 60};
+assert.equal(context.powerLineFrequencyHz(alternate), 60);
+assert.notEqual(context.fanoNoiseBudget(alternate).supplyMainsEquivalentEnergyEv, reference.supplyMainsEquivalentEnergyEv);
+assert.notEqual(context.spicePowerLineSummary(bundle.spiceLadder, alternate).regulatorInputTlineAttenuationDb,
+  context.spicePowerLineSummary(bundle.spiceLadder, p).regulatorInputTlineAttenuationDb);
+if (p.plate_pairs === 7 && p.epoxy_material === 'three_m_dp270') {
+  assert.equal(bundle.result.parameters.plate_pairs, 3, 'retain the actual FEA source geometry');
+  assert.equal(bundle.spiceLadder.parameters.plate_pairs, 7);
+  assert(reference.supplyEquivalentEnergyEv / reference.fanoSigmaEv < 0.1, 'seven-plate supply allocation');
+}
+console.log('PASS: Designer frequency drives noise and SPICE readouts; seven-plate supply target and three-plate FEA provenance.');

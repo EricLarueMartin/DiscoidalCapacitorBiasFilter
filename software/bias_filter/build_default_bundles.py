@@ -171,9 +171,14 @@ def build(args: argparse.Namespace) -> None:
     }
     coarse = {key: read_json(path) for key, path in coarse_paths.items()}
 
-    plate_count = int(settings["plate_pairs"])
-    if plate_count != 3:
-        raise ValueError(f"Static reference currently expects the three-plate default, got {plate_count}")
+    plate_count = int(field.get("parameters", {}).get("plate_pairs", -1))
+    circuit_plate_count = int(settings["plate_pairs"])
+    if plate_count != circuit_plate_count and not (
+        settings.get("use_repeating_cell_approximation") and plate_count >= 3 and circuit_plate_count >= 3
+    ):
+        raise ValueError("Different circuit and FEA plate counts require repeating-cell capacitance reuse")
+    if int(spice.get("parameters", {}).get("plate_pairs", -1)) != circuit_plate_count:
+        raise ValueError("SPICE plate count does not match installation defaults")
     for label, payload in (("field", field), ("EQS", eqs), ("full-wave", full_wave)):
         solved_count = int(payload.get("parameters", {}).get("plate_pairs", -1))
         if solved_count != plate_count:
@@ -309,7 +314,7 @@ def build(args: argparse.Namespace) -> None:
     eqs_bundle = {
         "format": "discoidal-capacitor-bias-filter-eqs-sweep",
         "version": 1,
-        "settings": settings,
+        "settings": eqs["parameters"],
         "solver": eqs["solver"],
         "meshMm": float(eqs["mesh"]["target_size_mm"]),
         "cells": int(eqs["mesh"]["cells"]),
@@ -355,6 +360,7 @@ def build(args: argparse.Namespace) -> None:
 
     print(json.dumps({
         "plate_count": plate_count,
+        "circuit_plate_count": circuit_plate_count,
         "node_ground_pf": network["node_ground_pf"],
         "adjacent_mutual_pf": network["adjacent_mutual_pf"],
         "peak_field_kv_per_mm": field["maxField"] / 1000.0,

@@ -19,3 +19,8 @@ DP270, 10 MΩ interplate and input resistors, 47 Ω output, CAEN 40 kΩ/1 nF wit
 At 50 Hz, 3→5 improves the complete loaded path by4.7817dB, or1.734× less transmitted voltage. Resistor count doubles internally but input/output elements and shared-node loading prevent simply squaring the whole transfer. The loaded metric is detector-node voltage, not the differential LMFE/energy response.
 
 `node software/bias_filter/test_capacitance_reuse.cjs` validates plate-count and resistor cache behavior, geometry invalidation, matrix symmetry and row sums, terminal indexing and source immutability. An optional output filename exports the cases for `compare_reused_stacks.py` on the ngspice host.
+
+
+## Seven-plate installation default (2026-09-22)
+
+The installation now defaults to seven bias plates (six interplate 10 Mohm resistors) and 50 Hz power-line frequency. Three plates remain the solved FEA reference for repeated end/interior capacitance classes. A new ngspice-only seven-plate simulation gives a shaped two-band supply bound of 78.2057 eV sigma, or 0.09406 times the 831.4639 eV Fano sigma. The alternative 50 Hz supply-ripple scenario gives 45.1878 eV sigma (0.05435 times Fano). This allocation applies to supply noise, not the total including cryostat pickup. Engineering decision slide 38 records the choice. Live power-line markers and comparisons follow the Designer setting. Saved exact EQS, full-wave, and thermal results retain their three-plate geometry and are not relabeled as seven-plate solutions.
