@@ -35,6 +35,31 @@ MATERIALS = {
         "cure_schedule": "3 h at 80 C (minimum-temperature schedule)",
         "source": "https://mgchemicals.com/downloads/tds/tds-9510.pdf",
     },
+    "stycast_2850ft_cat11_epoxy": {
+        "cte_ppm_per_c_below_tg": 31.2,
+        "tg_c": 80.0,
+        "published_tg_c": 115.0,
+        "tensile_strength_mpa": 20.0,
+        "strength_basis": "provisional bulk tensile proxy; CAT 11 TDS publishes flexural and compressive strength, not tensile strength",
+        "cure_shrinkage_percent": 0.2,
+        "service_min_c": -55.0,
+        "service_max_c": 155.0,
+        "cure_schedule": "8 to 16 h at 80 C",
+        "source": "https://datasheets.tdx.henkel.com/LOCTITE-STYCAST-2850FT-en_GL.pdf",
+    },
+    "stycast_2850ft_23lv_epoxy": {
+        "cte_ppm_per_c_below_tg": 39.4,
+        "tg_c": 45.0,
+        "published_tg_c": 40.0,
+        "tensile_strength_mpa": 20.0,
+        "strength_basis": "provisional bulk tensile proxy; CAT 23LV TDS does not publish tensile strength",
+        "cure_shrinkage_percent": 0.3,
+        "service_min_c": -55.0,
+        "service_max_c": 130.0,
+        "cure_schedule": "16 to 24 h at 25 C, followed by a 2 to 4 h post-cure at 45 C",
+        "reference_basis": "45 C is modeled as stress-free to bound cooldown from the selected post-cure bake; actual stress lock-in is not known",
+        "source": "https://www.mouser.com/datasheet/2/773/STYCAST_2850FT-EN-1760792.pdf",
+    },
     "c110_copper": {
         "cte_ppm_per_c": 16.9,
         "source": "https://alloys.copper.org/alloy/C11000",
@@ -45,6 +70,7 @@ MATERIALS = {
         "poisson_ratio": 0.21,
         "source": "https://www2.coorstek.com/media/4235/advanced-alumina.pdf",
     },
+    "ferrite_core": {"cte_ppm_per_c": 10.0, "basis": "engineering preset"},
 }
 
 # MG Chemicals does not publish these values for 9510.  Preserve the complete
@@ -109,8 +135,8 @@ def interface_result(
     temperature_c: float,
     restraint_factor: float,
     modulus_gpa: float,
+    epoxy: dict[str, Any],
 ) -> dict[str, Any]:
-    epoxy = MATERIALS["mg_9510_epoxy"]
     poisson = ASSUMED_EPOXY["poisson_ratio"]
     mismatch = mismatch_strain(
         epoxy["cte_ppm_per_c_below_tg"],
@@ -142,8 +168,45 @@ def interface_result(
     }
 
 
+def evaluate_dp270(parameters: dict[str, Any], evaluation_temperature_c: float | None) -> dict[str, Any]:
+    try:
+        from .thermal_fenicsx_solver import epoxy_thermal_preset
+    except ImportError:
+        from thermal_fenicsx_solver import epoxy_thermal_preset
+    p = dict(parameters)
+    if evaluation_temperature_c is not None:
+        p["thermal_min_temperature_c"] = evaluation_temperature_c
+    preset = epoxy_thermal_preset(p)
+    reference = preset["stress_free_temperature_c"]
+    temperature = float(p.get("thermal_min_temperature_c", 20))
+    modulus = float(p.get("thermal_epoxy_modulus_gpa", 3))
+    restraint = float(p.get("thermal_restraint_factor", 1))
+    interfaces = []
+    for label, alpha, radius in [("epoxy-to-copper tube",16.9,float(p["tube_id_mm"])/2),
+                                 ("MELF ceramic-body proxy (coating unknown)",8.2,float(p["core_od_mm"])/2)]:
+        strain = abs((preset["cte_per_c"] - alpha*1e-6)*(reference-temperature))
+        interfaces.append({"interface":label,"free_mismatch_strain_percent":strain*100,
+            "free_radial_mismatch_um":strain*radius*1000,
+            "estimated_stress_mpa":restrained_stress_mpa(strain,modulus,.35,restraint),"strength_margin":None})
+    controlling=max(interfaces,key=lambda row:row["estimated_stress_mpa"])
+    return {"model":"plane-stress mismatch, piecewise DP270 CTE, constant assumed modulus",
+        "parameters":p,"default_design":p,"interfaces":interfaces,
+        "calculation":{"stress_free_reference_c":reference,"evaluation_temperature_c":temperature,
+            "controlling_interface":controlling["interface"],"controlling_evaluation_stress_mpa":controlling["estimated_stress_mpa"],
+            "controlling_strength_margin":None},
+        "limitations":["40 C cure duration unverified", "No DP270 bulk tensile limit assigned; lap shear is not a tensile criterion", "No cure shrinkage, relaxation or interface failure model"]}
+
+
 def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float | None = None) -> dict[str, Any]:
-    epoxy = MATERIALS["mg_9510_epoxy"]
+    if parameters.get("epoxy_material") == "three_m_dp270":
+        return evaluate_dp270(parameters, evaluation_temperature_c)
+    epoxy_key = {
+        "stycast_2850ft_cat11": "stycast_2850ft_cat11_epoxy",
+        "stycast_2850ft_23lv": "stycast_2850ft_23lv_epoxy",
+    }.get(str(parameters.get("epoxy_material")), "mg_9510_epoxy")
+    if parameters.get("epoxy_material") not in {"mg_9510", "stycast_2850ft_cat11", "stycast_2850ft_23lv"}:
+        raise ValueError("No thermal closed-form preset for this epoxy")
+    epoxy = MATERIALS[epoxy_key]
     if evaluation_temperature_c is None:
         evaluation_temperature_c = float(parameters.get("thermal_min_temperature_c", 20.0))
     nominal_modulus = float(parameters.get("thermal_epoxy_modulus_gpa", ASSUMED_EPOXY["elastic_modulus_nominal_gpa"]))
@@ -151,10 +214,14 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
     default_restraint = float(parameters.get("thermal_restraint_factor", 1.0))
     tube_radius_mm = float(parameters["tube_id_mm"]) / 2.0
     washer_radius_mm = float(parameters["washer_od_mm"]) / 2.0
-    interfaces = [
-        interface_result("epoxy-to-alumina washer", MATERIALS["ad_96_alumina"]["cte_ppm_per_c"], washer_radius_mm, evaluation_temperature_c, default_restraint, nominal_modulus),
-        interface_result("epoxy-to-copper tube", MATERIALS["c110_copper"]["cte_ppm_per_c"], tube_radius_mm, evaluation_temperature_c, default_restraint, nominal_modulus),
-    ]
+    core_radius_mm = float(parameters["core_od_mm"]) / 2.0
+    core_is_melf = str(parameters.get("core_material", "")).startswith("mmb020")
+    core_cte = MATERIALS["ad_96_alumina"]["cte_ppm_per_c"] if core_is_melf else MATERIALS["ferrite_core"]["cte_ppm_per_c"]
+    interfaces = []
+    if parameters.get("washer_material") != "epoxy":
+        interfaces.append(interface_result("epoxy-to-alumina washer", MATERIALS["ad_96_alumina"]["cte_ppm_per_c"], washer_radius_mm, evaluation_temperature_c, default_restraint, nominal_modulus, epoxy))
+    interfaces.append(interface_result("epoxy-to-resistive core", core_cte, core_radius_mm, evaluation_temperature_c, default_restraint, nominal_modulus, epoxy))
+    interfaces.append(interface_result("epoxy-to-copper tube", MATERIALS["c110_copper"]["cte_ppm_per_c"], tube_radius_mm, evaluation_temperature_c, default_restraint, nominal_modulus, epoxy))
     controlling = max(interfaces, key=lambda item: item["estimated_stress_mpa"])
     controlling_mismatch = controlling["free_mismatch_strain_percent"] / 100.0
     triaxial_reference_stress = uniform_triaxial_stress_mpa(
@@ -163,13 +230,14 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
         poisson,
     )
 
+    sensitivity_substrate_cte = controlling["substrate_cte_ppm_per_c"]
     modulus_sensitivity = []
     for modulus in ASSUMED_EPOXY["elastic_modulus_range_gpa"]:
         modulus_sensitivity.append({
             "elastic_modulus_gpa": modulus,
             "biaxial_k1_strength_crossing_c": biaxial_strength_crossing_c(
                 epoxy["cte_ppm_per_c_below_tg"],
-                MATERIALS["ad_96_alumina"]["cte_ppm_per_c"],
+                sensitivity_substrate_cte,
                 epoxy["tg_c"],
                 epoxy["tensile_strength_mpa"],
                 modulus,
@@ -180,7 +248,7 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
 
     half_restraint_crossing = biaxial_strength_crossing_c(
         epoxy["cte_ppm_per_c_below_tg"],
-        MATERIALS["ad_96_alumina"]["cte_ppm_per_c"],
+        sensitivity_substrate_cte,
         epoxy["tg_c"],
         epoxy["tensile_strength_mpa"],
         nominal_modulus,
@@ -188,13 +256,19 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
         0.5,
     )
 
+    controlling_radius_mm = (
+        tube_radius_mm if "tube" in controlling["interface"]
+        else core_radius_mm if "core" in controlling["interface"]
+        else washer_radius_mm
+    )
     room = interface_result(
-        "epoxy-to-alumina washer",
-        MATERIALS["ad_96_alumina"]["cte_ppm_per_c"],
-        washer_radius_mm,
+        controlling["interface"],
+        sensitivity_substrate_cte,
+        controlling_radius_mm,
         20.0,
         1.0,
         nominal_modulus,
+        epoxy,
     )
 
     return {
@@ -217,14 +291,14 @@ def evaluate_default(parameters: dict[str, Any], evaluation_temperature_c: float
         "assumed_epoxy_mechanics": ASSUMED_EPOXY,
         "calculation": {
             "stress_free_reference_c": epoxy["tg_c"],
-            "reason_for_reference": "9510 is cured above Tg; the screen assumes stress relaxes above Tg and freezes in below Tg",
+            "reason_for_reference": "The selected cure/reference temperature is treated as stress-free; cure shrinkage and relaxation are not modeled.",
             "evaluation_temperature_c": evaluation_temperature_c,
             "effective_restraint_factor": default_restraint,
             "epoxy_elastic_modulus_gpa": nominal_modulus,
             "equations": {
-                "mismatch_strain": "abs(alpha_epoxy - alpha_substrate) * (Tg - T)",
+                "mismatch_strain": "abs(alpha_epoxy - alpha_substrate) * (T_reference - T)",
                 "stress": "restraint * E_epoxy * mismatch_strain / (1 - nu_epoxy)",
-                "strength_crossing": "plane-stress baseline = published cured tensile strength",
+                "strength_crossing": "plane-stress baseline = selected bulk tensile comparison proxy",
             },
             "interfaces_at_evaluation_temperature": interfaces,
             "controlling_interface": controlling["interface"],

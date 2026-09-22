@@ -1,0 +1,40 @@
+[
+  {
+    "cdetPf": 10,
+    "sourceRms": 0.0035355339059327372,
+    "unfilteredElectronsRms": 220670.66956942884,
+    "supplyDb": 0.7169234633203199,
+    "filterDb": 20.377174661675074,
+    "preampChargeResponseDb": 19.03814132045666,
+    "trapDb": 47.13445240545451,
+    "chargeCalibrationDb": -11.595582999389272,
+    "shapedReferencedPreampDb": 7.442558321067389,
+    "trapMagnitude": 0.004398224361282438,
+    "rawMvPerFc": 5.554372099997095,
+    "shapedMvPerFc": 1.4616918342904832,
+    "detectorRms": 0.00031170954431427016,
+    "adcRms": 0.0019340959031286262,
+    "shapedRms": 0.000008506587718196882,
+    "electrons": 36.323623892716434,
+    "totalDb": 75.67110885151729
+  },
+  {
+    "cdetPf": 2,
+    "sourceRms": 0.0035355339059327372,
+    "unfilteredElectronsRms": 44134.133913885766,
+    "supplyDb": 0.7170091462765381,
+    "filterDb": 20.313999117221652,
+    "preampChargeResponseDb": 19.176408763756218,
+    "trapDb": 47.13445240545451,
+    "chargeCalibrationDb": -13.991825077120703,
+    "shapedReferencedPreampDb": 5.1845836866355155,
+    "trapMagnitude": 0.004398224361282438,
+    "rawMvPerFc": 5.643497583168511,
+    "shapedMvPerFc": 1.1270860889433345,
+    "detectorRms": 0.0003139818856489164,
+    "adcRms": 0.0003896390665089686,
+    "shapedRms": 0.0000017137200344270937,
+    "electrons": 9.490135004673702,
+    "totalDb": 73.35004435558821
+  }
+]

@@ -33,8 +33,10 @@ except ImportError:  # Direct script execution on the Pi.
 REQUIRED_MODULES = ("dolfinx", "ufl", "mpi4py", "petsc4py", "gmsh", "numpy")
 REFERENCE_TEMPERATURE_C = 70.0
 EPOXY_THERMAL_PRESETS = {
+    "three_m_dp270": {"cte_per_c": 80e-6, "stress_free_temperature_c": 40.0},
     "mg_9510": {"cte_per_c": 74.0e-6, "stress_free_temperature_c": 70.0},
-    "stycast_2850ft_23lv": {"cte_per_c": 39.4e-6, "stress_free_temperature_c": 25.0},
+    "stycast_2850ft_cat11": {"cte_per_c": 31.2e-6, "stress_free_temperature_c": 80.0},
+    "stycast_2850ft_23lv": {"cte_per_c": 39.4e-6, "stress_free_temperature_c": 45.0},
 }
 MATERIAL_TAGS = {
     "epoxy": 1,
@@ -45,6 +47,7 @@ MATERIAL_TAGS = {
 }
 MATERIALS_MPA = {
     "alumina": {"youngs_modulus_mpa": 303_000.0, "poisson_ratio": 0.21, "cte_per_c": 8.2e-6},
+    "melf_alumina_substrate": {"youngs_modulus_mpa": 303_000.0, "poisson_ratio": 0.21, "cte_per_c": 8.2e-6},
     "copper": {"youngs_modulus_mpa": 117_000.0, "poisson_ratio": 0.34, "cte_per_c": 16.9e-6},
     "annealed_copper": {"youngs_modulus_mpa": 117_000.0, "poisson_ratio": 0.34, "cte_per_c": 16.9e-6},
     "aluminum": {"youngs_modulus_mpa": 69_000.0, "poisson_ratio": 0.33, "cte_per_c": 23.55e-6},
@@ -60,6 +63,22 @@ THERMAL_CONDUCTOR_MATERIALS = frozenset({
 VALIDATION_SOLVE_STRATEGIES = {"mirror_half", "full_stack"}
 VALIDATION_BOUNDARY_MODES = {"physical", "fully_restrained"}
 THERMAL_MATERIAL_LAYOUTS = {"bulk_epoxy", "fitted_alumina"}
+
+
+def epoxy_thermal_preset(p: dict[str, Any]) -> dict[str, float]:
+    preset = dict(EPOXY_THERMAL_PRESETS[str(p.get("epoxy_material", "mg_9510"))])
+    if p.get("epoxy_material") == "three_m_dp270":
+        schedule = str(p.get("epoxy_cure_schedule", "three_m_dp270:40"))
+        if schedule not in {f"three_m_dp270:{t}" for t in (23, 40, 50, 80, 100)}:
+            raise ValueError("Unknown DP270 cure schedule")
+        reference = float(schedule.split(":")[-1])
+        evaluation = float(p.get("thermal_min_temperature_c", 20))
+        # Integral of CTE with Tg onset 43 C; constant elastic modulus remains an assumption.
+        def integral(t):
+            return 80e-6 * min(t, 43) + 180e-6 * max(0, t - 43)
+        preset["stress_free_temperature_c"] = reference
+        preset["cte_per_c"] = (integral(reference)-integral(evaluation))/(reference-evaluation) if reference != evaluation else (80e-6 if reference <= 43 else 180e-6)
+    return preset
 
 
 def dependency_status() -> dict[str, Any]:
@@ -299,15 +318,14 @@ def _material_functions(
     poisson = fem.Function(Q)
     cte = fem.Function(Q)
 
-    epoxy_preset = EPOXY_THERMAL_PRESETS.get(
-        str(p.get("epoxy_material", "mg_9510")), EPOXY_THERMAL_PRESETS["mg_9510"]
-    )
+    epoxy_preset = epoxy_thermal_preset(p)
     epoxy = {
         "youngs_modulus_mpa": float(p.get("thermal_epoxy_modulus_gpa", 3.0)) * 1000.0,
         "poisson_ratio": 0.35,
         "cte_per_c": epoxy_preset["cte_per_c"],
     }
-    core_key = "alumina" if str(p.get("core_material", "")).startswith("mmb020") else "ferrite_core"
+    core_is_melf = str(p.get("core_material", "")).startswith("mmb020")
+    core_key = "melf_alumina_substrate" if core_is_melf else "ferrite_core"
     plate_material = str(p.get("plate_material", "copper"))
     tube_material = str(p.get("tube_material", "copper"))
     properties = {
@@ -319,6 +337,12 @@ def _material_functions(
     }
     properties["plate"]["preset"] = plate_material
     properties["tube"]["preset"] = tube_material
+    properties["core"]["preset"] = core_key
+    if core_is_melf:
+        properties["core"]["model_basis"] = (
+            "Vishay MELF construction uses a high-grade Al2O3 ceramic body; "
+            "thin metal-alloy film, steel caps, plating, and coating are omitted"
+        )
     if plate_material.startswith("mocu_"):
         properties["plate"]["poisson_ratio_basis"] = "engineering assumption; supplier sheet does not publish Poisson ratio"
     if tube_material.startswith("mocu_"):
@@ -401,8 +425,8 @@ def solve(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"Thermal FEA has no mechanical-property preset for: {names}.")
     epoxy_material = str(p.get("epoxy_material", "mg_9510"))
     if epoxy_material not in EPOXY_THERMAL_PRESETS:
-        raise ValueError("Thermal FEA currently supports MG 9510 or Stycast 2850FT/CAT 23LV mechanical presets.")
-    reference_temperature_c = EPOXY_THERMAL_PRESETS[epoxy_material]["stress_free_temperature_c"]
+        raise ValueError("Thermal FEA currently supports MG 9510 or Stycast 2850FT with CAT 11 or CAT 23LV mechanical presets.")
+    reference_temperature_c = epoxy_thermal_preset(p)["stress_free_temperature_c"]
     p["thermal_mesh_size_mm"] = max(0.05, min(2.0, float(raw_parameters.get("thermal_mesh_size_mm", 0.3))))
     evaluation_temperature = float(raw_parameters.get("thermal_min_temperature_c", 20.0))
     modules = _import_modules()

@@ -284,6 +284,14 @@ h2 {
   opacity: 0.55;
 }
 
+.control-group label.control-disabled {
+  opacity: 0.55;
+}
+
+.control-group label[hidden] {
+  display: none;
+}
+
 .frequency-list-control {
   grid-column: 1 / -1;
   width: 100%;
@@ -1402,6 +1410,136 @@ html:not([data-language="en"]) #slide-cte-matched-metal-trades-tension-for-lower
   padding-bottom: 0.45rem;
 }
 
+.dielectric-interface-slide {
+  align-content: start;
+  gap: 0.65rem;
+  max-width: none;
+}
+
+.dielectric-interface-slide h2 {
+  font-size: clamp(2rem, 3.8vw, 3.15rem);
+}
+
+.interface-lead {
+  max-width: 76rem;
+  margin: 0;
+  font-size: clamp(1rem, 1.45vw, 1.16rem);
+  line-height: 1.4;
+}
+
+.interface-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+}
+
+.interface-case {
+  border-top: 4px solid var(--hot);
+  padding-top: 0.55rem;
+}
+
+.interface-case-continuous {
+  border-top-color: var(--accent);
+}
+
+.interface-case h3 {
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.25rem, 2.2vw, 1.8rem);
+}
+
+.interface-case p {
+  margin: 0.45rem 0 0;
+  font-size: clamp(0.9rem, 1.25vw, 1.02rem);
+  line-height: 1.34;
+}
+
+.dielectric-schematic {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  grid-template-rows: 2.2rem 7rem 2.2rem;
+  overflow: hidden;
+  min-height: 11.4rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.schematic-plate {
+  z-index: 3;
+  display: grid;
+  grid-column: 1 / -1;
+  place-items: center;
+  color: #fff;
+  background: #a65f2c;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.schematic-plate-top {
+  grid-row: 1;
+}
+
+.schematic-plate-bottom {
+  grid-row: 3;
+}
+
+.schematic-dielectric {
+  display: grid;
+  grid-row: 2;
+  place-items: center;
+  font-weight: 700;
+}
+
+.schematic-washer {
+  grid-column: 1;
+  color: #442d0f;
+  background: #d8b678;
+}
+
+.schematic-infill,
+.schematic-full-epoxy {
+  color: #153b57;
+  background: #a9d6e8;
+}
+
+.schematic-infill {
+  grid-column: 2;
+}
+
+.schematic-full-epoxy {
+  grid-column: 1 / -1;
+}
+
+.schematic-interface {
+  position: absolute;
+  z-index: 4;
+  top: 2.2rem;
+  bottom: 2.2rem;
+  left: 60%;
+  display: grid;
+  width: 0;
+  place-items: center;
+  border-left: 3px dashed var(--hot);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  transform: translateX(-50%);
+}
+
+.schematic-field {
+  position: absolute;
+  z-index: 5;
+  top: 3.3rem;
+  right: 0.75rem;
+  padding: 0.2rem 0.35rem;
+  color: #7d1c18;
+  background: color-mix(in srgb, var(--panel) 84%, transparent);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
 .backup-divider {
   align-content: center;
   max-width: 62rem;
@@ -1427,6 +1565,15 @@ html:not([data-language="en"]) #slide-cte-matched-metal-trades-tension-for-lower
 
 .slide-figure canvas {
   aspect-ratio: 1.78 / 1;
+}
+
+.thermal-limit-slide .slide-copy-compact li {
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.thermal-limit-slide .slide-figure canvas {
+  aspect-ratio: 2.4 / 1;
 }
 
 .slide h2 {
@@ -1565,7 +1712,8 @@ pre {
   }
 
   .method-steps,
-  .prototype-comparison {
+  .prototype-comparison,
+  .interface-comparison {
     grid-template-columns: 1fr;
   }
 
@@ -1683,3 +1831,9 @@ pre {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+ .noise-cable-editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; padding: 12px; }
+ .noise-cable-editor fieldset { min-width: 0; border: 1px solid #aab4b8; padding: 12px; }
+ .noise-cable-editor label { display: grid; grid-template-columns: 1fr minmax(90px, 55%); align-items: center; gap: 8px; margin: 8px 0; }
+ .noise-cable-editor input, .noise-cable-editor select { width: 100%; min-width: 0; padding: 5px; }
+ .noise-cable-editor output { display: block; font-size: 13px; }
+ #noiseSchematicCanvas { display: block; width: 100%; height: auto; }

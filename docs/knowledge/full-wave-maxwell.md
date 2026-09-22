@@ -105,6 +105,15 @@ and MEEP have the same slope through the overlap. A large residual invalidates
 the handoff rather than being hidden by a two-parameter fit. Absolute
 full-wave transfer still requires calibrated ports.
 
+The screening acceptance is `2 dB` at the independent overlap point. This is
+the same order as the separate EQS-to-lumped-model comparison and reflects the
+low-frequency accuracy available from the coarse MEEP grid and uncalibrated
+radial source. The 1.0 mm gap / 2.0 mm plate reference gave a `1.44 dB`
+residual at 2 cells/mm. A 3 cells/mm rerun became markedly worse rather than
+converging, confirming that the low-frequency MEEP port treatment, not the
+field residual, limits a tighter handoff claim. Do not interpret the 2 dB gate
+as quantitative full-wave validation; calibrated ports remain required.
+
 The filter is much smaller than a wavelength throughout most of this range,
 which makes a strong geometrical cavity resonance unlikely. It does not make
 electromagnetic coupling zero. Fringing electric fields, common-mode currents,
@@ -205,7 +214,7 @@ substitutes for a bracketed field-solver maximum.
 
 The coupled-ladder plot deliberately uses `350 mOhm` per stage to expose its
 otherwise hidden LC natural modes. That curve is not the physical filter. For
-the default `12 Mohm` stages, the matched-mode damping ratio is far above
+the saved `12 Mohm` validation stages (the current circuit default is 10 Mohm), the matched-mode damping ratio is far above
 `1/sqrt(2)`, so the equation above has no real amplitude-peak frequency: the
 mode is overdamped rather than shifted. A MEEP peak that survives with the
 physical core conductivity therefore needs to be treated as a different field

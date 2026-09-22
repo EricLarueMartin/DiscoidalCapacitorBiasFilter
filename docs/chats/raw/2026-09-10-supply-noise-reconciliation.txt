@@ -1,0 +1,14 @@
+Reconstructed substantive exchange.
+
+User: CV/e for 5 mV and 2 pF is about 62,500 electrons. Where does approximately
+65 dB of 50 Hz noise attenuation come from? Wants a breakdown to reconcile it.
+
+Assistant reran exact intermediate-node 50 Hz simulations and an independent
+2 pF charge transient. The 65 dB comparison mixes 2 pF peak charge with the
+previous 10 pF RMS result. Consistent model totals are 73.35 dB at 2 pF and
+75.67 dB at 10 pF (9.49 and 36.32 electrons RMS). Approximately 21 dB comes
+from the physical filter/cables, 19 dB from the slow sinusoidal preamplifier
+response relative to a fast charge pulse, and 33-36 dB net from the trapezoid
+after accounting for its attenuation of the signal calibration. Pole-zero is
+off for this comparison. Assumptions and full arithmetic are documented in
+docs/knowledge/supply-50hz-breakdown.md.

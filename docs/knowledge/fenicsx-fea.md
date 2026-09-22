@@ -36,6 +36,29 @@ The first deployed same-geometry field regression on 2026-07-13 used the 13.5 mm
 
 The `Repeat interior FEA cell` checkbox is enabled by default and selects `end_repeat_approx`. It solves two axial regions: the physical end through the center of the first bias plate, and the first bias-plate center through the center of the second ground plate. The far end is the exact global mirror of the first region. The interior half-cell is copied and mirror-copied across alternating bias and ground center planes until the far-end region begins. The reconstructed ordinary field/capacitance result is marked approximate. Clear the checkbox to use exact `mirror_half` instead.
 
+## Result dependencies and plate-count reuse
+
+The browser keys each result by the inputs that enter that physical model rather
+than by the complete settings file. Stage, input, and output resistance; load
+current; cable and detector loading; trapezoidal-filter settings; noise-source
+assumptions; and RF display controls do not invalidate electrostatic peak-field
+or capacitance FEA. Resistance and load changes do invalidate the SPICE ladder
+key, so the circuit is recalculated using the retained FEA capacitance network.
+Resistance remains part of the full-wave Maxwell key because it changes damping
+and resonance response.
+
+With repeated-cell mode selected, a result containing at least three bias
+plates contains both reflected end behavior and an interior bias-plate class.
+The browser may therefore change among three or more plates without another
+electrostatic solve. It rebuilds the node-to-ground and mutual-capacitance
+matrices from the solved end/interior values and labels the result as an
+approximate plate-count reconstruction. Mutual terms are averaged by plate
+separation; couplings beyond separations represented in the source solve are
+set to zero. A one- or two-bias-plate source cannot supply an interior class,
+so increasing it to three or more plates requires another electrostatic FEA.
+Unchecking repeated-cell mode also requires a solve for the exact requested
+stack. Thermal FEA and full-wave Maxwell results remain plate-count dependent.
+
 Repeated-cell screening does not launch single-node basis excitations. The
 equal-voltage excitation is reflection-symmetric, so it may assign each end
 node one end-region contribution plus one interior-half-cell contribution and

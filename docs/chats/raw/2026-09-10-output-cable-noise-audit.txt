@@ -1,0 +1,19 @@
+Reconstructed substantive collaboration record, not a verbatim transcript.
+
+User: Added output-cable capacitance may filter both noise and true signal.
+Wants the energy-resolution noise model audited so overlooked 50 Hz supply
+noise does not create false confidence relative to irreducible Fano noise.
+User confirmed output connections to the head electronics are 10 m.
+
+Assistant: Found O2/O4 output cables in the exported simplified LTspice netlist
+were missing from the reduced model. The first length sweep changed the wrong
+connections (O1/O3 internal feedback/signal lines); its transient failures must
+not be attributed to the actual output cable topology. Added O2/O4, preserved
+the 1 m internal lines and pre-output-cable feedback takeoff, and reran five
+cases with charge-response recalibration. All corrected transients completed.
+
+Result: About 36.3 electrons RMS from the assumed 10 mVpp supply sine at 50 Hz,
+versus 28.1 electrons RMS allocation (10% of 280.9-electron Fano sigma).
+Output dielectric scenarios change this by less than 1%. Supply resistance
+uncertainty is more important. See the durable audit note and raw JSON for
+settings, results, checks, and remaining ideal-op-amp/model limitations.

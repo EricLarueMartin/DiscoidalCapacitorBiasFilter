@@ -1,0 +1,19 @@
+* Standalone AC check for the reduced LEGEND LMFE pickup model.
+* Ipickup=1 A makes V(outp,outn) numerically equal to transimpedance in ohms.
+.include legend_lmfe_pickup.lib
+
+VHV source 0 5k AC 0
+RTERM source filter_terminal 47
+CFILTER filter_terminal 0 40p
+IPICKUP 0 cathode DC 0 AC 1
+TLMFE filter_terminal 0 cathode 0 Z0=50 TD=50.54n
+XLMFE cathode gate outp outn LEGEND_LMFE_FRONTEND CDET=10p
+
+.control
+set filetype=ascii
+ac dec 100 1 100Meg
+wrdata legend_lmfe_pickup_output.dat v(outp,outn)
+wrdata legend_lmfe_pickup_input.dat v(cathode)
+quit
+.endc
+.end

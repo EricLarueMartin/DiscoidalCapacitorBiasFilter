@@ -17,11 +17,14 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=2026-08-25-modeler-slide-2">
-    <script defer src="default-fenicsx-field.js?v=2026-08-11-locale-main-models-4"></script>
-    <script defer src="default-eqs-sweep.js?v=2026-08-11-locale-main-models-4"></script>
-    <script defer src="default-full-wave.js?v=2026-08-11-locale-main-models-4"></script>
-    <script defer src="app.js?v=2026-08-25-modeler-slide-2"></script>
+    <link rel="stylesheet" href="style.css?v=2026-09-03-spice-tab">
+    <script defer src="default-fenicsx-field-dp270.js?v=2026-09-22-caen-dp270"></script>
+    <script defer src="default-thermal-fea.js?v=2026-09-22-caen-dp270"></script>
+    <script defer src="default-eqs-sweep-dp270.js?v=2026-09-22-caen-dp270"></script>
+    <script defer src="default-full-wave-dp270.js?v=2026-09-22-caen-dp270"></script>
+    <script defer src="noise-cables.js?v=2026-09-22-caen-dp270"></script>
+    <script defer src="epoxy-cure.js?v=2026-09-22-dp270-default"></script>
+    <script defer src="app.js?v=2026-09-22-noise-sigma"></script>
   </head>
   <body>
     <header class="topbar">
@@ -57,6 +60,7 @@
             <button class="control-tab active" type="button" role="tab" aria-selected="true" data-control-tab="electrical">Electrical</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="geometry">Geometry</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="noise">Noise</button>
+            <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="spice">SPICE</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="solver">Field FEA</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="thermal">Thermal</button>
             <button class="control-tab" type="button" role="tab" aria-selected="false" data-control-tab="files">Files</button>
@@ -71,6 +75,10 @@
             <label class="check" title="Reuse the entered discrete stage resistance, or reuse the bulk core material conductivity over the input end geometry."><input id="input_series_matches_stage" type="checkbox"> Input matches stage definition</label>
             <label title="Series resistance after the final bias plate and before the cable/load, entered in ohms. Zero ohms connects the load directly to the final plate."><span>Output series R</span><output id="output_series_resistance_ohm_out"></output><input id="output_series_resistance_ohm" type="range" min="0" max="1000" step="1"></label>
             <label class="check" title="Reuse the entered discrete stage resistance, or reuse the bulk core material conductivity over the output end geometry."><input id="output_series_matches_stage" type="checkbox"> Output matches stage definition</label>
+            <label><span>CAEN output C to ground</span><output id="bias_source_capacitance_nf_out"></output><input id="bias_source_capacitance_nf" type="range" min="0" max="10" step="0.1"></label>
+            <label><span>CAEN HV divider</span><output id="bias_source_divider_mohm_out"></output><input id="bias_source_divider_mohm" type="range" min="0" max="1000" step="1"></label>
+            <label><span>HV regulator output R</span><output id="bias_source_resistance_mohm_out"></output><input id="bias_source_resistance_mohm" type="range" min="0" max="10" step="0.01"></label>
+            <label><span>HV source cable length</span><output id="source_cable_length_m_out"></output><input id="source_cable_length_m" type="range" min="0" max="100" step="0.1"></label>
             <label title="Load conductance for the admittance estimate is Iload / Vbias."><span>Load current</span><output id="load_current_na_out"></output><input id="load_current_na" type="range" min="0" max="10" step="0.01"></label>
             <label title="Coax length connected at the filter output. The loaded ladder treats this as lumped cable capacitance."><span>Load cable length</span><output id="load_cable_length_m_out"></output><input id="load_cable_length_m" type="range" min="0" max="30" step="0.5"></label>
             <label title="Characteristic impedance used to infer lumped cable capacitance from length and velocity factor."><span>Load cable Z<sub>0</sub></span><output id="load_cable_impedance_ohm_out"></output><input id="load_cable_impedance_ohm" type="range" min="25" max="125" step="1"></label>
@@ -82,7 +90,7 @@
                 <option value="type61">Fair-Rite 61 NiZn</option>
                 <option value="nizn">NiZn ferrite</option>
                 <option value="mmb0204_melf">MELF 0204 10M</option>
-                <option value="mmb0207_melf">MELF 0207 12M</option>
+                <option value="mmb0207_melf">MELF 0207 10M</option>
                 <option value="epoxy_chain">MELF chain in 9510</option>
                 <option value="conductive_epoxy">Conductive epoxy</option>
                 <option value="custom">Custom</option>
@@ -106,7 +114,11 @@
             <label>Epoxy material
               <select id="epoxy_material">
                 <option value="mg_9510">MG Chemicals 9510</option>
+                <option value="stycast_2850ft_cat11">Stycast 2850FT BL + CAT 11</option>
                 <option value="stycast_2850ft_23lv">Stycast 2850FT + CAT 23LV</option>
+                <option value="three_m_dp270">3M DP270</option>
+                <option value="master_bond_ep30">Master Bond EP30 (estimated permittivity)</option>
+                <option value="mg_832c">MG Chemicals 832C</option>
                 <option value="mg_832fx">MG Chemicals 832FX</option>
                 <option value="mg_832fxt">MG Chemicals 832FXT</option>
                 <option value="mg_832fxc">MG Chemicals 832FXC</option>
@@ -171,23 +183,50 @@
 
           <div class="control-group control-panel" data-control-panel="noise" hidden>
             <h2>Detector noise</h2>
+            <label title="Apply the same digital trapezoidal processing to every noise transfer and the known-charge detector signal. When off, both use raw amplifier output; pole-zero correction is bypassed too. This recalculates locally without FEA or SPICE."><span>Apply energy shaping to noise and signal</span><input id="noise_apply_shaping" type="checkbox"></label>
+            <label title="Compensate exponential preamplifier decay before trapezoidal shaping, identically for signal and noise. Model: (1 - exp(-Ts/tau) z^-1)/(1 - z^-1). This is not a mains notch and can increase low-frequency noise. Actual ADC firmware and decay setting must be confirmed."><span>Pole-zero correction</span><input id="noise_pz_enabled" type="checkbox"></label>
+            <label title="Assumed preamplifier decay time for pole-zero correction. The provisional 350 microseconds is 1 Gohm times 0.35 pF, not a measured amplifier decay or confirmed ADC setting. Match this to measured pulses or the configured firmware coefficient."><span>Pole-zero decay time</span><output id="noise_pz_decay_us_out"></output><input id="noise_pz_decay_us" type="range" min="1" max="2000" step="1"></label>
             <label><span>ADC sampling frequency</span><output id="noise_sample_rate_msps_out"></output><input id="noise_sample_rate_msps" type="range" min="1" max="250" step="0.1"></label>
             <label><span>Waveform length</span><output id="noise_waveform_samples_out"></output><input id="noise_waveform_samples" type="range" min="512" max="32768" step="256"></label>
             <label><span>Trap rise/fall</span><output id="noise_trap_rise_us_out"></output><input id="noise_trap_rise_us" type="range" min="0.5" max="30" step="0.1"></label>
             <label><span>Trap flat top</span><output id="noise_trap_flat_us_out"></output><input id="noise_trap_flat_us" type="range" min="0" max="20" step="0.1"></label>
             <label><span>Supply noise limit</span><output id="noise_supply_noise_pp_mv_out"></output><input id="noise_supply_noise_pp_mv" type="range" min="0" max="100" step="0.1"></label>
-            <label><span>Broadband lab pickup</span><output id="noise_lab_broadband_rms_mv_out"></output><input id="noise_lab_broadband_rms_mv" type="range" min="0" max="100" step="0.1"></label>
-            <label><span>Power-line pickup</span><output id="noise_mains_rms_mv_out"></output><input id="noise_mains_rms_mv" type="range" min="0" max="100" step="0.1"></label>
+            <label><span>RG-58 input broadband pickup</span><output id="noise_lab_broadband_rms_mv_out"></output><input id="noise_lab_broadband_rms_mv" type="range" min="0" max="100" step="0.01"></label>
+            <label><span>RG-58 input power-line pickup</span><output id="noise_mains_rms_mv_out"></output><input id="noise_mains_rms_mv" type="range" min="0" max="100" step="0.01"></label>
+            <label><span>Cryostat cable broadband pickup</span><output id="noise_cryostat_broadband_rms_mv_out"></output><input id="noise_cryostat_broadband_rms_mv" type="range" min="0" max="100" step="0.01"></label>
+            <label><span>Cryostat cable power-line pickup</span><output id="noise_cryostat_mains_rms_mv_out"></output><input id="noise_cryostat_mains_rms_mv" type="range" min="0" max="100" step="0.01"></label>
             <label><span>Power-line frequency</span><output id="noise_mains_frequency_hz_out"></output><input id="noise_mains_frequency_hz" type="range" min="40" max="70" step="1"></label>
             <label><span>Ge Fano factor</span><output id="noise_fano_factor_out"></output><input id="noise_fano_factor" type="range" min="0.05" max="0.15" step="0.0001"></label>
             <div class="derived-dimensions" aria-label="Derived detector-noise values">
               <span>Record duration <strong id="noiseRecordDuration">--</strong></span>
               <span>Trap at mains <strong id="noiseTrapMainsAttenuation">--</strong></span>
-              <span>Predicted bias noise <strong id="noiseEquivalentEnergy">--</strong></span>
+              <span>Predicted bias + cable noise <strong id="noiseEquivalentEnergy">--</strong></span>
               <span>Fano noise <strong id="noiseFanoLimit">--</strong></span>
               <span>10% Fano target <strong id="noiseFanoTarget">--</strong></span>
             </div>
-            <p class="solver-note">Supply and pickup values are provisional input-referred stress tests. Replace them with measured spectra and the current per-channel DSP settings before treating the result as a requirement.</p>
+            <p class="solver-note">Supply noise and provisional RG-58 cable-tray pickup are applied before the filter. Separate provisional pickup on the custom cryostat cabling is applied after the filter and receives no ladder attenuation. Replace all assumed spectra and current per-channel DSP settings before treating the result as a requirement.</p>
+          </div>
+
+          <div class="control-group control-panel" data-control-panel="spice" hidden>
+            <h2>SPICE ladder simulation</h2>
+            <div class="actions solver-actions">
+              <button id="solveSpice" type="button">Run SPICE simulation</button>
+            </div>
+            <div class="thermal-summary" aria-label="SPICE simulation result">
+              <span>Topology <strong id="spiceTopology">--</strong></span>
+              <span>Capacitance source <strong id="spiceCapacitanceReuse">--</strong></span>
+              <span>Backend <strong id="spiceBackend">Not run</strong></span>
+              <span>Frequency points <strong id="spiceFrequencyCount">--</strong></span>
+              <span>50 Hz regulator path <strong id="spiceRegulator50Hz">--</strong></span>
+              <span>50 Hz filter-input path <strong id="spiceFilterInput50Hz">--</strong></span>
+            </div>
+            <div class="thermal-warning" id="spiceSolveStatus" role="status">Run a matching field FEA before the circuit simulation.</div>
+            <div class="solver-explainer">
+              <strong>Calculation sequence</strong>
+              <p>The electrical FEA supplies every bias-node capacitance to ground and the mutual-capacitance matrix. SPICE combines that network with the selected input, stage, and output resistances, source cable, regulator impedance, output cable, and detector load.</p>
+              <p>With Repeat interior FEA cell enabled, a solved stack of at least three bias plates supplies end/interior Cg and Cpar classes for any plate count of three or more. Changing plate count or resistor values then needs only SPICE. Three bias plates have two interplate resistors; five have four, in addition to the configured input/output resistors. Changing local dimensions, permittivity, or disabling repeat mode requires matching FEA. Exact full-stack and RF results still depend on plate count.</p>
+              <p>A completed run refreshes the complete-filter SPICE plot and the detector-noise budget in the slide deck.</p>
+            </div>
           </div>
 
           <div class="control-group control-panel" data-control-panel="geometry" hidden>
@@ -196,24 +235,24 @@
             <label id="use_package_core_od_control" class="check" title="Set core OD from the selected component package when its diameter is known."><input id="use_package_core_od" type="checkbox"> Use package diameter</label>
             <label title="Primary inside diameter of the surrounding grounded tube.">Ground tube ID <output id="tube_id_mm_out"></output><input id="tube_id_mm" type="range" min="12" max="64" step="0.1"></label>
             <label title="Primary axial washer thickness between adjacent plate faces.">Washer thickness <output id="plate_gap_mm_out"></output><input id="plate_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
-            <label title="Ceramic washer inner diameter and source dimension for coupled ground-ID modes.">Washer ID <output id="washer_id_mm_out"></output><input id="washer_id_mm" type="range" min="2" max="40" step="0.1"></label>
-            <label>Washer ID relation
+            <label id="washer_id_control" title="Ceramic washer inner diameter and source dimension for coupled ground-ID modes.">Washer ID <output id="washer_id_mm_out"></output><input id="washer_id_mm" type="range" min="2" max="40" step="0.1"></label>
+            <label id="washer_id_mode_control">Washer ID relation
               <select id="washer_id_mode">
                 <option value="ground_id">Ground ID = washer ID</option>
                 <option value="ground_flat_id">Ground flat ID = washer ID</option>
                 <option value="custom">Custom</option>
               </select>
             </label>
-            <label title="Ceramic washer outer diameter and source dimension for coupled bias-OD modes.">Washer OD <output id="washer_od_mm_out"></output><input id="washer_od_mm" type="range" min="4" max="60" step="0.1"></label>
-            <label>Washer OD relation
+            <label id="washer_od_control" title="Ceramic washer outer diameter and source dimension for coupled bias-OD modes.">Washer OD <output id="washer_od_mm_out"></output><input id="washer_od_mm" type="range" min="4" max="60" step="0.1"></label>
+            <label id="washer_od_mode_control">Washer OD relation
               <select id="washer_od_mode">
                 <option value="bias_od">Bias OD = washer OD</option>
                 <option value="bias_flat_od">Bias flat OD = washer OD</option>
                 <option value="custom">Custom</option>
               </select>
             </label>
-            <label title="Derived from washer OD unless the washer OD relation is Custom.">Bias plate OD <output id="hv_plate_od_mm_out"></output><input id="hv_plate_od_mm" type="range" min="12" max="56" step="0.1"></label>
-            <label title="Derived from washer ID unless the washer ID relation is Custom.">Ground plate ID <output id="ground_plate_inner_diameter_mm_out"></output><input id="ground_plate_inner_diameter_mm" type="range" min="2" max="40" step="0.1"></label>
+            <label title="Primary bias-plate outside diameter when the dielectric is continuous epoxy; ceramic washer relation modes may derive it from washer OD.">Bias plate OD <output id="hv_plate_od_mm_out"></output><input id="hv_plate_od_mm" type="range" min="12" max="56" step="0.1"></label>
+            <label title="Primary ground-plate inside diameter when the dielectric is continuous epoxy; ceramic washer relation modes may derive it from washer ID.">Ground plate ID <output id="ground_plate_inner_diameter_mm_out"></output><input id="ground_plate_inner_diameter_mm" type="range" min="2" max="40" step="0.1"></label>
             <label title="Minimum is nominal 1/2 oz copper foil: 0.0175 mm.">Bias plate thickness <output id="bias_plate_thickness_mm_out"></output><input id="bias_plate_thickness_mm" type="range" min="0.0175" max="4" step="0.0005"></label>
             <label title="Minimum is nominal 1/2 oz copper foil: 0.0175 mm.">Ground plate thickness <output id="ground_plate_thickness_mm_out"></output><input id="ground_plate_thickness_mm" type="range" min="0.0175" max="4" step="0.0005"></label>
             <label class="check"><input id="ground_matches_bias_thickness" type="checkbox"> Ground thickness = bias thickness</label>
@@ -314,7 +353,7 @@
           <div class="control-group control-panel" data-control-panel="thermal" hidden>
             <h2>Thermal bond analysis</h2>
             <label title="A what-if assembly temperature for evaluating thermally induced stress; this is not a design target."><span>Temperature to evaluate</span><output id="thermal_min_temperature_c_out"></output><input id="thermal_min_temperature_c" type="range" min="-80" max="30" step="1"></label>
-            <label title="The cited MG 9510 and Stycast 2850FT/CAT 23LV data sheets do not publish Young's modulus. The saved calculation preserves a 2 to 4 GPa sensitivity range."><span>Assumed epoxy E</span><output id="thermal_epoxy_modulus_gpa_out"></output><input id="thermal_epoxy_modulus_gpa" type="range" min="2" max="4" step="0.1"></label>
+            <label title="The cited MG 9510 and Stycast 2850FT/CAT 11/23LV data do not publish Young's modulus for these systems. The saved calculation preserves a 2 to 4 GPa sensitivity range."><span>Assumed epoxy E</span><output id="thermal_epoxy_modulus_gpa_out"></output><input id="thermal_epoxy_modulus_gpa" type="range" min="2" max="4" step="0.1"></label>
             <label title="Dimensionless fraction of the radial and circumferential (hoop) thermal-mismatch strains prevented in the closed-form plane-stress baseline. It assumes equal radial and hoop stress while axial and r-z shear stress are zero. k = 1 is not an upper bound on local FEA stress."><span>Radial + hoop restraint k</span><output id="thermal_restraint_factor_out"></output><input id="thermal_restraint_factor" type="range" min="0.25" max="1" step="0.05"></label>
             <label title="Target element size for the axisymmetric thermoelastic FEniCSx mesh."><span>Thermal FEA mesh</span><output id="thermal_mesh_size_mm_out"></output><input id="thermal_mesh_size_mm" type="range" min="0.1" max="1" step="0.05"></label>
             <div class="actions solver-actions">
@@ -346,13 +385,14 @@
             <div class="solver-explainer thermal-explainer">
               <strong>Calculation method</strong>
               <p>The temperature control evaluates thermally induced stress at a selected assembly temperature; it is not a design target.</p>
-              <p>This is a closed-form thermal-mismatch estimate, not a thermal-stress FEA. Below the 9510 glass transition at 70&nbsp;&deg;C, the rigid cured epoxy wants to contract much more than alumina or copper. The estimate uses &sigma; = kE&Delta;&alpha;&Delta;T/(1 &minus; &nu;) and compares it with the published 20&nbsp;MPa cured tensile strength.</p>
+              <p>This is a closed-form thermal-mismatch estimate, not a thermal-stress FEA. The estimate uses &sigma; = kE&epsilon;<sub>mismatch</sub>/(1 &minus; &nu;). For DP270 and 832C, mismatch strain integrates the below- and above-Tg CTE over cooldown from the selected cure temperature. Bulk tensile comparisons use 45 MPa for 832C; DP270 and EP30 have no assigned bulk tensile limit. Existing Stycast screens retain their provisional 20 MPa proxy.</p>
               <p><em>k</em> is the fraction of radial and circumferential (hoop) mismatch strain prevented in the closed-form approximation. It assumes &sigma;<sub>rr</sub> = &sigma;<sub>&theta;&theta;</sub> and &sigma;<sub>zz</sub> = &sigma;<sub>rz</sub> = 0. It is not a prescribed surface shift, and it does not control the FEA.</p>
-              <p>Axisymmetry removes variation with circumferential angle, but radial displacement still changes circumference, so hoop strain and stress remain. The FEA includes &sigma;<sub>rr</sub>, &sigma;<sub>zz</sub>, &sigma;<sub>&theta;&theta;</sub>, and &sigma;<sub>rz</sub>. Local three-direction confinement can therefore exceed the radial-plus-hoop plane-stress baseline. At <em>k</em> = 0.5, the 20 MPa bulk-strength proxy crossing moves to <strong id="thermalHalfRestraintOnset">--</strong>.</p>
+              <p>Axisymmetry removes variation with circumferential angle, but radial displacement still changes circumference, so hoop strain and stress remain. The FEA includes &sigma;<sub>rr</sub>, &sigma;<sub>zz</sub>, &sigma;<sub>&theta;&theta;</sub>, and &sigma;<sub>rz</sub>. Local three-direction confinement can therefore exceed the radial-plus-hoop plane-stress baseline. At <em>k</em> = 0.5, the selected bulk-strength comparison crossing moves to <strong id="thermalHalfRestraintOnset">--</strong>.</p>
               <p>The FEniCSx model solves the selected plate and tube conductors, core, epoxy, and any distinct solid washer with axisymmetric linear elasticity and exact center-plane symmetry. Selecting an epoxy-filled gap removes the washer material interface. All remaining interfaces are perfectly bonded, so the model reports epoxy stress but cannot predict separation. A separation-temperature solve requires cohesive interface laws and adhesion or fracture data for the actual material pairs and surface preparations.</p>
-              <p>The published 3.9% cure shrinkage is not added as elastic strain because the locked-in fraction after gel is unknown. Any retained cure stress reduces the available cold margin.</p>
+              <p>Cure shrinkage is not added as elastic strain because the locked-in fraction after gel is unknown. Any retained cure stress reduces the available cold margin.</p>
               <p><a href="https://mgchemicals.com/downloads/tds/tds-9510.pdf">9510 TDS</a> &middot; <a href="https://www2.coorstek.com/media/4235/advanced-alumina.pdf">CoorsTek alumina</a> &middot; <a href="https://alloys.copper.org/alloy/C11000">C110 copper</a></p>
             </div>
+            <div id="epoxyCureDetails" class="control-note"></div>
           </div>
 
           <div class="actions control-panel" data-control-panel="files" hidden>
@@ -531,6 +571,7 @@
               <button class="viewer-tab" type="button" data-viewer-panel="potentialPanel" role="tab" aria-selected="false">Potential</button>
               <button class="viewer-tab" type="button" data-viewer-panel="fieldPanel" role="tab" aria-selected="false">Electric field</button>
               <button class="viewer-tab" type="button" data-viewer-panel="thermalFeaPanel" role="tab" aria-selected="false">Thermal FEA</button>
+              <button class="viewer-tab" type="button" data-viewer-panel="noiseSchematicPanel" role="tab" aria-selected="false">Noise schematic</button>
             </div>
 
             <figure class="viewer-panel cad-figure active" id="cadPanel" role="tabpanel">
@@ -576,6 +617,12 @@
               <figcaption>Epoxy maximum-principal tensile stress from the axisymmetric thermal FEA</figcaption>
               <canvas id="thermalFeaCanvas" width="900" height="440"></canvas>
             </figure>
+            <section class="viewer-panel" id="noiseSchematicPanel" role="tabpanel" hidden>
+              <canvas id="noiseSchematicCanvas" width="1100" height="430" aria-label="Simplified noise circuit with four cable sections"></canvas>
+              <div id="noiseCableEditor" class="noise-cable-editor"></div>
+              <button type="button" id="noiseCableSolve">Run SPICE</button>
+              <p id="noiseCableStatus" role="status">Cable changes require SPICE, not FEA.</p>
+            </section>
           </div>
         </section>
       </section>
@@ -642,35 +689,167 @@
             <h2>SPICE Simulation of the Complete Filter</h2>
             <ul>
               <li>The backend solves every R, C<sub>g</sub>, and C<sub>par</sub> element in the unbuffered ladder.</li>
-              <li>Exact mode uses the extracted Maxwell network; repeated mode uses the explicitly approximate screening network.</li>
-              <li>The loaded curve includes the cable transmission line, detector capacitance, and DC load conductance once at the final node.</li>
-              <li>The unloaded curve removes the cable and detector load to show voltage-noise attenuation at the bare filter output.</li>
-              <li>The 50 &Omega; test curve adds a tracking-generator source and analyzer load, including source mismatch without changing the filter input resistance.</li>
-              <li>The intrinsic curve also removes the source-side network, matching the direct-drive, open-output ports used by the field solve.</li>
-              <li>End resistors occur only where specified; the complete solve avoids multiplying an isolated one-section response.</li>
+              <li>Filter unloaded measures the bare output; the 50 &Omega; curve models matched test equipment at both ports.</li>
+              <li>HV regulator + input T-line adds the Designer regulator output resistance and source cable, while leaving the filter output unloaded.</li>
+              <li>Filter + output T-line + detector/LMFE drives the filter input and measures the reduced front-end response beyond the cryostat cable.</li>
+              <li>Everything starts at the regulator's ideal internal source and includes both transmission lines, the complete filter, detector, and amplifier.</li>
+              <li>The detector-facing curves apply the selected trapezoidal response and divide by the known-charge signal gain, giving detector-equivalent attenuation.</li>
+              <li>End resistors occur only where specified; no curve is made by multiplying an isolated one-section response.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideSpiceLadderCanvas" width="1100" height="620"></canvas>
-            <figcaption>Complete RC ladder, including the intrinsic matched-port transfer used for the field-solve comparison</figcaption>
+            <figcaption>Five source/load boundaries from a bare filter measurement through the complete regulator-to-energy-estimator path</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <h2>Detector Front-End Pickup Model</h2>
+            <ul>
+              <li>The reduced ngspice model retains the MX11RC input JFET, BF862 cascode, 0.35 pF / 1 G&Omega; feedback, signal-cable delays, and the differential output across R30.</li>
+              <li>C19 uses the Designer/Electrical Detector C value; the 10 pF default is a conservative upper-end detector capacitance.</li>
+              <li>A 1 A AC test current is injected at the detector cathode to calculate pickup transimpedance through the selected cryostat HV cable.</li>
+              <li>The cable is terminated by the complete filter model, including its selected output resistance and capacitance network.</li>
+              <li>The LMH6654 stages are replaced by finite-gain, 10 MHz gain-bandwidth ideal op amps. Their bias filters and the later AD8139 differential-output stage are omitted.</li>
+              <li>The dedicated pickup slide reports transimpedance in V/A; the complete-filter slide uses the detector signal calibration to express that path as detector-equivalent attenuation.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideDetectorFrontendCanvas" width="1100" height="620"></canvas>
+            <figcaption>Reduced LEGEND LMFE model used to evaluate detector-cable pickup and filter termination</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <h2>Three Noise Sources in the Complete SPICE Model</h2>
+            <ul>
+              <li>Supply: the CAEN A1560 sketch shows a final series resistor, 1 nF to ground, and a 300 M&Omega; divider. Use 40 k&Omega; for the sketch's unspecified “few tens of k”, as selected for this study.</li>
+              <li>A1560H maximum ripple: 10 mV p-p at 20&ndash;1000 Hz; 5 mV p-p at 1 kHz&ndash;20 MHz. These terminal-ripple limits are applied conservatively upstream of the final RC for comparison; the internal HV filter and regulation loop are unspecified. Each band uses its worst-frequency sine scenario; 50 Hz is shown separately.</li>
+              <li>Outside cryostat: insert a series pickup voltage at the RG-58 filter end, retaining the regulator and entire input cable.</li>
+              <li>Inside cryostat: insert a separate series pickup voltage between the output cable and detector cathode, retaining the filter termination.</li>
+              <li>One source is active per AC solve. All three share the detector/LMFE and differential R30 output; noise powers are weighted by the trapezoid and calibrated with a known charge.</li>
+              <li>At low frequency the input cable contributes C = L/(Z<sub>0</sub>v<sub>f</sub>c), forming a T network between regulator R and filter input R. The transmission line already includes this capacitance.</li>
+              <li>Pickup voltages represent induced cable EMFs, not clamped node voltages. Cable-end placement approximates distributed pickup. The separate current-injection sensitivity studies use a different source convention.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideThreeNoiseSourcesCanvas" width="1100" height="620"></canvas>
+            <figcaption>Three excitations of one complete circuit, with the low-frequency input T network shown below</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Input-referred amplifier check</p>
+            <h2>Simplified Amplifier SPICE Model</h2>
+            <ul>
+              <li>The reduced model preserves the detector capacitance, MX11RC J2 input device, BF862 cascode, 0.35 pF / 1 G&Omega; charge feedback, finite-gain amplifier stages, signal-cable delays, and differential R30 output.</li>
+              <li>The pickup solve excites the detector cathode. A separate 1 V AC solve excites the J2 gate and gives the amplifier signal gain G<sub>gate</sub>(f).</li>
+              <li>Dividing pickup at R30 by |G<sub>gate</sub>(f)| expresses each AC pickup component as an equivalent voltage at the J2 gate.</li>
+              <li>The trapezoidal response is identical in the numerator and denominator of this same-frequency ratio, so it cancels and is not needed for the input-referred check.</li>
+              <li>Energy-resolution broadening is calculated separately: shape the pickup spectrum, normalize it with the shaped response to a known detector-charge step, convert to equivalent energy, and combine it in quadrature with Fano noise.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideSimplifiedAmplifierCanvas" width="1100" height="620"></canvas>
+            <figcaption>Two SPICE excitations distinguish an input-referred amplifier check from detector-energy calibration</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Transient charge calibration</p>
+            <h2>Detector Charge Sets the Energy Calibration</h2>
+            <ul>
+              <li>ngspice injects a known charge as a 100 ns current pulse from the detector cathode to the MX11RC J2 gate and measures the differential voltage across R30.</li>
+              <li>The collected charge is integrated onto the 0.35 pF feedback capacitor, producing the preamplifier step whose amplitude measures event energy.</li>
+              <li>The selected trapezoidal estimator is applied to this transient. Its shaped amplitude per unit charge is the scalar energy calibration.</li>
+              <li>Trap-filtered pickup RMS at R30 is divided by that amplitude and converted to equivalent charge, then to energy using 2.96 eV per electron-hole pair.</li>
+              <li>High-frequency rise-time and reflection distortion remain important for event-shape discrimination, but are evaluated separately from energy resolution.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideLmfeGateGainCanvas" width="1100" height="620"></canvas>
+            <figcaption>Differential LMFE step produced by a known collected detector charge</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Cryostat-cable pickup excitation</p>
+            <h2>HV-Cable Pickup Transimpedance</h2>
+            <ul>
+              <li>ngspice injects 1 A AC at the C19 cathode node and calculates V<sub>R30</sub>/I<sub>pickup</sub>. Its unit is V/A = &Omega;; it is not a dimensionless attenuation.</li>
+              <li>The complete filter terminates the far end of the 10 m cable with the selected output resistance.</li>
+              <li>The final-node C<sub>g</sub> is connected from the last bias plate to ground, before the output resistor. It is not modeled as V16 source capacitance.</li>
+              <li>The output-stage C<sub>g</sub> is swept from 0.1&times; through 100&times; its FEA-derived reference value.</li>
+              <li>The entered cryostat pickup voltage is represented as a Norton source I<sub>pickup</sub> = V<sub>pickup</sub>/Z<sub>0</sub>.</li>
+              <li>This is a reviewable lumped pickup convention; actual distributed coupling and common mode require cable measurements.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideLmfePickupTransferCanvas" width="1100" height="620"></canvas>
+            <figcaption>Pickup transimpedance for representative output-stage capacitance values</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Pickup after energy filtering</p>
+            <h2>Output Capacitance versus Energy Noise</h2>
+            <ul>
+              <li>Pickup voltage is represented by I<sub>pickup</sub> = V<sub>pickup</sub>/Z<sub>0</sub>, propagated through the cable and LMFE, and measured across R30.</li>
+              <li>The Designer/Noise cryostat 50/60 Hz and broadband RMS values set the pickup amplitude.</li>
+              <li>The selected discrete trapezoidal response is applied before line and broadband terms are combined in quadrature.</li>
+              <li>The preceding known-charge transient converts the shaped R30 RMS voltage into equivalent detector-energy RMS.</li>
+              <li>The seven solved capacitances span 0.1&times;, 0.3&times;, 1&times;, 3&times;, 10&times;, 30&times;, and 100&times; the reference output-stage C<sub>g</sub>.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideLmfePickupNoiseCanvas" width="1100" height="620"></canvas>
+            <figcaption>Equivalent detector-energy noise after the selected trapezoidal estimator</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Termination sensitivity at three capacitances</p>
+            <h2>Output Resistance versus Energy Noise</h2>
+            <ul>
+              <li>The same LMFE pickup calculation is repeated while varying the resistance between the final bias plate and the 10 m cryostat HV cable.</li>
+              <li>Each resistance is solved with 0.1&times;, 1&times;, and 10&times; the FEA-derived output-stage C<sub>g</sub>.</li>
+              <li>The selected trapezoidal filter is applied to pickup at R30, then normalized by the shaped known-charge transient; no frequency-by-frequency gate-gain division is used.</li>
+              <li>The sweep includes the ordered 10, 22, 27, 33, 39, 47, and 51 &Omega; MELF values plus nearby points that reveal the trend.</li>
+              <li>At the design capacitance, 22-51 &Omega; produces practically the same equivalent energy noise; termination is therefore selected for fast-step fidelity rather than energy resolution.</li>
+              <li>The cable model gives Z<sub>0</sub> &asymp; 48 &Omega; and about 47.5 ns one-way delay. With a sub-100 ns signal rise, transient reflections and pulse-shape fidelity are more relevant than a 100 kHz spot value.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideLmfeResistanceNoiseCanvas" width="1100" height="620"></canvas>
+            <figcaption>Equivalent detector-energy noise versus filter-end termination resistance</figcaption>
           </figure>
         </article>
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Noise-based stopping point</p>
-            <h2>Bias Noise After the Energy Filter</h2>
+            <h2>Bias and Cable Noise After the Energy Filter</h2>
             <ul>
-              <li>A 2039 keV event creates about 689,000 electron-hole pairs, or 110 fC. The three-measurement weighted default F = 0.1145 gives about 0.831 keV rms of irreducible Fano fluctuation.</li>
-              <li>Bias noise is propagated through the complete loaded ladder and the selected discrete trapezoidal energy-filter response.</li>
+              <li>A 2039 keV event creates about 689,000 electron-hole pairs, or 110 fC. The three-measurement weighted default F = 0.1145 gives about 831 eV &sigma; of irreducible Fano fluctuation.</li>
+              <li>CAEN supply ripple passes through the 40 k&Omega; / 1 nF CAEN output network, RG-58 input cable, filter, cryostat cable, detector, amplifier, and trapezoidal energy estimator.</li>
+              <li>Outside and inside cryostat pickup are separate localized series voltage excitations, with all passive components retained. Entered pickup voltages describe induced EMFs, not clamped node voltages.</li>
+              <li>Each R30 noise response uses the shaped known-charge signal calibration. Missing complete SPICE results are labeled as a legacy approximation.</li>
+              <li>With the sinusoidal conversion used in this model, the A1560H ripple limits are 3.54 mV &sigma; at 20&ndash;1000 Hz and 1.77 mV &sigma; at 1 kHz&ndash;20 MHz. Band powers are added; the 50/60 Hz low-band scenario is an alternative, never counted twice.</li>
               <li>The public LEGEND reference estimator uses a 10 &micro;s rise and 4 &micro;s flat top; current production settings remain an input to confirm.</li>
-              <li>The design criterion is predicted bias-path noise below 0.10 times the calculated Fano RMS fluctuation; observed detector resolution is deliberately excluded.</li>
-              <li>The provisional source envelope remains deliberately adjustable because a peak-to-peak supply limit and an assumed laboratory pickup level do not define measured spectra.</li>
+              <li>The design criterion is predicted bias-path noise below 0.10 times the calculated Fano &sigma;; observed detector resolution is deliberately excluded.</li>
+              <li>Both pickup sources default to 0.20 mV &sigma; at 50 Hz plus 0.05 mV &sigma; broadband. Independent powers are added; a separate same-phase mains sum shows possible coherent interference.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideFanoNoiseCanvas" width="1100" height="620"></canvas>
-            <figcaption>Input-referred supply and pickup propagated through the RC ladder and trapezoidal energy estimator</figcaption>
+            <figcaption>Supply and RG-58 input pickup pass through the filter; custom cryostat-cable pickup enters downstream</figcaption>
           </figure>
         </article>
 
@@ -678,6 +857,7 @@
           <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Geometry to expected performance</p>
             <h2>From Full-Geometry FEA to SPICE</h2>
+            <p>Reuse Cg/Cpar for circuit sweeps: with Repeat interior enabled, three solved bias plates supply end/interior classes for larger stacks. Five plates use four interplate resistors. Adjusting plate count or resistance requires only SPICE; local geometry or dielectric changes require new FEA.</p>
             <ul>
               <li>Electrostatic FEniCSx basis fields extract each bias node's C<sub>g</sub> and every mutual C<sub>par</sub> directly from the complete geometry.</li>
               <li>A distributed electroquasistatic field solve agrees with the matched RC network within 1.79 dB through the saved 1 Hz&ndash;1 GHz sweep.</li>
@@ -743,8 +923,29 @@
 
         <article class="slide slide-visual">
           <div class="slide-copy slide-copy-compact">
+            <p class="eyebrow">Axisymmetric thermoelastic solution</p>
+            <h2>Thermal FEA Model</h2>
+            <ul>
+              <li>FEniCSx solves the copper plates and tube, resistive core, and continuous DP270 dielectric as bonded elastic solids in cylindrical r-z symmetry.</li>
+              <li>Axial center-plane mirror symmetry and cylindrical symmetry are exact for the idealized geometry.</li>
+              <li>The DP270 default uses a provisional 40&nbsp;&deg;C stress-free reference and cooldown to 20&nbsp;&deg;C. Cure duration at 40&nbsp;&deg;C is unverified; E = 3 GPa is assumed. CTE integrates across the 43&nbsp;&deg;C Tg onset for hotter schedules.</li>
+              <li>The MELF body is modeled as its dominant Al<sub>2</sub>O<sub>3</sub> ceramic substrate; the thin resistive film, steel caps, plating, and coating are omitted.</li>
+              <li>External surfaces are traction-free; every material interface is perfectly bonded.</li>
+              <li>The model includes radial, axial, hoop, and r-z shear stress, but excludes cure shrinkage, viscoelastic relaxation, voids, cohesive debonding, and fracture.</li>
+              <li>The color field is epoxy maximum-principal tensile stress. P99 is used for comparison; the marked raw corner peak remains mesh sensitive.</li>
+            </ul>
+          </div>
+          <figure class="slide-figure">
+            <canvas id="slideThermalFeaModelCanvas" width="1100" height="620"></canvas>
+            <figcaption>Current thermal FEA result rendered from the solved geometry and DP270 / ceramic-body MELF proxy (coating omitted) material assignment</figcaption>
+          </figure>
+        </article>
+
+        <article class="slide slide-visual">
+          <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Default geometry · matched open-circuit ports</p>
             <h2>Electroquasistatic FEA Checks the Distributed RC Model</h2>
+            <p>DP270: mesh change at 1 kHz is 0.0053 dB; EQS/lumped disagreement peaks at 2.31 dB near 100 kHz (exceeds the 2 dB comparison criterion). At 50 Hz the difference is 0.0083 dB.</p>
             <ul>
               <li>The input bias plate is fixed at 1 V, all interior plates float, and the output plate is measured open-circuit.</li>
               <li>No input resistor, output resistor, cable, detector capacitance, or load conductance appears in either curve.</li>
@@ -764,6 +965,7 @@
           <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Low-frequency field limit through first mode</p>
             <h2>Full-Field Noise Transmission to First Resonance</h2>
+            <p style="color:#b73e3e;font-weight:bold">DP270 default: RF handoff is not validated (2.77 dB residual, 2 dB criterion). MEEP is diagnostic; no first resonance has been verified in this sweep.</p>
             <ul>
               <li>The displayed full-field sweep starts at 50 Hz with the electroquasistatic Maxwell solution, which is the correct low-frequency limit for this millimetre-scale geometry.</li>
               <li>EQS and cylindrical <em>m</em> = 0 MEEP overlap at 300 MHz and 1 GHz. The 300 MHz point anchors the provisional port normalization; the independent 1 GHz point checks whether their slopes agree before handoff.</li>
@@ -833,17 +1035,32 @@
           </figure>
         </article>
 
-        <article class="slide slide-visual">
+        <article class="slide slide-copy-wide caen-comparison-slide">
+          <p class="eyebrow">CAEN sketch · DP270 default · 50 Hz AC comparison</p>
+          <h2 style="font-size:34px;margin:8px 0 14px">CAEN Output Network and 50 Hz Pickup</h2>
+          <p style="font-size:17px;line-height:1.4;margin:10px 0">Filtered internal source → <strong>40 kΩ series</strong> → CAEN output → 10 m input cable → discoidal filter. At the CAEN output: <strong>1 nF ∥ 300 MΩ to ground</strong>.</p>
+          <p style="font-size:17px;line-height:1.4;margin:10px 0">The sketch specifies “a few tens of k”; 40 kΩ is the selected approximation. The upstream HV filter and regulator feedback impedance remain unspecified.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:17px;line-height:1.6">
+            <thead><tr><th style="text-align:left">Excitation / R30 response</th><th>Old 1 MΩ</th><th>40 kΩ + 1 nF</th><th>Change</th></tr></thead>
+            <tbody>
+              <tr><td>Supply voltage · V/V</td><td style="text-align:center">0.5636</td><td style="text-align:center">0.6101</td><td style="text-align:center">+0.69 dB</td></tr>
+              <tr><td>Input cable series EMF · V/V</td><td style="text-align:center">0.5914</td><td style="text-align:center">0.6104</td><td style="text-align:center">+0.27 dB</td></tr>
+              <tr><td>Cryostat cable series EMF · V/V</td><td style="text-align:center">6.1474</td><td style="text-align:center">6.1473</td><td style="text-align:center">≈ 0 dB</td></tr>
+              <tr><td>Input-node current · V/A</td><td style="text-align:center">563,643</td><td style="text-align:center">24,404</td><td style="text-align:center"><strong>−27.27 dB</strong></td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:17px;line-height:1.4;margin:10px 0"><strong>The lower impedance helps current-coupled pickup.</strong> The 1 nF itself adds only 0.0021 dB of 50 Hz supply-path attenuation versus 40 kΩ alone. Its isolated RC corner is 3.98 kHz.</p>
+          <p style="font-size:14px;line-height:1.3">Same DP270 FEA network in all cases; differential LMFE output, not detector voltage. Current and series-voltage excitations are distinct coupling models. Cryostat pickup bypasses the upstream filter. Saved study: simulations/spice/caen-dp270-50hz.json.</p>
+        </article>
+
+        <article class="slide slide-visual thermal-limit-slide">
           <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Possible mechanical limitation</p>
-            <h2>Possible Thermal Limits of Heat-Cured Epoxy</h2>
+            <h2>DP270 Default Thermal Screen</h2>
             <ul>
-              <li>The closed form assumes equal radial and hoop stress with zero axial and r-z shear stress.</li>
-              <li>The FEA maximum-principal result combines radial, axial, hoop, and r-z shear stress and is the most limiting trend shown.</li>
-              <li>The 20&nbsp;MPa horizontal line is retained as a common bulk-strength comparison proxy from the 9510 data; it is not a Stycast tensile value or a predicted interface-separation temperature.</li>
-              <li>FEA reports the 99th-percentile epoxy maximum-principal tensile stress; its raw material-corner peak remains mesh sensitive.</li>
-              <li>9510 has no published bulk shear strength. Its substrate-specific lap-shear values cannot be used as the local FEA shear limit; the actual copper/alumina bonds need coupon data.</li>
-              <li>The dashed <em>k</em> = 0.5 FEA trend is a linear stress-scaling sensitivity, not a second interface-compliance solve.</li>
+              <li>DP270 default: provisional 40&nbsp;&deg;C stress-free reference, cooling to 20&nbsp;&deg;C. The manufacturer does not specify a complete cure duration at 40&nbsp;&deg;C.</li>
+              <li>CTE is 80 ppm/K below the 43&nbsp;&deg;C Tg onset and 180 ppm/K above it. E = 3 GPa is assumed; actual stress lock-in depends on gelation and relaxation. The encapsulated MELF uses a ceramic-body proxy.</li>
+              <li>At 20&nbsp;&deg;C: closed form 6.63&nbsp;MPa at the ceramic proxy (5.82&nbsp;MPa at copper); FEA P99 tension 11.80&nbsp;MPa, raw corner 25.71&nbsp;MPa. Corner peaks are mesh-sensitive. Copper lap shear is not a tensile failure criterion; no bulk tensile safety margin is assigned.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -859,25 +1076,25 @@
             <li>The available 12 M&Omega; MELF value is much lower than the desired per-stage resistance.</li>
             <li>Alumina is practical and robust, but its modest permittivity limits the shunt capacitance.</li>
             <li>Its intrinsic section attenuation is about 0.1 dB at 50 Hz; the full loaded response still falls short of the desired suppression.</li>
-            <li>The result motivates a higher-resistance ferrite path or a more complex MELF topology.</li>
+            <li>The retained options are more MELF stages, higher-value low-noise metal-film parts, or greater qualified shunt capacitance.</li>
           </ul>
         </article>
 
         <article class="slide prototype-slide">
-          <p class="eyebrow">Proposed first article</p>
-          <h2>Compare Core and Potting Approaches</h2>
-          <p class="prototype-shared"><strong>Shared geometry:</strong> 6.6 &times; 20 &times; 1.5 mm stock alumina washers with the same copper plates and grounded tube.</p>
+          <p class="eyebrow">Earlier prototype trade</p>
+          <h2>Ferrite and MELF Core Paths Considered</h2>
+          <p class="prototype-shared"><strong>Shared geometry:</strong> 1.0 mm continuous DP270 dielectric gaps between 2.0 mm copper plates in the same grounded tube.</p>
           <div class="prototype-comparison">
             <section class="prototype-path ferrite-path">
-              <h3>2.0 mm ferrite core</h3>
+              <h3>Ferrite path: set aside</h3>
               <ul>
-                <li>Potentially much higher resistance and stronger 50/60 Hz attenuation.</li>
-                <li>Measure excess noise, voltage coefficient, contact resistance, and material spread.</li>
-                <li>Conductive discs can shorten an overly resistive path, trading lower R for higher C<sub>par</sub>.</li>
+                <li>It offered potentially higher resistance and stronger 50/60 Hz attenuation.</li>
+                <li>Multimeter resistance readings were too noisy and unstable to support a predictable first prototype.</li>
+                <li>It is retained here as a documented possibility, but it is no longer under consideration for the current design.</li>
               </ul>
             </section>
             <section class="prototype-path melf-path">
-              <h3>2.2 mm MELF resistor</h3>
+              <h3>MELF path: retained</h3>
               <ul>
                 <li>Known thin-film construction provides the repeatable low-noise reference.</li>
                 <li>The available 12 M&Omega; value limits power-line attenuation.</li>
@@ -885,7 +1102,7 @@
               </ul>
             </section>
           </div>
-          <p class="prototype-hybrid"><strong>Potting comparison:</strong> build representative coupons and, if practical, cross the core comparison with a vacuum-degassed heat-cured epoxy and a compliant two-part epoxy. Compare voiding, thermal cycling, adhesion, leakage, partial discharge, attenuation, drift, and low-frequency noise before selecting the construction.</p>
+          <p class="prototype-hybrid"><strong>Current direction:</strong> retain MELF resistors and compare vacuum-degassed potting approaches using representative coupons. Evaluate voiding, thermal cycling, adhesion, leakage, partial discharge, attenuation, drift, and low-frequency noise before selecting the construction.</p>
         </article>
 
         <article class="slide backup-divider">
@@ -894,26 +1111,59 @@
           <p>Supporting slides preserve the prototype assumptions, circuit checks, capacitance comparisons, mesh-aware field checks, and geometries with known analytical behavior.</p>
         </article>
 
+        <article class="slide slide-copy-wide dielectric-interface-slide">
+          <p class="eyebrow">Backup: dielectric interfaces</p>
+          <h2>Continuous Epoxy Removes the Washer Seam</h2>
+          <p class="interface-lead">Using the potting compound as the complete plate-to-ground dielectric removes the separate washer/potting boundary. In the washer construction, that boundary can lie approximately parallel to the axial electric field.</p>
+          <div class="interface-comparison">
+            <section class="interface-case interface-case-split">
+              <h3>Solid washer + epoxy infill</h3>
+              <div class="dielectric-schematic" aria-label="Cross section with a solid washer beside epoxy and an interface parallel to the electric field">
+                <span class="schematic-plate schematic-plate-top">Bias plate</span>
+                <span class="schematic-dielectric schematic-washer">Washer</span>
+                <span class="schematic-dielectric schematic-infill">Epoxy</span>
+                <span class="schematic-interface">material interface</span>
+                <span class="schematic-field" aria-hidden="true">E &darr;</span>
+                <span class="schematic-plate schematic-plate-bottom">Ground plate</span>
+              </div>
+              <p>A poorly wetted seam, debond, or trapped void can form a long weak path aligned with the field and concentrate stress at its ends.</p>
+            </section>
+            <section class="interface-case interface-case-continuous">
+              <h3>Continuous epoxy dielectric</h3>
+              <div class="dielectric-schematic" aria-label="Cross section with continuous epoxy between the bias and ground plates">
+                <span class="schematic-plate schematic-plate-top">Bias plate</span>
+                <span class="schematic-dielectric schematic-full-epoxy">3M DP270</span>
+                <span class="schematic-field" aria-hidden="true">E &darr;</span>
+                <span class="schematic-plate schematic-plate-bottom">Ground plate</span>
+              </div>
+              <p>One homogeneous dielectric region removes that seam. Metal/epoxy and core/epoxy bonds, bulk voids, cure shrinkage, and thermal cracking still require process control and qualification.</p>
+            </section>
+          </div>
+          <p class="prototype-hybrid"><strong>Reference-design choice:</strong> accept the lower C<sub>g</sub> of epoxy in exchange for fewer internal material boundaries, then recover attenuation with geometry or stage count rather than an unqualified interface.</p>
+        </article>
+
         <article class="slide prototype-slide capacitor-backup-slide">
           <p class="eyebrow">Backup: optional symmetric shunt</p>
-          <h2>Discrete HV Capacitors Stay a Backup</h2>
+          <h2>Avoid High-K Capacitors Without PD Qualification</h2>
           <div class="prototype-comparison">
             <section class="prototype-path ferrite-path">
-              <h3>Model the fallback</h3>
+              <h3>Why nominal C is not enough</h3>
               <ul>
-                <li>If extra C<sub>g</sub> becomes necessary, use at least two matched HV capacitors placed symmetrically&mdash;never one asymmetric part.</li>
-                <li>Additional C<sub>g</sub> applies the same ideal shunt at every bias node. Zero is the baseline; one node is sensitivity-only.</li>
+                <li>High-permittivity ferroelectric ceramics can lose substantial effective capacitance under DC bias.</li>
+                <li>Thin dielectric layers, internal electrode edges, pores, cracks, and termination geometry create local fields that a voltage rating alone does not describe.</li>
+                <li>Published BaTiO<sub>3</sub> studies show that porosity and void size strongly affect partial-discharge inception.</li>
               </ul>
             </section>
             <section class="prototype-path melf-path">
-              <h3>Why it is disfavored</h3>
+              <h3>Keep it a qualified fallback</h3>
               <ul>
-                <li>Previous dry-encapsulated HV-capacitor assemblies suffered discharges; liquid potting is unavailable.</li>
-                <li>Only pursue this branch if the washer/core design cannot meet attenuation without it.</li>
+                <li>Use geometry-derived C<sub>g</sub> as the baseline and add discrete capacitance only if the attenuation requirement demands it.</li>
+                <li>If needed, use matched parts symmetrically and qualify the complete potted assembly at operating DC plus realistic ripple and transients.</li>
+                <li>Measure PD, leakage, effective biased capacitance, loss, microphonics, and thermal-cycle stability.</li>
               </ul>
             </section>
           </div>
-          <p class="prototype-hybrid"><strong>Qualification gate:</strong> test the symmetric assembly for partial discharge, leakage, loss, noise, and thermal cycling. The ideal input omits package voids, placement C<sub>par</sub>, and lead inductance.</p>
+          <p class="prototype-hybrid"><strong>Design decision:</strong> do not use high-k ceramic capacitors in the reference build without part-level and assembly-level DC partial-discharge evidence. The circuit input remains available for sensitivity studies.</p>
         </article>
 
         <article class="slide slide-visual prototype-geometry-slide">
@@ -921,30 +1171,31 @@
             <p class="eyebrow">Proposed prototype geometry</p>
             <h2>Reference Design</h2>
             <ul>
-              <li>Washer candidate: 6.6 mm ID, 20 mm OD, 1.5 mm thick alumina.</li>
-              <li>Core-to-ground radial gap is 1.55 mm with 2.0 mm ferrite and 1.45 mm with the 2.2 mm MELF.</li>
-              <li>The washer overlap gives 16.5 pF per washer, or 33.0 pF shunt capacitance per bias node.</li>
-              <li>Potting baseline: Stycast 2850FT with CAT 23LV, vacuum-degassed and cured 16&ndash;24 hours at room temperature.</li>
-              <li>Provide three or more radial fill/vent paths per washer; put locating pockets in the metal plates or specify custom green-machined/laser-cut alumina rather than hand-grooving fired stock.</li>
+              <li>Dielectric gap: 1.0 mm of continuous 3M DP270 between 2.0 mm copper plates.</li>
+              <li>The 2.2 mm MELF body leaves a 1.20 mm core-to-ground radial gap.</li>
+              <li>The same epoxy fills the plate gap and the surrounding potting volume, eliminating a separate washer interface in this reference model.</li>
+              <li>Potting baseline: vacuum degas, cure 16&ndash;24 hours at room temperature, then post-cure 2&ndash;4 hours at 45&nbsp;&deg;C.</li>
+              <li>The 45&nbsp;&deg;C bake advances cross-linking and stabilizes cured properties without imposing the former 80&nbsp;&deg;C cooldown; provide open fill/vent paths before cure.</li>
               <li>This is a fixed prototype reference; the earlier report slides continue to follow the current Designer inputs.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slidePrototypeGeometryCanvas" width="1100" height="620"></canvas>
-            <figcaption>Fixed copper/alumina envelope, CAT 23LV Stycast fill, and interchangeable 2.0 and 2.2 mm inserts</figcaption>
+            <figcaption>Continuous DP270 dielectric with copper plates and a 2.2 mm MELF core path</figcaption>
           </figure>
         </article>
 
         <article class="slide slide-visual prototype-performance-slide">
           <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Backup: prototype simulation</p>
-            <h2>Ferrite Has the Larger Potential Payoff</h2>
+            <h2>Ferrite Offered Higher Resistance but Was Set Aside</h2>
             <ul>
               <li>MELF model: 12 M&Omega; per resistive section and calculated package/epoxy C<sub>par</sub>.</li>
               <li>Ferrite model: 2.0 mm Type 61, &rho; = 10<sup>8</sup> &Omega;&middot;cm, &epsilon;<sub>r</sub> = 12.</li>
               <li>The pre-run curve uses zero conductive-disc fill; the Designer control can sweep the resistance-versus-C<sub>par</sub> trade.</li>
               <li>Loaded results include the 10 m cable, 10 pF detector, and 1 nA load at 6 kV.</li>
-              <li>The ferrite result is a sensitivity prediction until resistance and noise are measured.</li>
+              <li>Noisy, unstable multimeter resistance readings made the bulk-ferrite path unsuitable for the current prototype.</li>
+              <li>The simulated curve is retained only to document why ferrite was considered; it is not a current design candidate.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -1074,16 +1325,15 @@
 
         <article class="slide slide-copy-wide">
           <p class="eyebrow">Backup: prototype test sequence</p>
-          <h2>Measure the Ferrite Before Trusting the Model</h2>
+          <h2>Why Ferrite Was Set Aside</h2>
           <ol class="method-steps">
-            <li><strong>Characterize the ferrite.</strong> Cut nominal 2.0 mm samples and measure resistance versus length, voltage, temperature, and time.</li>
-            <li><strong>Measure noise scaling.</strong> Compare absolute and normalized resistance-noise spectra with MELF, and compare another readily available diameter if useful.</li>
-            <li><strong>Qualify the washer.</strong> Inspect the purchased alumina for dimensions, flatness, chips, finish, and trapped-interface risk.</li>
-            <li><strong>Dry-fit both cores.</strong> Confirm that cut 2.0 mm ferrite and 2.2 mm MELF inserts use identical plates, washers, alignment, and clearances.</li>
-            <li><strong>Use the epoxy sample.</strong> Make small wetting and thermal-cycle coupons before potting the full stack.</li>
-            <li><strong>Compare complete filters.</strong> Measure attenuation, leakage, discharge pulses, drift, and low-frequency noise under the same bias and load.</li>
+            <li><strong>Original attraction.</strong> Type 61 material could provide much more resistance per unit length than available MELF parts.</li>
+            <li><strong>Observed problem.</strong> Resistance measurements with a multimeter were noisy and insufficiently stable for a predictable bias-filter element.</li>
+            <li><strong>Noise concern.</strong> A polycrystalline conduction path also lacks the established excess-noise behavior of a metal-film resistor.</li>
+            <li><strong>Current decision.</strong> Do not build the present prototype around ferrite; retain the model and sourcing notes only as an engineering record.</li>
+            <li><strong>Condition for revisiting.</strong> Ferrite would require repeatable guarded resistance measurements and voltage-noise spectra under representative DC bias.</li>
           </ol>
-          <p class="prototype-hybrid"><strong>Possible later hybrid:</strong> ferrite stages first for 50/60 Hz attenuation, followed by MELF stages near the detector if the ferrite has measurable excess noise.</p>
+          <p class="prototype-hybrid"><strong>Status:</strong> ferrite and ferrite/MELF hybrid concepts are no longer under consideration unless later measurements overturn the resistance-stability and noise concerns.</p>
         </article>
 
         <article class="slide slide-visual">

@@ -1,0 +1,48 @@
+Reconstructed collaboration record, 2026-09-04
+
+User requested a maintained ngspice version of the LEGEND-200 LMFE detector
+front end, based on the local LTspice source model, with op-amp bias filters
+removed, retained op amps idealized, and the downstream differential-output
+section removed. The model is to use the Designer detector-capacitance value
+for C19, defaulting to a conservative 10 pF, and add a response line to the
+complete-filter SPICE slide. A new model slide belongs in Models & FEA results.
+
+The first simplified LTspice schematic produced a singular-matrix message.
+Inspection showed that +VB1 had been dropped. The user restored it and
+confirmed that the simplified frequency response changes slightly but retains
+the structure needed for noise response and detector input impedance.
+
+Implemented a reusable ngspice subcircuit and standalone deck under
+simulations/spice. The reduced model retains MX11RC, BF862, detector C19,
+feedback, signal-line delays, and the differential voltage across R30. It uses
+finite-gain, finite-bandwidth ideal op amps in place of LMH6654 vendor models.
+The backend connects the detector cable to the complete filter output, injects
+a 1 A AC current at the detector cathode, and records both pickup
+transimpedance and detector-node impedance. The slide trace is normalized to
+the maximum transimpedance in the sweep because raw V/A cannot honestly share
+a V/V attenuation axis.
+
+The first integrated ngspice-44.2 check on the development Pi completed with
+161 frequency points from 1 Hz through 100 MHz. It produced approximately
+2.38 kohm peak pickup transimpedance, 36.8 Mohm detector-node impedance at
+1 Hz, and 37 ohm detector-node impedance at 100 MHz for the current default
+design. These values remain simulation results pending measurement.
+
+Follow-up request: determine whether raising the filter output capacitance
+above its roughly 40 pF reference value materially reduces pickup induced on
+the cryostat HV cable. Use the Designer output series resistor, default it to
+the stocked 47 ohm value, apply the configured trapezoidal filter, and
+normalize pickup response by an otherwise identical SPICE run with signal
+injected at the MX11RC J2 gate. Sweep the output-stage capacitance from 0.1 to
+100 times its FEA value and explain the two excitations on separate slides.
+
+Implemented a seven-case sweep at factors 0.1, 0.3, 1, 3, 10, 30, and 100. The
+reference final-node FEA capacitance is 44.826 pF. For each case ngspice solves
+a cathode-current pickup excitation and a one-volt J2-gate signal excitation.
+The pickup is input-referred as Zpickup/(Z0 Ggate), followed by the configured
+trapezoidal response. With the provisional 0.05 mV rms white plus 0.20 mV rms
+50 Hz cryostat pickup, the reference case gives 0.339 eV rms detector-equivalent
+noise. The 0.1x and 100x endpoints give 0.352 and 0.0653 eV rms respectively.
+The simulated gain from adding capacitance is therefore negligible relative to
+the approximately 831 eV rms Ge Fano scale and does not presently justify the
+additional partial-discharge risk of discrete high-voltage capacitors.

@@ -25,6 +25,41 @@ surface charge, conductivity, and relaxation history reshape the field.
 | Mineral or dielectric oil | Can impregnate gaps and does not store the same elastic stress as cured epoxy. | Replaceable, inspectable fill with no cure shrinkage. | Bubbles, containment, contamination, conductivity/space-charge effects, and leakage. | Mechanically attractive but operationally more complex. |
 | High-k ferroelectric ceramic capacitor | A qualified HV capacitor can add far more shunt capacitance than the washer alone. | Direct improvement at 50/60 Hz. | Termination and package void PD, voltage coefficient, dielectric loss, piezoelectric noise, leakage, and added Cpar. | Evaluate complete capacitor parts by rated DC voltage, PD test data, leakage, and noise; do not select on nominal capacitance alone. |
 
+## Continuous epoxy reference dielectric
+
+Using the potting compound as the complete dielectric between each bias plate
+and its neighboring ground plates removes the separate solid-washer/potting
+boundary. In the washer construction, the cylindrical ID and OD boundaries
+can run approximately parallel to the dominant axial electric field. A poorly
+wetted seam, debond, or trapped void at such a boundary can provide a long weak
+path and can concentrate the field at the ends of the defect.
+
+The continuous-epoxy option does not make the assembly interface-free. It still
+has epoxy-to-metal and epoxy-to-core bonds, and bulk epoxy can still contain
+voids or crack under cure shrinkage and thermal mismatch. Its advantage is more
+specific: it removes one class of internal dielectric-to-dielectric boundary
+from the plate-to-ground field region. The reference design accepts epoxy's
+lower relative permittivity and seeks the required attenuation through geometry
+or stage count rather than introducing an unqualified internal seam.
+
+## High-k capacitor decision
+
+High-k ferroelectric ceramic capacitors are not part of the reference build.
+Their nominal capacitance is attractive, but high-permittivity Class 2 MLCCs
+can lose effective capacitance under DC bias, and their thin dielectric layers,
+internal electrode edges, pores, cracks, and terminations are not represented
+by a simple voltage rating. Published BaTiO3 capacitor studies found PD
+inception to depend strongly on dielectric thickness, permittivity, porosity,
+and void-size distribution; larger pores reduced both PD inception field and
+breakdown field.
+
+This is a qualification requirement, not a claim that every high-k capacitor
+will microdischarge. If geometry-derived capacitance is insufficient, retain
+the circuit-only added-Cg input for sensitivity studies, use matched parts
+symmetrically, and qualify candidate parts and the complete potted assembly for
+DC partial discharge, leakage, effective biased capacitance, loss, microphonics,
+ripple/transient behavior, and thermal cycling.
+
 Semenov et al. tested ceramic substrates in silicone liquid, silicone gel, and
 mineral oil. In their geometry, switched-waveform PDIV was substantially lower
 than sinusoidal PDIV; gel and silicone liquid were similar, while mineral oil
@@ -94,3 +129,6 @@ be mechanically valid.
 - H.C. Starck Solutions Mo-Cu composite data: https://www.hcstarcksolutions.com/wp-content/uploads/PD-7101_1-MoCu-Composites.pdf
 - Robert Laminage Grade 2 titanium data: https://www.robertlaminage.com/en/node/521
 - Carpenter Technology controlled-expansion alloy guide: https://www.carpentertechnology.com/blog/selecting-controlled-expansion-alloys
+- Dougal et al., *Partial Discharge Characteristics in Barium-Titanate Multilayered Structures - Effect of Material and Structural Parameters*, IEEE Transactions on Electrical Insulation 22(4), 1987: https://scholarcommons.sc.edu/elct_facpub/13/
+- Kim et al., *Nondestructive testing of ceramic capacitors by partial discharge method*, Materials Letters 47, 2001: https://doi.org/10.1016/S0167-577X(00)00420-1
+- TDK, *Dynamic DC Bias Model for Accurate Circuit Simulation*: https://www.tdk-electronics.tdk.com/en/373812/tech-library/articles/tools-services/tools-services/dynamic-dc-bias-model-for-accurate-circuit-simulation/1035570

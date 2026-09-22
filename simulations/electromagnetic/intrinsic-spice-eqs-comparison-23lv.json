@@ -1,0 +1,64 @@
+{
+  "comparison": "intrinsic_open_circuit_vout_over_vin",
+  "input": "first bias plate fixed at 1 V",
+  "output": "final bias plate measured at infinite impedance",
+  "removed": [
+    "input series resistor",
+    "output series resistor",
+    "cable transmission line",
+    "lumped cable capacitance",
+    "detector capacitance",
+    "DC load conductance"
+  ],
+  "retained": [
+    "interstage resistance",
+    "bias-to-ground capacitance",
+    "bias-to-bias capacitance"
+  ],
+  "plate_count": 3,
+  "samples": [
+    {
+      "frequency_hz": 50.0,
+      "fenicsx_eqs_db": -0.5856461068730294,
+      "spice_db": -0.5673160304169951,
+      "difference_db": -0.01833007645603435
+    },
+    {
+      "frequency_hz": 1000.0,
+      "fenicsx_eqs_db": -20.983977193314665,
+      "spice_db": -20.810208480532744,
+      "difference_db": -0.1737687127819214
+    },
+    {
+      "frequency_hz": 1000000.0,
+      "fenicsx_eqs_db": -106.28178730205045,
+      "spice_db": -106.25852206316671,
+      "difference_db": -0.023265238883737993
+    },
+    {
+      "frequency_hz": 31250000.0,
+      "fenicsx_eqs_db": -106.37795284229722,
+      "spice_db": -106.4846291954089,
+      "difference_db": 0.10667635311168056
+    },
+    {
+      "frequency_hz": 100000000.0,
+      "fenicsx_eqs_db": -106.37804209806197,
+      "spice_db": -106.48484108108832,
+      "difference_db": 0.10679898302635138
+    },
+    {
+      "frequency_hz": 300000000.0,
+      "fenicsx_eqs_db": -106.37805068450527,
+      "spice_db": -106.48486146478362,
+      "difference_db": 0.10681078027835156
+    },
+    {
+      "frequency_hz": 1000000000.0,
+      "fenicsx_eqs_db": -106.37805166121352,
+      "spice_db": -106.48486378343199,
+      "difference_db": 0.10681212221847147
+    }
+  ],
+  "maximum_absolute_difference_db": 0.1737687127819214
+}

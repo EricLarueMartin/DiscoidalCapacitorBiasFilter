@@ -1,0 +1,76 @@
+{
+  "comparison": "intrinsic_open_circuit_vout_over_vin",
+  "input": "first bias plate fixed at 1 V",
+  "output": "final bias plate measured at infinite impedance",
+  "removed": [
+    "input series resistor",
+    "output series resistor",
+    "cable transmission line",
+    "lumped cable capacitance",
+    "detector capacitance",
+    "DC load conductance"
+  ],
+  "retained": [
+    "interstage resistance",
+    "bias-to-ground capacitance",
+    "bias-to-bias capacitance"
+  ],
+  "plate_count": 3,
+  "samples": [
+    {
+      "frequency_hz": 1.0,
+      "fenicsx_eqs_db": -0.0013277948658691418,
+      "spice_db": -0.0002828500719234965,
+      "difference_db": -0.0010449447939456452
+    },
+    {
+      "frequency_hz": 10.0,
+      "fenicsx_eqs_db": -0.02997596391939436,
+      "spice_db": -0.028197961796746628,
+      "difference_db": -0.001778002122647733
+    },
+    {
+      "frequency_hz": 100.0,
+      "fenicsx_eqs_db": -2.247866088358711,
+      "spice_db": -2.2013023191190078,
+      "difference_db": -0.0465637692397034
+    },
+    {
+      "frequency_hz": 1000.0,
+      "fenicsx_eqs_db": -22.01517941428012,
+      "spice_db": -21.87222415594638,
+      "difference_db": -0.142955258333739
+    },
+    {
+      "frequency_hz": 10000.0,
+      "fenicsx_eqs_db": -59.8116888276913,
+      "spice_db": -59.3873760159212,
+      "difference_db": -0.4243128117701005
+    },
+    {
+      "frequency_hz": 100000.0,
+      "fenicsx_eqs_db": -95.77227714949481,
+      "spice_db": -93.78380683168996,
+      "difference_db": -1.988470317804854
+    },
+    {
+      "frequency_hz": 1000000.0,
+      "fenicsx_eqs_db": -100.07892064972037,
+      "spice_db": -100.09582678386602,
+      "difference_db": 0.01690613414564268
+    },
+    {
+      "frequency_hz": 10000000.0,
+      "fenicsx_eqs_db": -100.13023484214786,
+      "spice_db": -100.18911558406893,
+      "difference_db": 0.0588807419210724
+    },
+    {
+      "frequency_hz": 100000000.0,
+      "fenicsx_eqs_db": -100.13074899810562,
+      "spice_db": -100.19005355077938,
+      "difference_db": 0.05930455267376544
+    }
+  ],
+  "maximum_absolute_difference_db": 1.988470317804854
+}

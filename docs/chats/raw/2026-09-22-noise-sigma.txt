@@ -1,0 +1,9 @@
+Reconstructed user-facing record; routine tool steps omitted.
+
+User: on the noise budget slide (5) use only sigma, mixing fwhm with rms and sigma makes it harder to compare directly
+
+Assistant: Slide 5 uses sigma throughout its text, numerical cards, plot labels, and explanatory notes. The Fano card uses its calculated standard deviation in eV; supply-ripple limits use the existing sinusoidal conversion. The noise model is unchanged.
+
+User: commit and push
+
+Assistant: Consolidated the pending filter-model, epoxy, simulation, and presentation updates for main. JavaScript regressions passed; Python regressions passed (83 tests, one skipped because local ngspice is unavailable).

@@ -50,12 +50,26 @@ class ThermalStressTests(unittest.TestCase):
         self.assertAlmostEqual(stress, 32.9, places=1)
 
     def test_default_alumina_interface_controls(self) -> None:
-        result = evaluate_default(load_parameters(DEFAULT_PARAMETERS), 20.0)
+        parameters = load_parameters(DEFAULT_PARAMETERS)
+        parameters.update({"washer_material": "alumina", "epoxy_material": "mg_9510"})
+        result = evaluate_default(parameters, 20.0)
         calculation = result["calculation"]
         self.assertEqual(calculation["controlling_interface"], "epoxy-to-alumina washer")
         self.assertGreater(calculation["controlling_evaluation_stress_mpa"], 15.0)
         self.assertGreater(calculation["controlling_strength_margin"], 1.0)
         self.assertAlmostEqual(calculation["uniform_triaxial_reference_stress_mpa"], 32.9, places=1)
+
+    def test_default_cat23lv_continuous_epoxy_uses_45c_reference_and_alumina_melf(self) -> None:
+        result = evaluate_default({**load_parameters(DEFAULT_PARAMETERS), "epoxy_material": "stycast_2850ft_23lv"}, 20.0)
+        calculation = result["calculation"]
+        self.assertEqual(result["default_design"]["washer_material"], "epoxy")
+        self.assertEqual(result["default_design"]["epoxy_material"], "stycast_2850ft_23lv")
+        self.assertEqual(calculation["stress_free_reference_c"], 45.0)
+        self.assertEqual(calculation["controlling_interface"], "epoxy-to-resistive core")
+        self.assertAlmostEqual(calculation["controlling_evaluation_stress_mpa"], 3.6, places=1)
+
+    def test_melf_thermal_preset_is_alumina_substrate(self) -> None:
+        self.assertEqual(MATERIALS_MPA["melf_alumina_substrate"], MATERIALS_MPA["alumina"])
 
     def test_checked_in_fea_verification_campaign_passes(self) -> None:
         root = Path(__file__).resolve().parents[2]

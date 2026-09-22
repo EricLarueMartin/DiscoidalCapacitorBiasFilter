@@ -1,0 +1,82 @@
+{
+  "comparison": "intrinsic_open_circuit_vout_over_vin",
+  "input": "first bias plate fixed at 1 V",
+  "output": "final bias plate measured at infinite impedance",
+  "removed": [
+    "input series resistor",
+    "output series resistor",
+    "cable transmission line",
+    "lumped cable capacitance",
+    "detector capacitance",
+    "DC load conductance"
+  ],
+  "retained": [
+    "interstage resistance",
+    "bias-to-ground capacitance",
+    "bias-to-bias capacitance"
+  ],
+  "plate_count": 3,
+  "samples": [
+    {
+      "frequency_hz": 1.0,
+      "fenicsx_eqs_db": -0.001069242904166752,
+      "spice_db": -0.00010350328895214375,
+      "difference_db": -0.0009657396152146084
+    },
+    {
+      "frequency_hz": 10.0,
+      "fenicsx_eqs_db": -0.011611205918889651,
+      "spice_db": -0.010338643311716258,
+      "difference_db": -0.0012725626071733928
+    },
+    {
+      "frequency_hz": 50.0,
+      "fenicsx_eqs_db": -0.2599462936255894,
+      "spice_db": -0.2516474757986883,
+      "difference_db": -0.008298817826901117
+    },
+    {
+      "frequency_hz": 100.0,
+      "fenicsx_eqs_db": -0.9586207746644329,
+      "spice_db": -0.9324878464441798,
+      "difference_db": -0.026132928220253038
+    },
+    {
+      "frequency_hz": 1000.0,
+      "fenicsx_eqs_db": -15.781795055335765,
+      "spice_db": -15.636886047484666,
+      "difference_db": -0.1449090078510995
+    },
+    {
+      "frequency_hz": 10000.0,
+      "fenicsx_eqs_db": -51.075618671893956,
+      "spice_db": -50.761023811690286,
+      "difference_db": -0.31459486020366967
+    },
+    {
+      "frequency_hz": 100000.0,
+      "fenicsx_eqs_db": -89.70367828713543,
+      "spice_db": -87.39468451436123,
+      "difference_db": -2.308993772774201
+    },
+    {
+      "frequency_hz": 1000000.0,
+      "fenicsx_eqs_db": -97.10686962747576,
+      "spice_db": -97.16867413722929,
+      "difference_db": 0.06180450975352869
+    },
+    {
+      "frequency_hz": 10000000.0,
+      "fenicsx_eqs_db": -97.20900714907268,
+      "spice_db": -97.35135830128698,
+      "difference_db": 0.14235115221430306
+    },
+    {
+      "frequency_hz": 100000000.0,
+      "fenicsx_eqs_db": -97.21003267505411,
+      "spice_db": -97.35320468775615,
+      "difference_db": 0.1431720127020384
+    }
+  ],
+  "maximum_absolute_difference_db": 2.308993772774201
+}

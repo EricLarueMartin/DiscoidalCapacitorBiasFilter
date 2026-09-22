@@ -508,6 +508,38 @@ def solve_sweep(raw_parameters: dict[str, Any], frequencies_hz: Iterable[float] 
     samples_by_frequency = {float(sample["frequency_hz"]): sample for sample in coarse_samples}
     samples_by_frequency.update({float(sample["frequency_hz"]): sample for sample in fine_samples})
     samples = [samples_by_frequency[frequency] for frequency in sorted(samples_by_frequency)]
+    normalization_frequency_hz = 300.0e6
+    handoff_frequency_hz = 1.0e9
+    eqs_by_frequency = {float(sample["frequency_hz"]): sample for sample in eqs_samples}
+    wave_by_frequency = {float(sample["frequency_hz"]): sample for sample in samples}
+    overlap_validation = {
+        "normalization_frequency_hz": normalization_frequency_hz,
+        "handoff_frequency_hz": handoff_frequency_hz,
+        "tolerance_db": 2.0,
+        "validated": False,
+        "note": "The lower shared point sets one constant port offset; the upper shared point independently checks slope.",
+    }
+    if (
+        normalization_frequency_hz in eqs_by_frequency
+        and normalization_frequency_hz in wave_by_frequency
+        and handoff_frequency_hz in eqs_by_frequency
+        and handoff_frequency_hz in wave_by_frequency
+    ):
+        offset_db = (
+            float(eqs_by_frequency[normalization_frequency_hz]["magnitude_db"])
+            - float(wave_by_frequency[normalization_frequency_hz]["magnitude_db"])
+        )
+        residual_db = (
+            float(wave_by_frequency[handoff_frequency_hz]["magnitude_db"])
+            + offset_db
+            - float(eqs_by_frequency[handoff_frequency_hz]["magnitude_db"])
+        )
+        overlap_validation.update({
+            "normalization_offset_db": offset_db,
+            "handoff_residual_db": residual_db,
+            "validated": abs(residual_db) <= overlap_validation["tolerance_db"],
+        })
+
     _geometry, sections = build_geometry(p, _import_meep())
     return {
         "solver": "meep-axisymmetric-full-wave",
@@ -542,6 +574,7 @@ def solve_sweep(raw_parameters: dict[str, Any], frequencies_hz: Iterable[float] 
         "all_frequency_points_converged": bool(coarse_samples + fine_samples) and all(
             sample["convergence"]["converged"] for sample in coarse_samples + fine_samples
         ),
+        "overlap_validation": overlap_validation,
         "elapsed_seconds": time.perf_counter() - started,
     }
 

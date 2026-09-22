@@ -1,0 +1,13 @@
+Reconstructed collaboration record.
+
+User: The ADC uses pole-zero correction; add a toggle on Designer / Noise.
+Account for trapezoidal response consistently on both noise and signal or neither.
+
+Assistant: Added joint shaping bypass, PZ toggle and decay time. Explained that
+standard exponential-decay compensation is not a mains notch. Kept PZ off by
+default pending actual firmware parameters; nominal tau=350 us. Both time-domain
+charge calibration and frequency-domain noise use identical processing, without
+rerunning FEA or SPICE. Tests validate exponential recovery and transfer functions.
+Reference modeled supply 50 Hz ENC is 36.3 electrons RMS with trap only and
+290.2 with nominal PZ plus trap, so this correction does not provide the expected
+extra suppression. Actual baseline-restoration/ADC algorithm remains to confirm.

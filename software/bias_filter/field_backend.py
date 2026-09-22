@@ -216,6 +216,8 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         "load_cable_length_m",
         "load_cable_impedance_ohm",
         "load_cable_velocity_factor",
+        "bias_source_resistance_mohm",
+        "source_cable_length_m",
         "detector_capacitance_pf",
         "washer_id_mode",
         "washer_od_mode",
@@ -323,7 +325,7 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
     params["ferrite_epsr"] = clamp_number(params.get("ferrite_epsr"), 1.0, 1000.0, 12.0)
     if "melf_stage_resistance_mohm" not in params and "melf_stage_resistance_log10_ohm" in params:
         params["melf_stage_resistance_mohm"] = (10.0 ** float(params["melf_stage_resistance_log10_ohm"])) / 1e6
-    params["melf_stage_resistance_mohm"] = clamp_number(params.get("melf_stage_resistance_mohm"), 0.001, 1_000_000.0, 12.0)
+    params["melf_stage_resistance_mohm"] = clamp_number(params.get("melf_stage_resistance_mohm"), 0.001, 1_000_000.0, 10.0)
     params["melf_stage_resistance_log10_ohm"] = math.log10(params["melf_stage_resistance_mohm"] * 1e6)
     params["melf_stage_parasitic_pf"] = clamp_number(params.get("melf_stage_parasitic_pf"), 0.001, 5.0, 0.3)
     params["melf_substrate_epsr"] = clamp_number(params.get("melf_substrate_epsr"), 1.0, 1000.0, 9.8)
@@ -348,7 +350,7 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         params.get("output_series_resistance_ohm"),
         0.0,
         1_000_000_000_000.0,
-        stage_mohm * 1e6 if params["output_series_matches_stage"] else 50.0,
+        stage_mohm * 1e6 if params["output_series_matches_stage"] else 47.0,
     )
     if params["input_series_matches_stage"]:
         params["input_series_resistance_mohm"] = axisymmetric_model.matched_end_series_resistance_ohm(params) / 1e6

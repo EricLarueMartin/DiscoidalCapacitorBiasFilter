@@ -25,7 +25,9 @@ The outer tube may connect or couple to the ground rings. Its presence, inside d
 
 ## Web Parameterization
 
-The primary assembly dimensions in the web designer are core OD, ground-tube ID, washer ID, washer OD, and washer thickness. Washer ID and OD remain editable in every relation mode and are the source dimensions for coupled plate geometry. Ground-plate OD equals the entered tube ID.
+For a distinct ceramic washer, the primary assembly dimensions in the web designer are core OD, ground-tube ID, washer ID, washer OD, and washer thickness. Washer ID and OD remain editable in every relation mode and are the source dimensions for coupled plate geometry. Ground-plate OD equals the entered tube ID.
+
+When the washer material is `epoxy`, there is no separate washer boundary. The Designer leaves washer ID, washer OD, and both relation controls visible but disabled so the inactive relationship remains understandable. Bias-plate OD and ground-plate ID become the editable primary dimensions, and the normalized solver geometry sets the displayed internal washer bounds equal to those plate dimensions so browser drawings, exported geometry, and FEA all receive the same continuous-epoxy region. Selecting a distinct washer material restores the normal washer-driven controls.
 
 The washer ID relation has three modes:
 
@@ -44,7 +46,7 @@ The edge radii are calculated from each plate thickness and the edge-diameter pe
 - `core_to_ground_gap_mm = (ground_plate_inner_diameter_mm - core_od_mm) / 2`
 - `hv_to_tube_gap_mm = (tube_id_mm - hv_plate_od_mm) / 2`
 
-The promoted reference defaults use a 2.2 mm core OD, 26 mm tube ID, 6.6 mm washer ID, 20 mm washer OD, and 1.5 mm washer thickness. Both washer relations use the flat-edge mode with 1.5 mm plates and a 100% edge-diameter setting, deriving a 5.1 mm ground-plate ID, 21.5 mm bias-plate OD, 1.45 mm core-ground radial gap, and 2.25 mm bias-tube radial gap.
+The promoted reference defaults use a 2.2 mm core OD, 26 mm tube ID, 1.0 mm continuous epoxy plate gaps, a 4.0 mm ground-plate ID, and a 23.0 mm bias-plate OD. With 2.0 mm plates and a 100% edge-diameter setting, this gives a 0.90 mm core-ground radial gap and a 1.50 mm bias-tube radial gap. No nominal washer ID or OD is retained for this all-epoxy geometry.
 
 Bias and ground plate thickness controls allow values down to `0.0175 mm`, the nominal thickness of 1/2 oz copper foil. At this limit, rounded-edge radii derived as half the plate thickness become extremely small and peak-field results require correspondingly careful mesh convergence.
 

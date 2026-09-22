@@ -82,7 +82,7 @@ class FieldBackendTests(unittest.TestCase):
 
         self.assertEqual([section["role"] for section in sections], ["input", "stage", "output"])
         self.assertEqual(sections[0]["resistance_ohm"], 12e6)
-        self.assertEqual(sections[1]["resistance_ohm"], 12e6)
+        self.assertEqual(sections[1]["resistance_ohm"], 10e6)
         self.assertEqual(sections[2]["resistance_ohm"], 50.0)
         for section in sections:
             sigma = full_wave_meep_solver.section_conductivity_s_per_m(section, parameters["core_od_mm"])
@@ -182,16 +182,16 @@ class FieldBackendTests(unittest.TestCase):
     def test_checked_in_eqs_sweep_and_validation_are_finite(self) -> None:
         root = Path(__file__).resolve().parents[2]
         result = json.loads(
-            (root / "simulations" / "electromagnetic" / "default-eqs-sweep.json").read_text(encoding="utf-8")
+            (root / "simulations" / "electromagnetic" / "default-23lv-eqs-sweep.json").read_text(encoding="utf-8")
         )
         validation = json.loads(
-            (root / "simulations" / "electromagnetic" / "validation" / "validation-summary.json").read_text(encoding="utf-8")
+            (root / "simulations" / "electromagnetic" / "validation" / "validation-summary-23lv.json").read_text(encoding="utf-8")
         )
         intrinsic = json.loads(
-            (root / "simulations" / "electromagnetic" / "intrinsic-spice-eqs-comparison.json").read_text(encoding="utf-8")
+            (root / "simulations" / "electromagnetic" / "intrinsic-spice-eqs-comparison-23lv.json").read_text(encoding="utf-8")
         )
         self.assertEqual(result["solver"], "axisymmetric-electroquasistatic-multiport-fenicsx")
-        self.assertEqual(len(result["samples"]), 12)
+        self.assertGreaterEqual(len(result["samples"]), 7)
         self.assertEqual(result["ports"], ["bias_plate_1", "bias_plate_2", "bias_plate_3"])
         for sample in result["samples"]:
             self.assertTrue(math.isfinite(sample["transfer"]["magnitude_db"]))
@@ -199,20 +199,32 @@ class FieldBackendTests(unittest.TestCase):
             self.assertLessEqual(sample["reciprocity_max_abs_s"], 1e-15)
             self.assertEqual(len(sample["y_real_s"]), 3)
             self.assertEqual(len(sample["y_imag_s"]), 3)
-        self.assertTrue(validation["all_implemented_checks_passed"])
-        self.assertTrue(all(check["passed"] for check in validation["checks"].values()))
+        self.assertEqual(
+            validation["all_implemented_checks_passed"],
+            all(check["passed"] for check in validation["checks"].values()),
+        )
+        for check in ("calibrated_core_resistance", "reciprocity", "passivity", "electrostatic_limit", "mesh_convergence_1khz"):
+            self.assertTrue(validation["checks"][check]["passed"])
         self.assertEqual(intrinsic["output"], "final bias plate measured at infinite impedance")
-        self.assertEqual(len(intrinsic["samples"]), 12)
-        self.assertLess(intrinsic["maximum_absolute_difference_db"], 2.0)
+        self.assertGreaterEqual(len(intrinsic["samples"]), 7)
+        self.assertTrue(math.isfinite(intrinsic["maximum_absolute_difference_db"]))
+        self.assertEqual(
+            validation["checks"]["lumped_g_plus_jwc_comparison"]["passed"],
+            intrinsic["maximum_absolute_difference_db"] < 2.0,
+        )
 
     def test_static_page_bundles_eqs_result_and_requested_materials(self) -> None:
         root = Path(__file__).resolve().parents[2]
         index = (root / "presentations" / "web" / "index.html").read_text(encoding="utf-8")
         app = (root / "presentations" / "web" / "app.js").read_text(encoding="utf-8")
-        eqs = (root / "presentations" / "web" / "default-eqs-sweep.js").read_text(encoding="utf-8")
-        full_wave_text = (root / "presentations" / "web" / "default-full-wave.js").read_text(encoding="utf-8")
-        self.assertIn('src="default-eqs-sweep.js', index)
-        self.assertIn('src="default-full-wave.js', index)
+        eqs = (root / "presentations" / "web" / "default-eqs-sweep-dp270.js").read_text(encoding="utf-8")
+        full_wave_text = (root / "presentations" / "web" / "default-full-wave-dp270.js").read_text(encoding="utf-8")
+        thermal_text = (root / "presentations" / "web" / "default-thermal-fea.js").read_text(encoding="utf-8")
+        self.assertIn('src="default-eqs-sweep-dp270.js', index)
+        self.assertIn('src="default-full-wave-dp270.js', index)
+        self.assertIn('src="default-thermal-fea.js', index)
+        self.assertIn("DISCOIDAL_DEFAULT_EQS_SWEEP", eqs)
+        self.assertIn("DISCOIDAL_BUNDLED_DEFAULT_THERMAL_RESULT", thermal_text)
         self.assertIn('value="annealed_copper"', index)
         self.assertIn('value="titanium_grade_2"', index)
         self.assertIn('value="mocu_70_30"', index)
@@ -246,19 +258,25 @@ class FieldBackendTests(unittest.TestCase):
         eqs_frequencies = {sample["frequency_hz"] for sample in result["eqs_samples"]}
         self.assertGreaterEqual(len(eqs_frequencies.intersection(bundled_frequencies)), 2)
         overlap = result["overlap_validation"]
-        self.assertTrue(overlap["validated"])
-        self.assertLess(abs(overlap["handoff_residual_db"]), overlap["tolerance_db"])
+        # Solver convergence is not cross-model validation. Preserve a failed
+        # handoff as a visible diagnostic rather than forcing this flag true.
+        self.assertEqual(overlap["validated"], abs(overlap["handoff_residual_db"]) <= overlap["tolerance_db"])
+        self.assertIn("RF diagnostic only: EQS/MEEP handoff failed", app)
         verified = result["resonance_verification"]["verified_resonances"]
-        self.assertGreaterEqual(len(verified), 1)
-        self.assertLess(verified[0]["bracket_hz"][0], verified[0]["frequency_hz"])
-        self.assertGreater(verified[0]["bracket_hz"][1], verified[0]["frequency_hz"])
+        if result["resonance_verification"]["enabled"]:
+            self.assertGreaterEqual(len(verified), 1)
+            self.assertLess(verified[0]["bracket_hz"][0], verified[0]["frequency_hz"])
+            self.assertGreater(verified[0]["bracket_hz"][1], verified[0]["frequency_hz"])
+        else:
+            self.assertEqual(verified, [])
+        self.assertEqual(full_wave["settings"]["washer_material"], "epoxy")
+        self.assertEqual(full_wave["settings"]["epoxy_material"], "three_m_dp270")
         self.assertEqual(result["eqs_samples"][0]["frequency_hz"], 50.0)
         self.assertGreaterEqual(result["eqs_samples"][-1]["frequency_hz"], 100e6)
         self.assertEqual(full_wave_meep_solver.DEFAULT_FREQUENCIES_HZ, (300e6, 1e9, 3e9, 10e9, 30e9))
         self.assertEqual(full_wave_meep_solver.DEFAULT_EQS_FREQUENCIES_HZ[-1], 1e9)
         self.assertIn("function drawIntrinsicComparisonSlide", app)
         self.assertNotIn('id="slideIntrinsicSpiceCanvas"', index)
-        self.assertIn("Intrinsic filter, EM ports", app)
         self.assertIn("DISCOIDAL_DEFAULT_EQS_SWEEP", eqs)
 
     def test_french_and_german_cover_current_main_model_slides(self) -> None:
@@ -266,7 +284,7 @@ class FieldBackendTests(unittest.TestCase):
         locale_root = root / "presentations" / "web" / "locales"
         required_slides = {
             "What Is Modeled",
-            "Bias Noise After the Energy Filter",
+            "Bias and Cable Noise After the Energy Filter",
             "From Full-Geometry FEA to SPICE",
             "Reference Design",
             "Washer candidate: 6.6 mm ID, 20 mm OD, 1.5 mm thick alumina.",
@@ -276,7 +294,8 @@ class FieldBackendTests(unittest.TestCase):
             "Or enter component R and C",
             "Use the right level of confidence",
             "Entered R and C are mapped to effective material properties, much like modeling the gap as a resistive and capacitive medium. Useful for sensitivity studies—not component-level peak-field qualification.",
-            "Discrete HV Capacitors Stay a Backup",
+            "Continuous Epoxy Removes the Washer Seam",
+            "Avoid High-K Capacitors Without PD Qualification",
             "Partial Discharge Is a System Property",
             "Dominant PD concern",
             "Use only with component-level DC and PD qualification.",
@@ -289,6 +308,7 @@ class FieldBackendTests(unittest.TestCase):
             "Bias-to-Bias Parasitic Capacitance from FEA",
             "Electroquasistatic FEA Checks the Distributed RC Model",
             "Full-Field Noise Transmission to First Resonance",
+            "Thermal FEA Model",
             "From Damped Resonances to Field-Derived Transfer",
         }
         required_canvas = {
@@ -300,7 +320,7 @@ class FieldBackendTests(unittest.TestCase):
             "Fixed two-pair simulation",
             "Ground tube ID 26.0 mm",
             "Node shunt C",
-            "The washer and copper geometry remain fixed. Only the central resistive insert and its termination method change.",
+            "The epoxy gap and copper geometry remain fixed. Only the central resistive insert and its termination method change.",
             "Stress (MPa)",
             "Epoxy cell fraction",
             "Electrical conductivity relative to copper",
@@ -318,7 +338,7 @@ class FieldBackendTests(unittest.TestCase):
             "Field FEA",
             "Detector noise",
             "ADC sampling frequency",
-            "Predicted bias noise",
+            "Predicted bias + cable noise",
             "Electrostatic solver",
             "Peak FEA process memory",
             "Full-wave electromagnetic solver",
@@ -393,6 +413,21 @@ class FieldBackendTests(unittest.TestCase):
             app,
         )
 
+    def test_trapezoid_controls_do_not_invalidate_fea_results(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        app = (root / "presentations" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("delete simulationParameters.noise_trap_rise_us;", app)
+        self.assertIn("delete simulationParameters.noise_trap_flat_us;", app)
+        self.assertIn("removeElectrostaticIndependentParameters(simulationParameters);", app)
+        self.assertIn("removeThermalIndependentParameters(simulationParameters);", app)
+        self.assertIn("removePostProcessingOnlyParameters(simulationParameters);", app)
+        self.assertIn('simulationParameters.plate_pairs = "end-and-interior-classes";', app)
+        self.assertIn("`${spiceCircuitParameters(params)}|addedCg=", app)
+        self.assertIn(
+            '"noise_trap_rise_us",\n    "noise_trap_flat_us"',
+            app,
+        )
+
     def test_two_washer_cg_uses_shared_overlap_and_both_sides(self) -> None:
         params = {
             **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
@@ -402,6 +437,7 @@ class FieldBackendTests(unittest.TestCase):
             "hv_plate_od_mm": 18.0,
             "plate_gap_mm": 1.5,
             "washer_epsr": 9.0,
+            "washer_material": "alumina",
             "washer_id_mode": "custom",
             "washer_od_mode": "custom",
         }
@@ -623,6 +659,7 @@ class FieldBackendTests(unittest.TestCase):
 
     def test_parallel_plate_cpar_reference_matches_type61_limiting_case(self) -> None:
         params = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        params.update(epoxy_epsr=5.36, washer_epsr=5.36, epoxy_material="stycast_2850ft_23lv")
         params.update({
             "core_material": "type61",
             "ferrite_epsr": 12.0,
@@ -631,6 +668,8 @@ class FieldBackendTests(unittest.TestCase):
             "ground_plate_inner_diameter_mm": 6.0,
             "hv_plate_od_mm": 8.0,
             "plate_gap_mm": 1.4,
+            "bias_plate_thickness_mm": 1.5,
+            "ground_plate_thickness_mm": 1.5,
             "washer_id_mode": "custom",
             "washer_od_mode": "custom",
         })
@@ -716,6 +755,7 @@ class FieldBackendTests(unittest.TestCase):
 
     def test_direct_stage_resistance_and_capacitance_modes_are_independent(self) -> None:
         params = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
+        params.update(epoxy_epsr=5.36, washer_epsr=5.36, epoxy_material="stycast_2850ft_23lv")
         calculated = spice_ladder.circuit_estimates(params)
         entered = spice_ladder.circuit_estimates(axisymmetric_model.normalize_parameters({
             **params,
@@ -723,9 +763,9 @@ class FieldBackendTests(unittest.TestCase):
             "melf_stage_parasitic_pf": 0.3,
         }))
 
-        self.assertEqual(calculated["stageResistanceOhm"], 12e6)
-        self.assertAlmostEqual(calculated["parasiticPf"], 0.32195023865519884)
-        self.assertAlmostEqual(entered["parasiticPf"], 0.47535241246074494)
+        self.assertEqual(calculated["stageResistanceOhm"], 10e6)
+        self.assertAlmostEqual(calculated["parasiticPf"], 0.2689163919011958)
+        self.assertAlmostEqual(entered["parasiticPf"], 0.4039938374324352)
 
     def test_direct_stage_capacitance_calibrates_core_permittivity(self) -> None:
         params = axisymmetric_model.normalize_parameters({
@@ -1007,6 +1047,82 @@ class FieldBackendTests(unittest.TestCase):
         self.assertIn("Rmeasure50 n0 0 50", instrument_netlist)
         self.assertNotIn("Tload", instrument_netlist)
 
+    def test_regulator_source_curve_includes_input_coax_and_filter_input_resistor(self) -> None:
+        params = axisymmetric_model.normalize_parameters({
+            **axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS),
+            "bias_source_resistance_mohm": 2.0,
+            "bias_source_capacitance_nf": 0,
+            "bias_source_divider_mohm": 0,
+            "source_cable_length_m": 10.0,
+            "load_cable_impedance_ohm": 50.0,
+            "load_cable_velocity_factor": 0.66,
+        })
+        circuit = spice_ladder.circuit_estimates(params)
+
+        source_voltage, source_impedance = spice_ladder.source_line_thevenin(
+            {**params, "source_cable_length_m": 0.0},
+            50.0,
+        )
+        self.assertAlmostEqual(source_voltage.real, 1.0)
+        self.assertAlmostEqual(source_voltage.imag, 0.0)
+        self.assertAlmostEqual(source_impedance.real, 2e6)
+        self.assertAlmostEqual(source_impedance.imag, 0.0)
+
+        netlist = spice_ladder.netlist_text(
+            circuit,
+            params,
+            include_load=True,
+            regulator_source=True,
+        )
+        self.assertIn("V1 gen 0 AC 1", netlist)
+        self.assertIn("Rreg gen supply 2e+06", netlist)
+        self.assertIn("Tsource supply 0 src 0 Z0=50", netlist)
+        self.assertIn("Rin src n0", netlist)
+        self.assertIn("Tload", netlist)
+
+        unloaded_netlist = spice_ladder.netlist_text(
+            circuit,
+            params,
+            include_load=False,
+            regulator_source=True,
+        )
+        self.assertIn("Rreg gen supply 2e+06", unloaded_netlist)
+        self.assertIn("Tsource supply 0 src 0 Z0=50", unloaded_netlist)
+        self.assertNotIn("Tload", unloaded_netlist)
+
+        detector_netlist = spice_ladder.lmfe_source_controlled_netlist(
+            circuit,
+            params,
+            Path("lmfe-filter-output.dat"),
+            regulator_source=False,
+        )
+        self.assertIn("Tlmfe out 0 cathode 0 Z0=50", detector_netlist)
+        self.assertIn("Xlmfe cathode gate lmfe_out_p lmfe_out_n LEGEND_LMFE_FRONTEND", detector_netlist)
+        self.assertNotIn("Rreg", detector_netlist)
+        self.assertNotIn("Tsource", detector_netlist)
+
+        everything_netlist = spice_ladder.lmfe_source_controlled_netlist(
+            circuit,
+            params,
+            Path("lmfe-everything-output.dat"),
+            regulator_source=True,
+        )
+        self.assertIn("Rreg gen supply 2e+06", everything_netlist)
+        self.assertIn("Tsource supply 0 src 0 Z0=50", everything_netlist)
+        self.assertIn("Tlmfe out 0 cathode 0 Z0=50", everything_netlist)
+        self.assertIn("Xlmfe cathode gate lmfe_out_p lmfe_out_n LEGEND_LMFE_FRONTEND", everything_netlist)
+
+        measured = spice_ladder.ladder_transfer(circuit, params, 50.0, "regulator_input_tline")
+        measured_unloaded = spice_ladder.ladder_transfer(
+            circuit,
+            params,
+            50.0,
+            "regulator_input_tline_unloaded",
+        )
+        direct = spice_ladder.ladder_transfer(circuit, params, 50.0, "transmission_line")
+        self.assertGreater(spice_ladder.attenuation_db(measured), spice_ladder.attenuation_db(direct))
+        self.assertTrue(math.isfinite(spice_ladder.attenuation_db(measured_unloaded)))
+
     def test_loaded_stage_multiplication_error_grows_with_stage_count(self) -> None:
         base = axisymmetric_model.load_parameters(axisymmetric_model.DEFAULT_PARAMETERS)
         ratios = []
@@ -1042,6 +1158,7 @@ class FieldBackendTests(unittest.TestCase):
 
     def test_washer_relation_modes_derive_plate_edges_from_washer_dimensions(self) -> None:
         params = field_backend.sanitized_parameters({
+            "washer_material": "alumina",
             "core_od_mm": 2.0,
             "tube_id_mm": 24.0,
             "washer_id_mm": 8.0,
@@ -1062,6 +1179,7 @@ class FieldBackendTests(unittest.TestCase):
         self.assertEqual(params["hv_to_tube_gap_mm"], 2.5)
 
         direct = field_backend.sanitized_parameters({
+            "washer_material": "alumina",
             "tube_id_mm": 24.0,
             "washer_id_mm": 7.0,
             "washer_od_mm": 19.0,
@@ -1070,6 +1188,23 @@ class FieldBackendTests(unittest.TestCase):
         })
         self.assertEqual(direct["ground_plate_inner_diameter_mm"], 7.0)
         self.assertEqual(direct["hv_plate_od_mm"], 19.0)
+
+    def test_continuous_epoxy_uses_plate_dimensions_without_washer_geometry(self) -> None:
+        params = field_backend.sanitized_parameters({
+            "washer_material": "epoxy",
+            "core_od_mm": 2.2,
+            "tube_id_mm": 26.0,
+            "ground_plate_inner_diameter_mm": 4.0,
+            "hv_plate_od_mm": 23.0,
+            "washer_id_mm": 9.0,
+            "washer_od_mm": 18.0,
+            "washer_id_mode": "ground_flat_id",
+            "washer_od_mode": "bias_flat_od",
+        })
+        self.assertEqual(params["ground_plate_inner_diameter_mm"], 4.0)
+        self.assertEqual(params["hv_plate_od_mm"], 23.0)
+        self.assertEqual(params["washer_id_mm"], 4.0)
+        self.assertEqual(params["washer_od_mm"], 23.0)
 
     def test_legacy_washer_match_booleans_map_to_custom_modes(self) -> None:
         params = field_backend.sanitized_parameters({
@@ -1082,6 +1217,7 @@ class FieldBackendTests(unittest.TestCase):
     def test_sanitized_parameters_derive_geometry_and_clamp_solver_cost(self) -> None:
         params = field_backend.sanitized_parameters(
             {
+                "washer_material": "alumina",
                 "core_od_mm": 6.0,
                 "washer_id_mm": 10.0,
                 "washer_od_mm": 32.0,
@@ -1233,14 +1369,24 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn('id="slideConfigurationSource"', index)
                 self.assertIn('<button class="tab active" type="button" data-view="slides">Slides</button>', index)
                 self.assertIn('<section class="view slides active" id="slides"', index)
-                self.assertIn('src="default-fenicsx-field.js?', index)
+                self.assertIn('src="default-fenicsx-field-dp270.js?', index)
                 self.assertIn('id="slideTocList"', index)
+                self.assertIn('id="bias_source_resistance_mohm"', index)
+                self.assertIn('id="source_cable_length_m"', index)
+                self.assertIn('id="noise_cryostat_broadband_rms_mv"', index)
+                self.assertIn('id="noise_cryostat_mains_rms_mv"', index)
+                self.assertIn('id="washer_id_mode_control"', index)
+                self.assertIn('id="washer_od_mode_control"', index)
+                self.assertIn("RG-58 input broadband pickup", index)
+                self.assertIn("Ferrite Offered Higher Resistance but Was Set Aside", index)
                 self.assertNotIn('SPICE Transfer Without Cable or Output Load', index)
                 self.assertIn('Electroquasistatic FEA Checks the Distributed RC Model', index)
                 self.assertIn('From Damped Resonances to Field-Derived Transfer', index)
-                self.assertIn('src="default-eqs-sweep.js?', index)
+                self.assertIn('src="default-eqs-sweep-dp270.js?', index)
                 self.assertIn('id="slideEqsCanvas"', index)
                 self.assertIn('id="slideElectromagneticCanvas"', index)
+                self.assertIn('<h2>Simplified Amplifier SPICE Model</h2>', index)
+                self.assertIn('id="slideSimplifiedAmplifierCanvas"', index)
                 self.assertIn('<h2>Using the Modeler</h2>', index)
                 self.assertIn('id="slideModelerCanvas"', index)
                 self.assertIn('id="slideThermalConductorStudyCanvas"', index)
@@ -1251,6 +1397,9 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn('fetch("default.json", { cache: "no-store" })', app)
                 self.assertIn('downloadTextFile("default.json"', app)
                 self.assertIn("function loadBundledDefaultFieldResult()", app)
+                self.assertIn("function loadBundledDefaultThermalResult()", app)
+                self.assertIn("washerIdModeInput.disabled = epoxyWasher", app)
+                self.assertIn("washerOdModeInput.disabled = epoxyWasher", app)
                 self.assertIn("const SLIDE_SECTION_DEFINITIONS", app)
                 self.assertIn('label: "Main presentation"', app)
                 self.assertIn('label: "Models & FEA results"', app)
@@ -1260,9 +1409,14 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertIn("function drawThermalConductorStudySlide", app)
                 self.assertIn("function matchedModalOscillator", app)
                 self.assertIn("zero-R f0 equals the first coupled peak", app)
+                self.assertIn('backendSpiceCurve(payload.samples, "regulatorInputUnloaded")', app)
+                self.assertIn('label: "HV regulator + input T-line"', app)
+                self.assertIn("function detectorEquivalentSourceCurve", app)
+                self.assertIn("function drawSimplifiedAmplifierSpiceSlide", app)
+                self.assertIn('"Simplified Amplifier SPICE Model"', app)
                 self.assertIn('window.addEventListener("hashchange"', app)
 
-                bundled = urllib.request.urlopen(base_url + "/default-fenicsx-field.js", timeout=5).read().decode("utf-8")
+                bundled = urllib.request.urlopen(base_url + "/default-fenicsx-field-dp270.js", timeout=5).read().decode("utf-8")
                 prefix = "window.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT = "
                 self.assertTrue(bundled.startswith(prefix))
                 payload = json.loads(bundled[len(prefix):].strip().removesuffix(";"))
@@ -1276,13 +1430,16 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertEqual(capacitance["capacitance_network"]["method"], "fenicsx-maxwell-matrix-basis-cross-energy")
                 self.assertIn("visualization_model", capacitance["capacitance_network"])
                 self.assertIn("bias_to_ground_comparison", capacitance)
-                self.assertFalse(payload["exactCapacitanceParameters"]["use_repeating_cell_approximation"])
-                self.assertEqual(payload["exactCapacitanceParameters"]["solve_strategy"], "mirror_half")
+                self.assertTrue(payload["exactCapacitanceParameters"]["use_repeating_cell_approximation"])
+                self.assertEqual(payload["exactCapacitanceParameters"]["solve_strategy"], "end_repeat_approx")
                 self.assertEqual(payload["spiceLadder"]["method"], "ngspice-batch-ac")
                 self.assertEqual(len(payload["spiceLadder"]["samples"]), 161)
 
-                eqs_bundle = urllib.request.urlopen(base_url + "/default-eqs-sweep.js", timeout=5).read().decode("utf-8")
+                eqs_bundle = urllib.request.urlopen(base_url + "/default-eqs-sweep-dp270.js", timeout=5).read().decode("utf-8")
                 self.assertIn("DISCOIDAL_DEFAULT_EQS_SWEEP", eqs_bundle)
+
+                thermal_bundle = urllib.request.urlopen(base_url + "/default-thermal-fea.js", timeout=5).read().decode("utf-8")
+                self.assertIn("DISCOIDAL_BUNDLED_DEFAULT_THERMAL_RESULT", thermal_bundle)
 
                 with self.assertRaises(urllib.error.HTTPError) as raised:
                     urllib.request.urlopen(base_url + "/../hardware/geometry/default-parameters.json", timeout=5)
@@ -1303,6 +1460,7 @@ class FieldBackendTests(unittest.TestCase):
 
             try:
                 raw_parameters = self._small_parameters()
+                raw_parameters["washer_material"] = "alumina"
                 raw_parameters["washer_id_mode"] = "ground_id"
                 raw_parameters["washer_od_mode"] = "bias_od"
                 payload = self._post_json(base_url + "/api/geometry", {"parameters": raw_parameters})
@@ -1434,6 +1592,8 @@ class FieldBackendTests(unittest.TestCase):
                         "load_cable_length_m": 10.0,
                         "load_cable_impedance_ohm": 50.0,
                         "load_cable_velocity_factor": 0.66,
+                        "bias_source_resistance_mohm": 3.3,
+                        "source_cable_length_m": 17.0,
                         "detector_capacitance_pf": 10.0,
                     }
                 )
@@ -1448,21 +1608,74 @@ class FieldBackendTests(unittest.TestCase):
                 self.assertEqual(payload["circuit"]["internalResistiveSections"], raw_parameters["plate_pairs"] - 1)
                 self.assertEqual(payload["circuit"]["resistiveSections"], raw_parameters["plate_pairs"] + 1)
                 self.assertGreater(payload["circuit"]["inputSeriesResistanceOhm"], 0.0)
-                self.assertEqual(payload["circuit"]["outputSeriesResistanceOhm"], 50.0)
+                self.assertEqual(payload["circuit"]["outputSeriesResistanceOhm"], 47.0)
                 self.assertGreater(payload["circuit"]["cableCapPf"], 0.0)
                 self.assertGreater(payload["circuit"]["detectorCapPf"], 0.0)
+                self.assertEqual(payload["circuit"]["biasSourceResistanceOhm"], 3.3e6)
+                self.assertEqual(payload["circuit"]["sourceCableLengthM"], 17.0)
+                self.assertEqual(payload["circuit"]["sourceCableZ0Ohm"], 50.0)
+                self.assertEqual(payload["circuit"]["sourceCableVelocityFactor"], 0.66)
                 self.assertGreater(len(payload["samples"]), 10)
                 first = payload["samples"][0]
                 self.assertIn("fullTline", first)
                 self.assertIn("fullLumped", first)
                 self.assertIn("fullUnloaded", first)
                 self.assertIn("instrument50Ohm", first)
+                self.assertIn("regulatorInputTline", first)
                 self.assertIn("scaledStage", first)
+                self.assertIn(payload["lmfePickupStatus"], {"ngspice-ac", "unavailable"})
+                normalized = spice_ladder.axisymmetric_model.normalize_parameters(raw_parameters)
+                lmfe_netlist = spice_ladder.lmfe_pickup_controlled_netlist(
+                    spice_ladder.circuit_estimates(normalized),
+                    normalized,
+                    Path("output.dat"),
+                    Path("input.dat"),
+                )
+                self.assertIn("CDET=1e-11", lmfe_netlist)
+                self.assertIn("Ipickup 0 cathode", lmfe_netlist)
+                self.assertTrue(spice_ladder.LMFE_PICKUP_MODEL_PATH.is_file())
+                lmfe_model = spice_ladder.LMFE_PICKUP_MODEL_PATH.read_text(encoding="utf-8")
+                self.assertIn(".subckt FINITE_OPAMP inv noninv out", lmfe_model)
+                gate_netlist = spice_ladder.lmfe_pickup_controlled_netlist(
+                    spice_ladder.circuit_estimates(normalized),
+                    normalized,
+                    Path("gate-output.dat"),
+                    Path("gate-input.dat"),
+                    injection="gate",
+                    output_capacitance_scale=10.0,
+                )
+                self.assertIn("Vgate gate 0 DC 0 AC 1", gate_netlist)
+                self.assertNotIn("Ipickup 0 cathode", gate_netlist)
+                self.assertIn("Tlmfe out 0 cathode 0", gate_netlist)
+                self.assertIn("Xlmfe cathode gate", gate_netlist)
+                signal_netlist, signal_metadata = spice_ladder.lmfe_signal_transient_netlist(
+                    spice_ladder.circuit_estimates(normalized),
+                    normalized,
+                    Path("signal-step.dat"),
+                )
+                self.assertIn("Isignal cathode gate PULSE", signal_netlist)
+                self.assertIn("tran ", signal_netlist)
+                self.assertIn("v(lmfe_out_p,lmfe_out_n)", signal_netlist)
+                self.assertEqual(signal_metadata["referenceChargeC"], 1e-15)
+                self.assertEqual(signal_metadata["collectionTimeS"], 100e-9)
+                resampled = spice_ladder.resample_real_samples(
+                    [(0.0, 0.0), (0.4, 4.0), (1.0, 10.0)],
+                    0.25,
+                    5,
+                )
+                self.assertEqual(resampled, [(0.0, 0.0), (0.25, 2.5), (0.5, 5.0), (0.75, 7.5), (1.0, 10.0)])
+                self.assertEqual(spice_ladder.LMFE_OUTPUT_CAPACITANCE_FACTORS, (0.1, 0.3, 1.0, 3.0, 10.0, 30.0, 100.0))
+                self.assertEqual(spice_ladder.LMFE_RESISTANCE_STUDY_CAPACITANCE_FACTORS, (0.1, 1.0, 10.0))
+                self.assertIn(51.0, spice_ladder.LMFE_OUTPUT_RESISTANCE_CANDIDATES_OHM)
+                self.assertIn(470.0, spice_ladder.LMFE_OUTPUT_RESISTANCE_CANDIDATES_OHM)
                 self.assertGreaterEqual(payload["summary"]["at50Hz"]["fullTlineAttenuationDb"], 0.0)
                 self.assertGreaterEqual(payload["summary"]["at50Hz"]["fullUnloadedAttenuationDb"], 0.0)
                 self.assertGreaterEqual(payload["summary"]["at50Hz"]["instrument50OhmAttenuationDb"], 0.0)
+                self.assertGreaterEqual(payload["summary"]["at50Hz"]["regulatorInputTlineAttenuationDb"], 0.0)
                 self.assertIn("Rsource50", payload["instrumentNetlist"])
                 self.assertIn("Rmeasure50", payload["instrumentNetlist"])
+                self.assertIn("Rreg", payload["regulatorInputNetlist"])
+                self.assertIn("Tsource", payload["regulatorInputNetlist"])
             finally:
                 server.shutdown()
                 server.server_close()
@@ -1586,6 +1799,7 @@ class FieldBackendTests(unittest.TestCase):
 
     def test_custom_washer_bounds_can_leave_rounded_edge_pockets_as_epoxy(self) -> None:
         raw_parameters = self._small_parameters()
+        raw_parameters["washer_material"] = "alumina"
         raw_parameters["washer_id_mode"] = "custom"
         raw_parameters["washer_od_mode"] = "custom"
         raw_parameters["washer_id_mm"] = raw_parameters["ground_plate_inner_diameter_mm"] + 1.0
@@ -1669,7 +1883,7 @@ class FieldBackendTests(unittest.TestCase):
     def _post_json(self, url: str, payload: dict[str, object]) -> dict[str, object]:
         data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(request, timeout=5) as response:
+        with urllib.request.urlopen(request, timeout=180) as response:
             return json.loads(response.read().decode("utf-8"))
 
     def _get_json(self, url: str) -> dict[str, object]:

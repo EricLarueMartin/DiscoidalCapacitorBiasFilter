@@ -1,0 +1,66 @@
+* Reduced LEGEND-200 LMFE detector-input model for ngspice.
+* Derived from LEGEND-200_LMFE_CC4_Simplified.asc.
+* The AD8139 differential-output section and op-amp supply filters are omitted.
+* U2/U3 retain finite open-loop gain and gain-bandwidth through FINITE_OPAMP.
+
+.model MX11RC NJF(VTO=-3 BETA=7m LAMBDA=4.7m RS=40 RD=40 CGS=0.7p CGD=1.0p)
+
+.subckt BF862 1 2 3
+Ld 1 4 1.1n
+Ls 3 6 1.25n
+Lg 2 5 0.78n
+Rg 5 7 0.535
+Cds 1 3 0.0001p
+Cgs_pkg 2 3 1.05p
+Cgd_pkg 1 2 0.201p
+Co 4 6 0.35092p
+J1 4 7 6 JBF862
+.model JBF862 NJF(BETA=47.8m RD=0.8 RS=7.5 LAMBDA=37.3m VTO=-0.57093
++ IS=424.6p N=1 XTI=3 VTOTC=-2m CGD=7.4002p M=0.6015 PB=0.5 FC=0.5
++ CGS=8.289p KF=87.5e-18 AF=1)
+.ends BF862
+
+* Single-pole voltage op amp: LTspice opamp.sub pin order is inv, noninv, out.
+* AOL=100k and GBW=10 MHz by default.
+.subckt FINITE_OPAMP inv noninv out params: AOL=100k GBW=10Meg
+Gerr 0 nint noninv inv 1m
+Rdom nint 0 {AOL/1m}
+Cdom nint 0 {1m/(6.283185307179586*GBW)}
+Ebuf out 0 nint 0 1
+Rdc out 0 1G
+.ends FINITE_OPAMP
+
+.model LMFE_SIGNAL_CABLE LTRA(len=1 R=3.78 L=241n C=87p)
+* O2/O4 in the user's exported simplified netlist: output pair to head electronics.
+* O1/O3 above are separate 1 m internal signal/feedback connections.
+.model LMFE_HEAD_CABLE LTRA(len=10 R=32.81m L=262.5n C=93.5p)
+* Pins: detector cathode/pickup node, J2 gate, output+, output-.
+* The generated top-level deck supplies the Designer-configured HV cable.
+* CDET is C19. V(outp,outn) corresponds to voltage across R30.
+.subckt LEGEND_LMFE_FRONTEND cathode gate outp outn params: CDET=10p
+V12 n12 0 12
+VBIAS2_RAW n1p2 0 1.2
+RBIAS2 vb2 n1p2 1k
+CBIAS2 vb2 0 1u
+VREFP vrefp 0 1.2
+VREFN vrefn 0 0
+
+RJFET_LOAD n12 cascode_drain 1.6k
+JINPUT cascode_near gate 0 MX11RC
+XCASCODE cascode_drain vb2 cascode_far BF862
+OCASCODE cascode_near 0 cascode_far 0 LMFE_SIGNAL_CABLE
+
+CDET cathode gate {CDET}
+
+CFB gate fb_near 0.35p
+RFB gate fb_near 1G
+OFB fb_near 0 amp_out_n 0 LMFE_SIGNAL_CABLE
+
+XU2 cascode_drain vrefp amp_out_p FINITE_OPAMP AOL=100k GBW=10Meg
+RAVG_P avg amp_out_p 1k
+XU3 avg vrefn amp_out_n FINITE_OPAMP AOL=100k GBW=10Meg
+RAVG_N avg amp_out_n 1k
+OHEAD_P amp_out_p 0 outp 0 LMFE_HEAD_CABLE
+OHEAD_N amp_out_n 0 outn 0 LMFE_HEAD_CABLE
+RDIFF outp outn 100
+.ends LEGEND_LMFE_FRONTEND

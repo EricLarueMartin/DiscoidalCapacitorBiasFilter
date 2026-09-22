@@ -33,6 +33,36 @@ def write_bundle(path: Path, variable: str, payload: dict[str, Any]) -> None:
     )
 
 
+def build_thermal_bundle(thermal_path: Path) -> None:
+    settings = read_json(ROOT / "hardware" / "geometry" / "default-parameters.json")
+    thermal_job = read_json(thermal_path)
+    thermal = thermal_job.get("result", thermal_job)
+    solved = thermal.get("parameters", {})
+    required_matches = (
+        "plate_pairs",
+        "washer_material",
+        "epoxy_material",
+        "epoxy_cure_schedule",
+        "epoxy_epsr",
+        "thermal_min_temperature_c",
+        "thermal_epoxy_modulus_gpa",
+        "thermal_mesh_size_mm",
+    )
+    mismatches = [key for key in required_matches if solved.get(key) != settings.get(key)]
+    if mismatches:
+        raise ValueError(f"Thermal result does not match defaults for: {', '.join(mismatches)}")
+    write_bundle(
+        ROOT / "presentations" / "web" / "default-thermal-fea.js",
+        "DISCOIDAL_BUNDLED_DEFAULT_THERMAL_RESULT",
+        {
+            "format": "discoidal-capacitor-bias-filter-bundled-thermal",
+            "version": 1,
+            "settings": settings,
+            "result": thermal,
+        },
+    )
+
+
 def solve_linear(matrix: list[list[complex]], rhs: list[complex]) -> list[complex]:
     augmented = [list(row) + [rhs[index]] for index, row in enumerate(matrix)]
     count = len(augmented)
@@ -118,12 +148,26 @@ def build(args: argparse.Namespace) -> None:
     settings = read_json(ROOT / "hardware" / "geometry" / "default-parameters.json")
     field_job = read_json(args.field_job)
     field = field_job.get("result", field_job)
+    if "maxField" not in field and "max_field_v_per_mm" in field:
+        from field_backend import result_for_browser
+
+        field = result_for_browser(
+            field,
+            source="fea-backend-fenicsx",
+            solver="axisymmetric-fenicsx",
+            note="FEniCSx/DOLFINx conforming FEA solve.",
+        )
+        field["solverStatus"] = {
+            "requested": "fenicsx",
+            "effective": "fenicsx",
+            "reason": "Checked-in default generated directly by the FEniCSx solver.",
+        }
     spice = read_json(args.spice)
-    eqs = read_json(ROOT / "simulations" / "electromagnetic" / "default-eqs-sweep.json")
-    full_wave = read_json(ROOT / "simulations" / "electromagnetic" / "latest-full-wave.json")
+    eqs = read_json(ROOT / "simulations" / "electromagnetic" / "default-dp270-eqs-sweep.json")
+    full_wave = read_json(ROOT / "simulations" / "electromagnetic" / "latest-dp270-full-wave.json")
     coarse_paths = {
-        "0.60": ROOT / "simulations" / "electromagnetic" / "validation" / "default-eqs-1khz-0p60.json",
-        "0.45": ROOT / "simulations" / "electromagnetic" / "validation" / "default-eqs-1khz-0p45.json",
+        "0.60": ROOT / "simulations" / "electromagnetic" / "validation" / "default-dp270-eqs-1khz-0p60.json",
+        "0.45": ROOT / "simulations" / "electromagnetic" / "validation" / "default-dp270-eqs-1khz-0p45.json",
     }
     coarse = {key: read_json(path) for key, path in coarse_paths.items()}
 
@@ -134,6 +178,14 @@ def build(args: argparse.Namespace) -> None:
         solved_count = int(payload.get("parameters", {}).get("plate_pairs", -1))
         if solved_count != plate_count:
             raise ValueError(f"{label} result has {solved_count} plates; expected {plate_count}")
+
+    for label, payload in (("field", field), ("EQS", eqs), ("full-wave", full_wave), ("SPICE", spice)):
+        for key in ("epoxy_material", "epoxy_epsr", "washer_material", "washer_epsr", "plate_gap_mm", "bias_plate_thickness_mm", "ground_plate_thickness_mm", "core_od_mm", "hv_plate_od_mm", "tube_id_mm"):
+            if payload.get("parameters", {}).get(key) != settings.get(key):
+                raise ValueError(f"{label} result does not match current default {key}")
+    for key in ("bias_source_resistance_mohm", "bias_source_capacitance_nf", "bias_source_divider_mohm"):
+        if spice["parameters"].get(key) != settings.get(key):
+            raise ValueError(f"SPICE source-network mismatch: {key}")
 
     network = field["capacitance"]["capacitance_network"]
     maxwell_pf = network["maxwell_pf_matrix"]
@@ -180,9 +232,9 @@ def build(args: argparse.Namespace) -> None:
         "samples": comparison_samples,
         "maximum_absolute_difference_db": max_difference,
     }
-    write_json(ROOT / "simulations" / "electromagnetic" / "intrinsic-spice-eqs-comparison.json", intrinsic)
+    write_json(ROOT / "simulations" / "electromagnetic" / "intrinsic-spice-eqs-comparison-dp270.json", intrinsic)
     eqs_50hz = {**eqs, "samples": [row for row in eqs["samples"] if row["frequency_hz"] == 50.0]}
-    write_json(ROOT / "simulations" / "electromagnetic" / "eqs-50hz.json", eqs_50hz)
+    write_json(ROOT / "simulations" / "electromagnetic" / "eqs-50hz-dp270.json", eqs_50hz)
 
     highest = eqs["samples"][-1]
     omega = 2.0 * math.pi * float(highest["frequency_hz"])
@@ -252,7 +304,7 @@ def build(args: argparse.Namespace) -> None:
             "field_derived_johnson_noise",
         ],
     }
-    write_json(ROOT / "simulations" / "electromagnetic" / "validation" / "validation-summary.json", validation)
+    write_json(ROOT / "simulations" / "electromagnetic" / "validation" / "validation-summary-dp270.json", validation)
 
     eqs_bundle = {
         "format": "discoidal-capacitor-bias-filter-eqs-sweep",
@@ -280,7 +332,7 @@ def build(args: argparse.Namespace) -> None:
             "maxLumpedComparisonDifferenceDb": max_difference,
         },
     }
-    write_bundle(ROOT / "presentations" / "web" / "default-eqs-sweep.js", "DISCOIDAL_DEFAULT_EQS_SWEEP", eqs_bundle)
+    write_bundle(ROOT / "presentations" / "web" / "default-eqs-sweep-dp270.js", "DISCOIDAL_DEFAULT_EQS_SWEEP", eqs_bundle)
 
     field_bundle = {
         "format": "discoidal-capacitor-bias-filter-bundled-field",
@@ -290,14 +342,16 @@ def build(args: argparse.Namespace) -> None:
         "exactCapacitanceParameters": field["parameters"],
         "spiceLadder": spice,
     }
-    write_bundle(ROOT / "presentations" / "web" / "default-fenicsx-field.js", "DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT", field_bundle)
+    write_bundle(ROOT / "presentations" / "web" / "default-fenicsx-field-dp270.js", "DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT", field_bundle)
     full_wave_bundle = {
         "format": "discoidal-capacitor-bias-filter-full-wave",
         "version": 1,
-        "settings": settings,
+        # Keep the solved geometry attached to the result. The browser will
+        # reject an older full-wave bundle after reference geometry changes.
+        "settings": full_wave.get("parameters", settings),
         "result": full_wave,
     }
-    write_bundle(ROOT / "presentations" / "web" / "default-full-wave.js", "DISCOIDAL_DEFAULT_FULL_WAVE", full_wave_bundle)
+    write_bundle(ROOT / "presentations" / "web" / "default-full-wave-dp270.js", "DISCOIDAL_DEFAULT_FULL_WAVE", full_wave_bundle)
 
     print(json.dumps({
         "plate_count": plate_count,
@@ -313,9 +367,18 @@ def build(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--field-job", type=Path, required=True, help="Downloaded field job JSON")
-    parser.add_argument("--spice", type=Path, required=True, help="Downloaded matching SPICE response JSON")
-    build(parser.parse_args())
+    parser.add_argument("--field-job", type=Path, help="Downloaded field job JSON")
+    parser.add_argument("--spice", type=Path, help="Downloaded matching SPICE response JSON")
+    parser.add_argument("--thermal", type=Path, help="Downloaded matching thermal FEA result JSON")
+    args = parser.parse_args()
+    if args.thermal:
+        build_thermal_bundle(args.thermal)
+    if args.field_job or args.spice:
+        if not args.field_job or not args.spice:
+            parser.error("--field-job and --spice must be supplied together")
+        build(args)
+    elif not args.thermal:
+        parser.error("provide --thermal, or both --field-job and --spice")
 
 
 if __name__ == "__main__":

@@ -18,16 +18,22 @@ const defaults = {
   core_volume_resistivity_log10_ohm_cm: 8,
   use_direct_stage_circuit: true,
   use_direct_stage_capacitance: false,
-  melf_stage_resistance_mohm: 12,
-  melf_stage_resistance_log10_ohm: Math.log10(12e6),
+  melf_stage_resistance_mohm: 10,
+  melf_stage_resistance_log10_ohm: Math.log10(10e6),
   melf_stage_parasitic_pf: 0.3,
   melf_substrate_epsr: 9.8,
   melf_metal_fill_factor: 0.5,
   ferrite_conductor_fill_factor: 0,
-  input_series_resistance_mohm: 12,
-  output_series_resistance_ohm: 50,
+  input_series_resistance_mohm: 10,
+  output_series_resistance_ohm: 47,
   input_series_matches_stage: true,
   output_series_matches_stage: false,
+  bias_source_resistance_mohm: 0.04,
+  bias_source_capacitance_nf: 1,
+  bias_source_divider_mohm: 300,
+  source_cable_length_m: 10,
+  source_cable_impedance_ohm: 50,
+  source_cable_velocity_factor: 0.66,
   load_current_na: 1,
   load_cable_length_m: 10,
   load_cable_impedance_ohm: 50,
@@ -38,9 +44,14 @@ const defaults = {
   noise_waveform_samples: 8192,
   noise_trap_rise_us: 10,
   noise_trap_flat_us: 4,
+  noise_apply_shaping: true,
+  noise_pz_enabled: false,
+  noise_pz_decay_us: 350,
   noise_supply_noise_pp_mv: 10,
-  noise_lab_broadband_rms_mv: 10,
-  noise_mains_rms_mv: 10,
+  noise_lab_broadband_rms_mv: 0.05,
+  noise_mains_rms_mv: 0.2,
+  noise_cryostat_broadband_rms_mv: 0.05,
+  noise_cryostat_mains_rms_mv: 0.2,
   noise_mains_frequency_hz: 50,
   noise_fano_factor: DEFAULT_GE_FANO_FACTOR,
   core_resistance_gohm: 0.03600005,
@@ -48,26 +59,27 @@ const defaults = {
   use_package_core_od: true,
   core_material: "mmb0207_melf",
   ferrite_epsr: 6,
-  core_to_ground_gap_mm: 1.45,
-  hv_to_tube_gap_mm: 2.25,
-  hv_plate_od_mm: 21.5,
-  ground_plate_inner_diameter_mm: 5.1,
-  washer_id_mm: 6.6,
-  washer_od_mm: 20,
-  washer_id_mode: "ground_flat_id",
-  washer_od_mode: "bias_flat_od",
+  core_to_ground_gap_mm: 0.9,
+  hv_to_tube_gap_mm: 1.5,
+  hv_plate_od_mm: 23.0,
+  ground_plate_inner_diameter_mm: 4.0,
+  washer_id_mm: 4.0,
+  washer_od_mm: 23.0,
+  washer_id_mode: "custom",
+  washer_od_mode: "custom",
   ground_plate_od_mm: 26,
   tube_id_mm: 26,
-  plate_gap_mm: 1.5,
-  plate_thickness_mm: 1.5,
-  bias_plate_thickness_mm: 1.5,
-  ground_plate_thickness_mm: 1.5,
+  plate_gap_mm: 1.0,
+  plate_thickness_mm: 2.0,
+  bias_plate_thickness_mm: 2.0,
+  ground_plate_thickness_mm: 2.0,
   ground_matches_bias_thickness: true,
   edge_diameter_percent: 100,
-  washer_material: "alumina",
-  washer_epsr: 10,
-  epoxy_material: "stycast_2850ft_23lv",
-  epoxy_epsr: 5.36,
+  washer_material: "epoxy",
+  washer_epsr: 3.5,
+  epoxy_material: "three_m_dp270",
+  epoxy_cure_schedule: "three_m_dp270:40",
+  epoxy_epsr: 3.5,
   plate_material: "copper",
   plate_conductivity_log10_s_per_m: Math.log10(5.8e7),
   plate_relative_permeability: 1,
@@ -94,6 +106,7 @@ const defaults = {
   thermal_epoxy_modulus_gpa: 3,
   thermal_restraint_factor: 1,
   thermal_mesh_size_mm: 0.3,
+  full_wave_tolerance: 1e-8,
   full_wave_resolution_per_mm: 2,
   full_wave_timeout_hours: 2,
   full_wave_verify_resonances: false,
@@ -108,7 +121,7 @@ const THERMAL_SOLVER_ENDPOINT = "/api/thermal-solve";
 const FULL_WAVE_SOLVER_ENDPOINT = "/api/full-wave-solve";
 const FIELD_SOLVER_CONNECT_TIMEOUT_MS = 1800;
 const GEOMETRY_CONNECT_TIMEOUT_MS = 900;
-const SPICE_CONNECT_TIMEOUT_MS = 1800;
+const SPICE_CONNECT_TIMEOUT_MS = 600000;
 const FIELD_SOLVER_POLL_MS = 850;
 const FIELD_SOLVER_JOB_TIMEOUT_MS = 120000;
 const THERMAL_SOLVER_TIMEOUT_MS = 15 * 60 * 1000;
@@ -183,17 +196,23 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   bias_voltage_v:
     "DC voltage applied to the bias plates and resistive core relative to the grounded plates and tube, in volts. The electrostatic field solve uses this as the conductor-potential difference, so electric field scales linearly with it for fixed geometry. It also sets the load resistance inferred from Rload = Vbias / Iload and affects dielectric-spacing guidance; attenuation ratios of an otherwise linear RC network do not depend on its absolute value.",
   core_volume_resistivity_log10_ohm_cm:
-    "Base-10 logarithm of the resistive core's bulk volume resistivity in ohm-cm. When stage resistance is calculated, the model uses Rstage = rho L/A, where L is the bias-to-bias resistive length through one ground-plate section and A is the circular core area. This is a bulk-material approximation: contact resistance, anisotropy, voltage coefficient, temperature dependence, and ferrite microstructure are not included.",
+    "Base-10 logarithm of the resistive core's bulk volume resistivity in ohm-cm. When stage resistance is calculated, the model uses Rstage = rho L/A, where L is the bias-to-bias resistive length through one ground-plate section and A is the circular core area. Changing resistance reruns the SPICE ladder but retains electrostatic capacitance and peak-field FEA because conductivity is absent from that solve. Full-wave electromagnetic transfer still depends on conductivity. This is a bulk-material approximation: contact resistance, anisotropy, voltage coefficient, temperature dependence, and ferrite microstructure are not included.",
   melf_stage_resistance_mohm:
-    "Electrical resistance of one bias-to-bias stage, entered directly in megaohms. It replaces the bulk-resistivity R = rho L/A calculation when Enter stage R is checked, and it is used by the analytical ladder and SPICE backend. This is the resistance between adjacent bias nodes, not the total series resistance of the complete filter.",
+    "Electrical resistance of one bias-to-bias stage, entered directly in megaohms. It replaces the bulk-resistivity R = rho L/A calculation when Enter stage R is checked, and it is used by the analytical ladder and SPICE backend. Changing it requests a new SPICE result but retains electrostatic capacitance and peak-field FEA; a full-wave electromagnetic result must be rerun because damping changes. This is the resistance between adjacent bias nodes, not the total series resistance of the complete filter.",
   input_series_resistance_mohm:
     "Series resistance between the ideal bias source and the first bias plate, in megaohms. It is an additional ladder element and is not one of the internal bias-to-bias stage resistors. A value of zero makes the first plate an ideally driven node; a nonzero value adds low-pass action and source isolation.",
   input_series_matches_stage:
     "When checked, the input end follows the stage definition. If Direct stage R is enabled, it uses another resistor of exactly that entered value. If resistance is derived from a bulk core material, the input uses the same material conductivity and core area but its shorter end length, Lend = ground-plate thickness + one dielectric gap; its resistance therefore differs from the interior stage value. Uncheck this to enter an independent input resistance.",
   output_series_resistance_ohm:
-    "Series resistance between the final bias plate and the cable or detector load, entered in ohms rather than megaohms. The normal default is 50 ohms. Zero connects the external load directly to the final filter node; large values can substantially change the loaded transfer function, so confirm the displayed unit when entering a value.",
+    "Series resistance between the final bias plate and the cable or detector load, entered in ohms rather than megaohms. The 47 ohm default closely matches the approximately 48 ohm characteristic impedance calculated from the present 10 m cable model. Zero connects the external load directly to the final filter node. Final selection should use a fast detector-step transient and in-situ pulse-shape testing, not a single AC-frequency magnitude.",
   output_series_matches_stage:
     "When checked, the output end follows the stage definition. A directly entered stage resistance is reused exactly as a discrete resistor. A bulk material instead keeps the same conductivity and core area while using the shorter output-end length, Lend = ground-plate thickness + one dielectric gap. Uncheck this for an independent output resistance such as 50 ohms.",
+  bias_source_capacitance_nf: "Capacitance from the CAEN output to ground, before the source cable. The supplied sketch specifies 1 nF. It is distinct from discoidal node capacitance.",
+  bias_source_divider_mohm: "CAEN output HV divider to ground: 300 Mohm in the supplied sketch. Enter zero to omit this branch for sensitivity comparisons.",
+  bias_source_resistance_mohm:
+    "CAEN final output series resistance, in megaohms. The default 0.04 Mohm (40 kohm) is the user-selected value for the sketch label a few tens of k. The CAEN output node has 1 nF to ground and a 300 Mohm divider before the source cable. The upstream HV filter and feedback loop are not specified.",
+  source_cable_length_m:
+    "Length of the RG-58 coax between the high-voltage regulator and the filter input, in metres. The SPICE model treats it as a lossless 50 ohm, velocity-factor 0.66 transmission line followed by the configured filter input resistor. The 10 m default is a reference routing assumption and should be replaced with the installed length.",
   load_current_na:
     "Assumed detector DC current draw at the selected bias voltage, in nanoamps. The small-signal circuit model converts it to a parallel load conductance Gload = Iload/Vbias, equivalent to Rload = Vbias/Iload. A value of zero represents infinite DC load resistance; it does not remove the selected cable or detector capacitance.",
   load_cable_length_m:
@@ -213,9 +232,9 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   use_direct_stage_capacitance:
     "Choose how the resistor/core contribution to adjacent-stage parasitic capacitance is obtained. Checked interprets the entered Cpar as the resistor package alone before installation. The circuit model adds the separate epoxy path around it, while field models assign the core an effective permittivity eps_eff = Cpar Lstage/(epsilon0 Acore) that reproduces the entered package capacitance; surrounding epoxy remains a separate dielectric region. Unchecked calculates the core contribution from the selected material or MELF effective permittivity. Do not include external epoxy coupling in the entered value or it will be counted twice.",
   washer_material:
-    "Selects the dielectric between bias and ground plate faces. Epoxy (same as potting fill) removes the separate solid-washer material: the entire gap becomes continuous selected potting epoxy, its permittivity and provisional dielectric strength stay linked to the Epoxy material control, and thermal FEA assigns the former washer volume epoxy properties. Other presets retain a distinct flat annular washer. High-k candidates are sensitivity studies only; actual materials must be checked for loss, voltage coefficient, microphonics, porosity, surface finish, and partial-discharge behavior.",
+    "Selects the dielectric between bias and ground plate faces. Epoxy (same as potting fill) removes the separate solid-washer material: washer ID/OD and relation controls remain visible but disabled, the continuous dielectric follows the editable ground-plate ID and bias-plate OD, its permittivity and provisional dielectric strength stay linked to the Epoxy material control, and thermal FEA assigns the complete gap epoxy properties. Other presets retain a distinct flat annular washer and restore the washer-driven geometry controls. High-k candidates are sensitivity studies only; actual materials must be checked for loss, voltage coefficient, microphonics, porosity, surface finish, and partial-discharge behavior.",
   epoxy_material:
-    "Selects the potting material filling regions not occupied by washer, core, or conductor. The preset initializes relative permittivity and provisional dielectric-strength guidance and supplies the epoxy-comparison slide. Geometry-based thermal FEA presets are available for MG Chemicals 9510 and Stycast 2850FT/CAT 23LV; the user-entered epoxy modulus remains an engineering assumption because neither cited data sheet publishes Young's modulus.",
+    "Selects the potting material filling regions not occupied by washer, core, or conductor. The preset initializes relative permittivity and provisional dielectric-strength guidance and supplies the epoxy-comparison slide. Geometry-based thermal FEA presets are available for MG Chemicals 9510 and Stycast 2850FT with CAT 11 or CAT 23LV; the user-entered epoxy modulus remains an engineering assumption because the cited data do not publish Young's modulus for these systems.",
   plate_material:
     "Material assigned to the bias and ground plates. The selection initializes conductivity and relative permeability for RF skin-depth diagnostics; electrostatic FEA treats all plates as ideal equipotential conductors regardless of conductivity. Thermal FEA uses the selected material's elastic modulus, Poisson ratio, and CTE. Annealed copper also selects the documented 69 MPa ideal J2 elastic-perfectly-plastic sensitivity by default. Grade 2 titanium and Mo-Cu values are engineering presets; the Mo-Cu Poisson ratio is assumed because it is absent from the cited supplier sheet.",
   tube_material:
@@ -261,9 +280,9 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   washer_od_mode:
     "Defines how washer OD is related to the bias plate's rounded outer edge. Bias OD = washer OD aligns both full diameters. Bias flat OD = washer OD ends the washer where the rounded corner begins, leaving the curved-edge pocket as epoxy. Custom allows independent dimensions and uses only the true washer/electrode overlap in the analytical capacitance.",
   hv_plate_od_mm:
-    "Outside diameter of each solid bias plate, in millimetres. The plate extends to the axis with no central hole. Its OD controls washer overlap, radial epoxy clearance to the grounded tube, field concentration at the rounded outer edge, and plate area. It is derived from Washer OD unless the washer relation is Custom.",
+    "Outside diameter of each solid bias plate, in millimetres. The plate extends to the axis with no central hole. With continuous epoxy this is the primary outer dielectric-overlap dimension. Its OD controls radial clearance to the grounded tube, field concentration at the rounded outer edge, and plate area. A distinct ceramic washer can instead derive it from Washer OD unless the washer relation is Custom.",
   ground_plate_inner_diameter_mm:
-    "Inside diameter of each annular ground plate, in millimetres. It sets the radial core-to-ground clearance and strongly shields adjacent-stage electric flux, which can make FEA Cpar lower than the simple axial parallel-plate estimate. It is derived from Washer ID unless the washer relation is Custom.",
+    "Inside diameter of each annular ground plate, in millimetres. With continuous epoxy this is the primary inner dielectric-overlap dimension. It sets the radial core-to-ground clearance and strongly shields adjacent-stage electric flux, which can make FEA Cpar lower than the simple axial parallel-plate estimate. A distinct ceramic washer can instead derive it from Washer ID unless the washer relation is Custom.",
   bias_plate_thickness_mm:
     "Axial thickness of each solid bias plate, in millimetres. It sets the maximum available outer-edge radius, contributes to stack length, and affects the MELF package-length constraint. It does not contribute to the resistive length between bias nodes because the core section passing through the bias plate is treated as shorted to that node.",
   ground_plate_thickness_mm:
@@ -273,7 +292,7 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   edge_diameter_percent:
     "Rounded plate-edge diameter as a percentage of that plate's thickness. At 100%, radius equals half the plate thickness and the edge is fully semicircular; at 0%, the edge is square. Bias plates are rounded at their outer edge and ground plates at their inner edge. Smaller radii generally raise local electric field and also request a finer FEA mesh.",
   plate_pairs:
-    "Number of bias plates in the alternating filter stack. The geometry contains one more ground plate than bias plates, so this is not labeled as a pair count. Increasing it adds bias nodes, ground shunt capacitors, internal resistive sections, physical length, and SPICE ladder order. The FEA can either solve the exact mirror half-stack or reconstruct repeated interior cells, depending on the solver option.",
+    "Number of bias plates in the alternating filter stack. The geometry contains one more ground plate than bias plates, so this is not labeled as a pair count. Increasing it adds bias nodes, ground shunt capacitors, internal resistive sections, physical length, and SPICE ladder order. With Repeat interior FEA cell checked, a solved model containing at least three bias plates already supplies reflected end and interior classes; changing among three or more plates reconstructs a new approximate capacitance network without rerunning electrostatic FEA. A one- or two-plate source solve cannot supply an interior class for a longer stack. Exact full-stack capacitance or full-wave resonance calculations still depend on plate count.",
   include_ground_tube:
     "Include the surrounding cylindrical conductor as a grounded physical tube in the CAD and electrostatic model. It provides radial shielding and a bias-to-tube field boundary. Turning it off is useful for sensitivity studies but no longer represents the intended enclosed filter and changes the meaning of the outer-domain boundary.",
   field_solver:
@@ -283,23 +302,27 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   use_repeating_cell_approximation:
     "Use only for the reflection-symmetric all-bias excitation. FEA solves one physical end region and one representative interior half-cell, then reconstructs the field and total capacitance. The fast SPICE network allocates that total to end/interior nodes and uses an analytical adjacent-Cpar screen; those entries are not Maxwell row sums or differential FEA capacitances. Unchecked mode uses full-stack basis fields for node-resolved Maxwell extraction, reusing only exact reflected partner excitations.",
   thermal_min_temperature_c:
-    "Temperature at which thermal-mismatch stress is evaluated, in degrees Celsius. The stress-free reference follows the epoxy preset: 70 C for the heat-cured MG 9510 screen and 25 C for room-temperature-cured Stycast 2850FT/CAT 23LV. The setting does not model a thermal transient, cure shrinkage, interface separation, or time-dependent stress relaxation.",
+    "Temperature at which thermal-mismatch stress is evaluated, in degrees Celsius. The reference Stycast 2850FT/CAT 23LV process is room-temperature cure followed by a 45 C post-cure bake. The model conservatively treats 45 C as stress-free and applies the full cooldown below it; actual stress lock-in depends on gelation, cross-link development, and relaxation. MG 9510 and CAT 11 retain 70 C and 80 C reference temperatures. The setting does not model a thermal transient, cure shrinkage, interface separation, or time-dependent stress relaxation.",
   thermal_epoxy_modulus_gpa:
-    "Assumed Young's modulus E of the cured epoxy, in gigapascals. The cited MG 9510 and Stycast 2850FT/CAT 23LV data sheets do not publish this value, so 2 to 4 GPa is retained as a sensitivity range rather than measured truth. Stress scales directly with E in the closed-form calculation, and this value is also assigned to epoxy in thermal FEA; Shore hardness is not an interchangeable modulus measurement.",
+    "Assumed Young's modulus E of the cured epoxy, in gigapascals. The cited MG 9510 and Stycast 2850FT CAT 11/23LV data do not publish this value for these systems, so 2 to 4 GPa is retained as a sensitivity range rather than measured truth. Stress scales directly with E in the closed-form calculation, and this value is also assigned to epoxy in thermal FEA; Shore hardness is not an interchangeable modulus measurement.",
   noise_sample_rate_msps:
     "ADC sampling frequency used to construct the discrete trapezoidal-filter response and Nyquist integration limit. LEGEND FlashCam germanium waveforms are publicly documented with a 62.5 MHz sampling frequency.",
   noise_waveform_samples:
     "Samples retained in each waveform. A published LEGEND full-chain test used 8192 samples, or 131.072 microseconds at a 62.5 MHz sampling frequency; this is a documented operating value, not a verified firmware maximum. The stationary filter-noise calculation uses this value to check that the selected trapezoid fits in the record.",
   noise_trap_rise_us:
-    "Rise/fall averaging time of the normalized symmetric trapezoidal energy filter. The provisional 10 microsecond value matches the public LEGEND e_10410 reference estimator. Production values may be optimized per detector and should replace this assumption when available.",
+    "Rise/fall averaging time of the normalized symmetric trapezoidal energy filter. The provisional 10 microsecond value matches the public LEGEND e_10410 reference estimator. Production values may be optimized per detector and should replace this assumption when available. This is downstream signal processing: changing it immediately recalculates noise performance and does not require another field, capacitance, thermal, or full-wave solve.",
   noise_trap_flat_us:
-    "Delay between the trapezoid's averaging windows. The provisional 4 microsecond value matches the public LEGEND e_10410 reference estimator and provides room for detector charge-collection time.",
+    "Delay between the trapezoid's averaging windows. The provisional 4 microsecond value matches the public LEGEND e_10410 reference estimator and provides room for detector charge-collection time. This is downstream signal processing: changing it immediately recalculates noise performance and does not require another field, capacitance, thermal, or full-wave solve.",
   noise_supply_noise_pp_mv:
-    "Bias-supply noise and ripple specification in millivolts peak-to-peak. Because a peak-to-peak limit does not define a spectrum, the calculation converts it to sine-equivalent RMS and places it at the frequency with the largest complete filter-plus-trapezoid response over the stated 5 Hz to Nyquist band. This is a conservative spectral-placement bound, not a measured PSD.",
+    "CAEN identifies A1560HDPE boards for LEGEND-200. A1560H maximum ripple is 10 mV p-p at 20-1000 Hz and 5 mV p-p at 1 kHz-20 MHz; typical limits are 5 and 3 mV respectively. This input sets the low-band amplitude, with the high band scaled to half that value. The default uses the published maxima. Each band is modeled as a sine at its most influential frequency; band powers are added. A separate mains-only result uses the low-band amplitude without counting it twice. Vrms=Vpp/(2 sqrt(2)) is a sine assumption, not a measured spectrum. Output impedance remains an unverified 1 Mohm; spectrum outside these bands is unspecified.",
   noise_lab_broadband_rms_mv:
-    "Provisional total RMS laboratory pickup referred to the bias-filter input and distributed as white voltage-noise power from 1 Hz to Nyquist. Replace it with an integrated measured input-referred PSD; pickup entering downstream of the filter is not attenuated by this model.",
+    "External pickup represented as a localized series voltage source between the RG-58 input cable and filter, white from 1 Hz to Nyquist. Regulator, cable capacitance, filter, output cable and LMFE remain in circuit. The entered voltage is an induced EMF, not a clamped or measured node voltage. Default 0.05 mV RMS and cable-end placement are unverified approximations to distributed pickup.",
   noise_mains_rms_mv:
-    "RMS coherent power-line component referred to the bias-filter input. It is propagated through both the loaded RC ladder and the trapezoidal energy estimator. This placeholder must be replaced by a measured 50/60 Hz spectral-line amplitude at the relevant coupling point.",
+    "External mains pickup is a series voltage source at the input cable's filter end with all circuit impedances retained. Default 0.20 mV RMS is an unverified induced EMF. Independent-source totals add powers; a separate same-phase mains scenario sums magnitudes for unknown relative phases.",
+  noise_cryostat_broadband_rms_mv:
+    "Cryostat broadband pickup is a series voltage source between output cable and detector cathode, white from 1 Hz to Nyquist. Complete SPICE retains the filter termination, output cable, detector and LMFE before shaping and charge calibration. Default 0.05 mV RMS is an unverified induced EMF. The separate current-injection sensitivity studies instead use I=V/Z0, so their input convention differs.",
+  noise_cryostat_mains_rms_mv:
+    "Cryostat mains pickup is a series voltage source between output cable and cathode with all impedances retained. Default 0.20 mV RMS is an unverified induced EMF. Shaping and known-charge calibration determine equivalent energy. Mains sources can be correlated; a separate same-phase sum accompanies the independent-power budget. Current-injection sensitivity studies use the different I=V/Z0 convention.",
   noise_mains_frequency_hz:
     "Power-line frequency for the coherent pickup calculation. The Gran Sasso laboratory uses 50 Hz; use 60 Hz for measurements made on North American mains.",
   noise_fano_factor:
@@ -346,6 +369,7 @@ let spiceLadderCache = null;
 let spiceLadderRequestId = 0;
 let spiceLadderPendingKey = null;
 let spiceLadderDisabled = false;
+let spiceLadderError = null;
 let fanoNoiseBudgetCache = null;
 let thermalFeaCache = null;
 let thermalFeaPending = false;
@@ -555,6 +579,10 @@ function refreshDynamicLanguageLabels() {
   if (fullWaveButton && !fullWaveButton.disabled) {
     fullWaveButton.textContent = translateText("Solve full-wave EM");
   }
+  const spiceButton = document.getElementById("solveSpice");
+  if (spiceButton && !spiceButton.disabled) {
+    spiceButton.textContent = translateText("Run SPICE simulation");
+  }
   const cutawayButton = document.getElementById("cadCutaway");
   if (cutawayButton) {
     cutawayButton.textContent = translateText(cadView.cutaway ? "Cutaway" : "Full");
@@ -696,6 +724,10 @@ const ids = [
   "ferrite_conductor_fill_factor",
   "input_series_resistance_mohm",
   "output_series_resistance_ohm",
+  "bias_source_resistance_mohm",
+  "bias_source_capacitance_nf",
+  "bias_source_divider_mohm",
+  "source_cable_length_m",
   "load_current_na",
   "load_cable_length_m",
   "load_cable_impedance_ohm",
@@ -706,9 +738,12 @@ const ids = [
   "noise_waveform_samples",
   "noise_trap_rise_us",
   "noise_trap_flat_us",
+  "noise_pz_decay_us",
   "noise_supply_noise_pp_mv",
   "noise_lab_broadband_rms_mv",
   "noise_mains_rms_mv",
+  "noise_cryostat_broadband_rms_mv",
+  "noise_cryostat_mains_rms_mv",
   "noise_mains_frequency_hz",
   "noise_fano_factor",
   "ferrite_epsr",
@@ -747,6 +782,10 @@ const units = {
   melf_substrate_epsr: "",
   melf_metal_fill_factor: "",
   ferrite_conductor_fill_factor: "",
+  bias_source_resistance_mohm: " MΩ",
+  bias_source_capacitance_nf: " nF",
+  bias_source_divider_mohm: " MΩ",
+  source_cable_length_m: " m",
   load_current_na: " nA",
   load_cable_length_m: " m",
   load_cable_impedance_ohm: " Ω",
@@ -757,9 +796,12 @@ const units = {
   noise_waveform_samples: " samples",
   noise_trap_rise_us: " &micro;s",
   noise_trap_flat_us: " &micro;s",
+  noise_pz_decay_us: " &micro;s",
   noise_supply_noise_pp_mv: " mV p-p",
   noise_lab_broadband_rms_mv: " mV rms",
   noise_mains_rms_mv: " mV rms",
+  noise_cryostat_broadband_rms_mv: " mV rms",
+  noise_cryostat_mains_rms_mv: " mV rms",
   noise_mains_frequency_hz: " Hz",
   noise_fano_factor: "",
   ferrite_epsr: "",
@@ -798,7 +840,7 @@ const EPSILON_0_F_PER_M = 8.8541878128e-12;
 const MU_0_H_PER_M = 4 * Math.PI * 1e-7;
 const FR4_WASHER_EPSR = 4.4;
 const DEFAULT_EPOXY_BREAKDOWN_KV_PER_MM = 15;
-const DEFAULT_MELF0207_STAGE_RESISTANCE_OHM = 12e6;
+const DEFAULT_MELF0207_STAGE_RESISTANCE_OHM = 10e6;
 const coreMaterialPresets = {
   type61: { label: "Fair-Rite 61 NiZn", epsr: 12, resistivityLog10: 8, componentName: "Type 61 core" },
   nizn: { label: "NiZn ferrite", epsr: 15, resistivityLog10: 8, componentName: "NiZn ferrite core" },
@@ -817,7 +859,7 @@ const coreMaterialPresets = {
     componentName: "0204 MELF core"
   },
   mmb0207_melf: {
-    label: "MELF 0207 12M",
+    label: "MELF 0207 10M",
     epsr: 6,
     melfSubstrateEpsr: 9.8,
     melfMetalFillFactor: 0.5,
@@ -864,8 +906,36 @@ const epoxyMaterialPresets = {
     componentName: "Stycast 2850FT/CAT 23LV epoxy fill",
     workingTime: "1 h", viscosity: "5,600 cP", hardness: "D92", tg: "40 C (RT cure)",
     resistivity: "1e15 ohm-cm",
-    decisionNote: "Reference: long-pot-life room cure; vacuum-degas and provide flow paths",
-    thermalCtePpmPerC: 39.4, stressFreeTemperatureC: 25, tensileStrengthMpa: 20
+    decisionNote: "Reference: room cure, then 45 C post-cure to advance cross-linking with limited thermal mismatch",
+    thermalCtePpmPerC: 39.4, stressFreeTemperatureC: 45, tensileStrengthMpa: 20
+  },
+  stycast_2850ft_cat11: {
+    label: "Stycast 2850FT BL + CAT 11", epsr: 5.36, breakdownKvPerMm: 15.0,
+    componentName: "Stycast 2850FT BL/CAT 11 epoxy fill",
+    workingTime: "4 h", viscosity: "64,000 cP", hardness: "D96", tg: "115 C",
+    resistivity: "1e15 ohm-cm",
+    decisionNote: "Default: heat cure; long work life supports vacuum degassing",
+    thermalCtePpmPerC: 31.2, stressFreeTemperatureC: 80, tensileStrengthMpa: 20
+  },
+  three_m_dp270: {
+    label: "3M DP270", epsr: 3.5, breakdownKvPerMm: 850 / 25.4, componentName: "3M DP270 epoxy fill",
+    workingTime: "60-70 min", viscosity: "Mixed not published", hardness: "D83", tg: "43 C onset / 49 C midpoint", resistivity: "4.1e14 ohm-cm",
+    decisionNote: "Clear/black; 1:1 by volume, 48 h at 23 C; permittivity at 1 kHz",
+    source: "https://multimedia.3m.com/mws/media/1235390O/dp270-technical-data-sheets.pdf"
+  },
+  master_bond_ep30: {
+    label: "Master Bond EP30", epsr: 3.2, breakdownKvPerMm: 440 / 25.4, componentName: "Master Bond EP30 epoxy fill",
+    workingTime: "Not published", viscosity: "A: 400-900; B: 280-500 cP", hardness: "D80-90", tg: "Not published", resistivity: "Not published",
+    decisionNote: "Rigid, clear; 4:1 by weight; permittivity 3.2 is an assumed generic value",
+    epsrEstimated: true,
+    epsrEstimateBasis: "a generic epoxy assumption; the public EP30 page does not publish permittivity. Replace it with supplier or measured data",
+    source: "https://www.masterbond.com/tds/ep30"
+  },
+  mg_832c: {
+    label: "MG 832C", epsr: 2.8, breakdownKvPerMm: 483 / 25.4, componentName: "MG 832C epoxy fill",
+    workingTime: "3 h 15 min", viscosity: "2,700 cP", hardness: "D84", tg: "53 C", resistivity: "6.7e12 ohm-cm",
+    decisionNote: "Rigid, clear amber; 2:1 by volume, 24 h room cure; permittivity at 1 MHz",
+    source: "https://www.mgchemicals.com/downloads/tds/tds-832c-2parts.pdf"
   },
   mg_832fx: {
     label: "MG 832FX", epsr: 3.1, breakdownKvPerMm: 12.99, componentName: "MG 832FX epoxy fill",
@@ -903,20 +973,20 @@ const conductorMaterialPresets = {
 };
 
 const PROTOTYPE_GEOMETRY = {
-  washer_id_mm: 6.6,
-  washer_od_mm: 20,
-  washer_id_mode: "ground_flat_id",
-  washer_od_mode: "bias_flat_od",
-  washer_material: "alumina",
-  washer_epsr: 10,
-  plate_gap_mm: 1.5,
-  bias_plate_thickness_mm: 1.5,
-  ground_plate_thickness_mm: 1.5,
+  washer_id_mm: 4.0,
+  washer_od_mm: 23.0,
+  washer_id_mode: "custom",
+  washer_od_mode: "custom",
+  washer_material: "epoxy",
+  washer_epsr: 3.5,
+  plate_gap_mm: 1.0,
+  bias_plate_thickness_mm: 2.0,
+  ground_plate_thickness_mm: 2.0,
   ground_matches_bias_thickness: true,
-  hv_plate_od_mm: 21.5,
-  ground_plate_inner_diameter_mm: 5.1,
+  hv_plate_od_mm: 23.0,
+  ground_plate_inner_diameter_mm: 4.0,
   tube_id_mm: 26,
-  edge_radius_mm: 0.75,
+  edge_radius_mm: 1.0,
   plate_pairs: 3,
   bias_voltage_v: 6000,
   load_current_na: 1,
@@ -926,9 +996,9 @@ const PROTOTYPE_GEOMETRY = {
   detector_capacitance_pf: 10,
   input_series_matches_stage: true,
   output_series_matches_stage: false,
-  output_series_resistance_ohm: 50,
-  epoxy_material: "stycast_2850ft_23lv",
-  epoxy_epsr: 5.36
+  output_series_resistance_ohm: 47,
+  epoxy_material: "three_m_dp270",
+  epoxy_epsr: 3.5
 };
 
 function prototypeSimulationCases() {
@@ -940,7 +1010,7 @@ function prototypeSimulationCases() {
     use_package_core_od: true,
     use_direct_stage_circuit: true,
     use_direct_stage_capacitance: false,
-    melf_stage_resistance_mohm: 12,
+    melf_stage_resistance_mohm: 10,
     melf_substrate_epsr: 9.8,
     melf_metal_fill_factor: 0.5
   };
@@ -1009,6 +1079,9 @@ const THERMAL_ANNEALED_COPPER_SENSITIVITY = {
 };
 
 function thermalInterfaceEstimate(label, substrateCtePpmPerC, radiusMm, p, restraint = null) {
+  if (EpoxyCure.materials[p.epoxy_material]) {
+    return EpoxyCure.estimate(p.epoxy_material, substrateCtePpmPerC, radiusMm, label, p, restraint ?? p.thermal_restraint_factor);
+  }
   const screen = thermalScreenFor(p);
   const effectiveRestraint = restraint ?? p.thermal_restraint_factor;
   const temperatureDropC = Math.max(0, screen.stressFreeTemperatureC - p.thermal_min_temperature_c);
@@ -1039,7 +1112,7 @@ function thermalStressEstimate(p = params, restraint = null) {
     interfaces.push(thermalInterfaceEstimate("Epoxy to alumina washer", THERMAL_SCREEN.aluminaCtePpmPerC, p.washer_od_mm / 2, p, restraint));
   }
   const coreCtePpmPerC = usesMelfCoreModel(p) ? THERMAL_SCREEN.aluminaCtePpmPerC : 10.0;
-  const coreLabel = usesMelfCoreModel(p) ? "alumina MELF core" : "ferrite core";
+  const coreLabel = usesMelfCoreModel(p) ? "MELF ceramic-body proxy (coating unknown)" : "ferrite core";
   interfaces.push(thermalInterfaceEstimate(`Epoxy to ${coreLabel}`, coreCtePpmPerC, p.core_od_mm / 2, p, restraint));
   if (Number.isFinite(plate?.ctePpmPerC)) {
     interfaces.push(thermalInterfaceEstimate(`Epoxy to ${plate.label} plate`, plate.ctePpmPerC, p.hv_plate_od_mm / 2, p, restraint));
@@ -1057,19 +1130,28 @@ function formatTemperatureC(value) {
 }
 
 function updateThermalReadouts() {
+  EpoxyCure.render(params, (schedule) => {
+    params.epoxy_cure_schedule = schedule;
+    updateThermalReadouts();
+    drawSlideGraphics();
+  });
   const estimate = thermalStressEstimate(params);
   const halfRestraint = thermalStressEstimate(params, 0.5);
   document.getElementById("thermalControllingInterface").textContent = translateText(estimate.label);
-  document.getElementById("thermalDeltaCte").textContent = `${estimate.deltaCtePpmPerC.toFixed(1)} ppm/°C`;
-  document.getElementById("thermalRadialMismatch").textContent = `${estimate.radialMismatchUm.toFixed(1)} µm`;
-  document.getElementById("thermalStress").textContent = `${estimate.stressMpa.toFixed(1)} MPa`;
+  document.getElementById("thermalDeltaCte").textContent = Number.isFinite(estimate.deltaCtePpmPerC) ? `${estimate.deltaCtePpmPerC.toFixed(1)} ppm/°C (below Tg)` : "Unavailable";
+  document.getElementById("thermalRadialMismatch").textContent = Number.isFinite(estimate.radialMismatchUm) ? `${estimate.radialMismatchUm.toFixed(1)} µm` : "Unavailable";
+  document.getElementById("thermalStress").textContent = Number.isFinite(estimate.stressMpa) ? `${estimate.stressMpa.toFixed(1)} MPa` : "Unavailable";
   document.getElementById("thermalStrengthMargin").textContent = Number.isFinite(estimate.strengthMargin) ? `${estimate.strengthMargin.toFixed(2)}×` : "--";
   document.getElementById("thermalFailureOnset").innerHTML = formatTemperatureC(estimate.failureOnsetC);
   document.getElementById("thermalHalfRestraintOnset").innerHTML = formatTemperatureC(halfRestraint.failureOnsetC);
   const status = document.getElementById("thermalStatus");
-  if (!["mg_9510", "stycast_2850ft_23lv"].includes(params.epoxy_material)) {
+  if (!["mg_9510", "stycast_2850ft_cat11", "stycast_2850ft_23lv"].includes(params.epoxy_material)) {
     status.classList.remove("risk", "pass");
-    status.textContent = translateText("The electrical preset is active, but this material does not yet have a thermal FEA preset.");
+    status.textContent = EpoxyCure.materials[params.epoxy_material]
+      ? (Number.isFinite(estimate.stressMpa)
+        ? "Cooldown calculated from the selected cure schedule using piecewise CTE and assumed constant modulus. Bond shear is not a tensile failure limit. DP270 also supports comparative bonded thermal FEA; EP30 and 832C do not yet have FEA presets."
+        : "Base EP30 CTE is unavailable from public manufacturer data; thermal stress is not calculated. See cure and bond data below.")
+      : translateText("The electrical preset is active, but this material does not yet have a thermal FEA preset.");
     updateThermalFeaReadouts();
     return;
   }
@@ -1077,7 +1159,7 @@ function updateThermalReadouts() {
   status.classList.toggle("risk", atRisk);
   status.classList.toggle("pass", !atRisk);
   status.textContent = atRisk
-    ? translateTemplate("Estimated stress exceeds the 20 MPa cured tensile strength at {temperature} °C.", {
+    ? translateTemplate("Estimated stress exceeds the provisional 20 MPa bulk tensile proxy at {temperature} °C.", {
         temperature: params.thermal_min_temperature_c.toFixed(0)
       })
     : translateTemplate("Estimated strength margin remains above 1 at {temperature} °C; bonded-coupon qualification is still required.", {
@@ -1088,7 +1170,7 @@ function updateThermalReadouts() {
 
 function thermalFeaKey(p = params) {
   const simulationParameters = backendParameters(p);
-  delete simulationParameters.additional_ground_capacitance_pf;
+  removeThermalIndependentParameters(simulationParameters);
   return JSON.stringify(simulationParameters);
 }
 
@@ -1167,8 +1249,8 @@ function updateThermalFeaReadouts() {
     const overStrength = p99 >= thermalScreenFor(params).epoxyTensileStrengthMpa;
     status.classList.add(overStrength ? "risk" : "pass");
     status.textContent = overStrength
-      ? translateText("FEA epoxy P99 exceeds the published cured tensile strength; the raw corner peak is diagnostic only.")
-      : translateText("FEA epoxy P99 remains below the published cured tensile strength; perfect bonding and linear elasticity are assumed.");
+      ? translateText("FEA epoxy P99 exceeds the provisional bulk tensile proxy; the raw corner peak is diagnostic only.")
+      : translateText("FEA epoxy P99 remains below the provisional bulk tensile proxy; perfect bonding and linear elasticity are assumed.");
     return;
   }
   status.textContent = thermalFeaCache
@@ -1253,9 +1335,10 @@ function drawThermalFeaViewer(canvas = document.getElementById("thermalFeaCanvas
     return;
   }
 
-  const m = canvasMetrics(canvas, params, { reservedLeftPx: 185 });
+  const modelParams = { ...params, ...(result.parameters || {}) };
+  const m = canvasMetrics(canvas, modelParams, { reservedLeftPx: 185 });
   const drawOrder = ["epoxy", "washer", "ferrite", "ground", "hv"];
-  const components = componentProfiles(params);
+  const components = componentProfiles(modelParams);
   for (const material of drawOrder) {
     for (const component of components) {
       if (component.material !== material) continue;
@@ -1267,7 +1350,7 @@ function drawThermalFeaViewer(canvas = document.getElementById("thermalFeaCanvas
     }
   }
 
-  const fullLength = geometryBounds(params).length;
+  const fullLength = geometryBounds(modelParams).length;
   const scaleMax = Number(field.display_scale_max_mpa)
     || Number(result.epoxy_principal_tensile_stress_mpa?.p99)
     || 1;
@@ -1327,7 +1410,7 @@ function drawThermalFeaViewer(canvas = document.getElementById("thermalFeaCanvas
 
 async function solveThermalFea() {
   const button = document.getElementById("solveThermalFea");
-  if (!["mg_9510", "stycast_2850ft_23lv"].includes(params.epoxy_material)) {
+  if (!["mg_9510", "stycast_2850ft_cat11", "stycast_2850ft_23lv", "three_m_dp270"].includes(params.epoxy_material)) {
     thermalFeaCache = null;
     thermalFeaError = "This epoxy does not yet have a thermal FEA preset. Qualify and add its modulus, CTE, stress-free temperature, and strength data before solving.";
     updateThermalFeaReadouts();
@@ -1369,6 +1452,13 @@ async function solveThermalFea() {
 function fullWaveKey(p = params) {
   const simulationParameters = backendParameters(p);
   delete simulationParameters.additional_ground_capacitance_pf;
+  removePostProcessingOnlyParameters(simulationParameters);
+  delete simulationParameters.bias_source_resistance_mohm;
+  delete simulationParameters.bias_source_capacitance_nf;
+  delete simulationParameters.bias_source_divider_mohm;
+  delete simulationParameters.source_cable_length_m;
+  delete simulationParameters.source_cable_impedance_ohm;
+  delete simulationParameters.source_cable_velocity_factor;
   return JSON.stringify(simulationParameters);
 }
 
@@ -1426,7 +1516,7 @@ function fullWaveRuntimeEstimate(p = params) {
     nominalSeconds,
     lowSeconds: nominalSeconds * 0.6,
     highSeconds: nominalSeconds * 3,
-    basis: "five plates, 31.5 mm, 2 cells/mm on the project Pi"
+    basis: "five plates, 32 mm, 2 cells/mm on the project Pi"
   };
 }
 
@@ -1872,6 +1962,18 @@ function setModelStatus(text) {
   document.getElementById("modelStatus").textContent = translateText(text);
 }
 
+function refreshAfterParameterChange({ redrawGeometry = true } = {}) {
+  if (redrawGeometry) {
+    drawCadModel();
+    drawGeometry();
+  }
+  if (lastResult?.parameterKey === comparableResultParameters(params)) {
+    drawSolvedResult(lastResult);
+  } else {
+    clearField();
+  }
+}
+
 function clientId() {
   const key = "discoidal_capacitor_bias_filter_client_id";
   const legacyKey = "shv_bias_filter_client_id";
@@ -1896,13 +1998,138 @@ function backendParameters(p) {
   backendParams.bias_edge_radius_mm = edgeRadiusMm(p, "hv");
   backendParams.ground_edge_radius_mm = edgeRadiusMm(p, "ground");
   delete backendParams.field_solver;
+  delete backendParams.washer_id_matches_ground;
+  delete backendParams.washer_od_matches_bias;
   return backendParams;
 }
 
 function comparableResultParameters(p) {
   const simulationParameters = backendParameters(p);
+  simulationParameters.electrostatic_core_epsr = coreCapacitanceEpsr(p);
   delete simulationParameters.additional_ground_capacitance_pf;
+  removeElectrostaticIndependentParameters(simulationParameters);
+  if (simulationParameters.use_repeating_cell_approximation && simulationParameters.plate_pairs >= 3) {
+    simulationParameters.plate_pairs = "end-and-interior-classes";
+  }
   return JSON.stringify(simulationParameters);
+}
+
+function removePostProcessingOnlyParameters(simulationParameters) {
+  // Trapezoidal shaping is applied after the electrical transfer function is
+  // known. It changes the noise integration, not the field or capacitance FEA.
+  delete simulationParameters.noise_trap_rise_us;
+  delete simulationParameters.noise_trap_flat_us;
+  delete simulationParameters.noise_apply_shaping;
+  delete simulationParameters.noise_pz_enabled;
+  delete simulationParameters.noise_pz_decay_us;
+}
+
+function removeElectrostaticIndependentParameters(simulationParameters) {
+  for (const key of Object.keys(simulationParameters)) {
+    if (key.startsWith("noise_") || key.startsWith("thermal_") || key.startsWith("full_wave_")) {
+      delete simulationParameters[key];
+    }
+  }
+  for (const key of [
+    "core_volume_resistivity_log10_ohm_cm",
+    "core_volume_resistivity_ohm_cm",
+    "core_resistance_gohm",
+    "core_material",
+    "use_direct_stage_circuit",
+    "melf_stage_resistance_mohm",
+    "melf_stage_resistance_log10_ohm",
+    "input_series_resistance_mohm",
+    "output_series_resistance_ohm",
+    "input_series_matches_stage",
+    "output_series_matches_stage",
+    "bias_source_resistance_mohm",
+    "bias_source_capacitance_nf",
+    "bias_source_divider_mohm",
+    "source_cable_length_m",
+    "source_cable_impedance_ohm",
+    "source_cable_velocity_factor",
+    "load_current_na",
+    "load_cable_length_m",
+    "load_cable_impedance_ohm",
+    "load_cable_velocity_factor",
+    "detector_capacitance_pf",
+    "rf_compare_frequency_log10_mhz",
+    "washer_material",
+    "epoxy_material",
+    "plate_material",
+    "plate_conductivity_log10_s_per_m",
+    "plate_relative_permeability",
+    "tube_material",
+    "tube_conductivity_log10_s_per_m",
+    "tube_relative_permeability"
+  ]) {
+    delete simulationParameters[key];
+  }
+}
+
+function removeThermalIndependentParameters(simulationParameters) {
+  for (const key of Object.keys(simulationParameters)) {
+    if (key.startsWith("noise_") || key.startsWith("full_wave_")) delete simulationParameters[key];
+  }
+  for (const key of [
+    "bias_voltage_v",
+    "core_volume_resistivity_log10_ohm_cm",
+    "core_volume_resistivity_ohm_cm",
+    "core_resistance_gohm",
+    "use_direct_stage_circuit",
+    "use_direct_stage_capacitance",
+    "melf_stage_resistance_mohm",
+    "melf_stage_resistance_log10_ohm",
+    "melf_stage_parasitic_pf",
+    "melf_substrate_epsr",
+    "melf_metal_fill_factor",
+    "ferrite_conductor_fill_factor",
+    "input_series_resistance_mohm",
+    "output_series_resistance_ohm",
+    "input_series_matches_stage",
+    "output_series_matches_stage",
+    "bias_source_resistance_mohm",
+    "bias_source_capacitance_nf",
+    "bias_source_divider_mohm",
+    "source_cable_length_m",
+    "source_cable_impedance_ohm",
+    "source_cable_velocity_factor",
+    "load_current_na",
+    "load_cable_length_m",
+    "load_cable_impedance_ohm",
+    "load_cable_velocity_factor",
+    "detector_capacitance_pf",
+    "additional_ground_capacitance_pf",
+    "ferrite_epsr",
+    "washer_epsr",
+    "epoxy_epsr",
+    "rf_compare_frequency_log10_mhz",
+    "plate_conductivity_log10_s_per_m",
+    "plate_relative_permeability",
+    "tube_conductivity_log10_s_per_m",
+    "tube_relative_permeability",
+    "grid_r_count",
+    "grid_z_count",
+    "solver_iterations",
+    "solver_tolerance_v",
+    "mesh_edge_radius_ratio"
+  ]) {
+    delete simulationParameters[key];
+  }
+}
+
+function spiceCircuitParameters(p) {
+  const circuitParameters = backendParameters(p);
+  for (const key of Object.keys(circuitParameters)) {
+    if (key.startsWith("noise_") || key.startsWith("thermal_") || key.startsWith("full_wave_")) {
+      delete circuitParameters[key];
+    }
+  }
+  delete circuitParameters.rf_compare_frequency_log10_mhz;
+  delete circuitParameters.core_volume_resistivity_ohm_cm;
+  if (p.use_direct_stage_circuit) delete circuitParameters.core_resistance_gohm;
+  if (p.noise_cables) circuitParameters.noise_cables = p.noise_cables;
+  return JSON.stringify(circuitParameters);
 }
 
 function selectedFieldSolver() {
@@ -2021,6 +2248,17 @@ function applyWasherGeometry(p) {
   if (!Number.isFinite(p.washer_id_mm)) p.washer_id_mm = p.ground_plate_inner_diameter_mm;
   if (!Number.isFinite(p.washer_od_mm)) p.washer_od_mm = p.hv_plate_od_mm;
 
+  if (washerUsesEpoxy(p)) {
+    p.ground_plate_inner_diameter_mm = clamp(p.ground_plate_inner_diameter_mm, minGroundId, maxGroundId);
+    const minHvOd = Math.max(MIN_HV_PLATE_OD_MM, p.ground_plate_inner_diameter_mm + 2 * MIN_RADIAL_OVERLAP_MM);
+    const maxHvOd = p.tube_id_mm - 2 * tubeGapMin;
+    p.hv_plate_od_mm = clamp(p.hv_plate_od_mm, minHvOd, maxHvOd);
+    p.washer_id_mm = p.ground_plate_inner_diameter_mm;
+    p.washer_od_mm = p.hv_plate_od_mm;
+    applyDerivedGeometry(p);
+    return;
+  }
+
   if (p.washer_id_mode === "ground_id") {
     p.ground_plate_inner_diameter_mm = clamp(p.washer_id_mm, minGroundId, maxGroundId);
     p.washer_id_mm = p.ground_plate_inner_diameter_mm;
@@ -2118,6 +2356,13 @@ function controlValueFromInput(id, value) {
 }
 
 function updateMaterialSelectionsForControl(id) {
+  for (const key of ["source", "load"]) {
+    if (params.noise_cables?.[key] && [`${key}_cable_impedance_ohm`, `${key}_cable_velocity_factor`].includes(id)) {
+      const z = Number(params[`${key}_cable_impedance_ohm`]);
+      const v = Number(params[`${key}_cable_velocity_factor`]) * 299792458;
+      params.noise_cables[key] = {...params.noise_cables[key], preset: "custom", l_nh_m: z/v*1e9, c_pf_m: 1/(z*v)*1e12};
+    }
+  }
   if (id === "ferrite_epsr" || id === "core_volume_resistivity_log10_ohm_cm") {
     params.core_material = corePresetForElectrical(params.ferrite_epsr, params.core_volume_resistivity_log10_ohm_cm);
   }
@@ -2148,10 +2393,13 @@ function applyControlValue(id, value) {
   updateMaterialSelectionsForControl(id);
   normalizeParams();
   syncControls();
-  if (id === "additional_ground_capacitance_pf") return;
-  drawCadModel();
-  drawGeometry();
-  clearField();
+  if ([
+    "additional_ground_capacitance_pf",
+    "noise_trap_rise_us",
+    "noise_trap_flat_us",
+    "noise_pz_decay_us"
+  ].includes(id)) return;
+  refreshAfterParameterChange();
 }
 
 function decimalsFromStep(step) {
@@ -2235,9 +2483,7 @@ function rangeEditorElement() {
     closeRangeEditor();
     normalizeParams();
     syncControls();
-    drawCadModel();
-    drawGeometry();
-    clearField();
+    refreshAfterParameterChange();
   });
   editor.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -2249,9 +2495,7 @@ function rangeEditorElement() {
     closeRangeEditor();
     normalizeParams();
     syncControls();
-    drawCadModel();
-    drawGeometry();
-    clearField();
+    refreshAfterParameterChange();
   });
   return editor;
 }
@@ -2523,6 +2767,27 @@ function bundledDefaultParametersMatch(
   return true;
 }
 
+function parameterKeyDifference(leftKey, rightKey) {
+  try {
+    const left = JSON.parse(leftKey);
+    const right = JSON.parse(rightKey);
+    const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+    for (const key of keys) {
+      if (typeof left[key] === "number" && typeof right[key] === "number") {
+        if (Math.abs(left[key] - right[key]) <= 1e-9 * Math.max(1, Math.abs(left[key]), Math.abs(right[key]))) continue;
+      } else if (JSON.stringify(left[key]) === JSON.stringify(right[key])) {
+        continue;
+      }
+      {
+        return `${key}: ${JSON.stringify(left[key])} != ${JSON.stringify(right[key])}`;
+      }
+    }
+  } catch {
+    return "parameter key differs";
+  }
+  return null;
+}
+
 function loadBundledDefaultFieldResult() {
   const bundle = window.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT;
   if (
@@ -2537,10 +2802,15 @@ function loadBundledDefaultFieldResult() {
   }
 
   const bundledParameters = settingsWithBuiltInFallback(bundle.settings);
-  if (!bundledDefaultParametersMatch(bundledParameters, params)) {
+  const bundledFieldKey = comparableResultParameters(bundledParameters);
+  const currentFieldKey = comparableResultParameters(params);
+  const fieldDifference = parameterKeyDifference(bundledFieldKey, currentFieldKey);
+  if (fieldDifference) {
+    document.documentElement.dataset.defaultFieldMismatch = fieldDifference;
     document.documentElement.dataset.defaultFieldResult = "geometry-mismatch";
     return false;
   }
+  delete document.documentElement.dataset.defaultFieldMismatch;
 
   try {
     const result = backendResultFromPayload(bundle.result);
@@ -2548,13 +2818,14 @@ function loadBundledDefaultFieldResult() {
     captureResultParameters(result, params);
     lastResult = result;
     const spiceKey = spiceLadderRequestKey();
-    if (spiceKey && Array.isArray(bundle.spiceLadder?.samples) && bundle.spiceLadder.samples.length) {
+    if (spiceKey && !parameterKeyDifference(spiceCircuitParameters(bundledParameters), spiceCircuitParameters(params)) && Array.isArray(bundle.spiceLadder?.samples) && bundle.spiceLadder.samples.length) {
       spiceLadderCache = { key: spiceKey, payload: bundle.spiceLadder };
       spiceLadderPendingKey = null;
       spiceLadderDisabled = false;
       document.documentElement.dataset.defaultSpiceResult = "loaded";
     } else {
       document.documentElement.dataset.defaultSpiceResult = "unavailable";
+      document.documentElement.dataset.defaultSpiceMismatch = parameterKeyDifference(spiceCircuitParameters(bundledParameters), spiceCircuitParameters(params)) || "missing samples";
     }
     document.documentElement.dataset.defaultFieldResult = "fenicsx-loaded";
     return true;
@@ -2563,6 +2834,35 @@ function loadBundledDefaultFieldResult() {
     console.warn(`Bundled default FEniCSx result was not loaded: ${error.message}`);
     return false;
   }
+}
+
+function loadBundledDefaultThermalResult() {
+  const bundle = window.DISCOIDAL_BUNDLED_DEFAULT_THERMAL_RESULT;
+  if (
+    !bundle
+    || bundle.format !== "discoidal-capacitor-bias-filter-bundled-thermal"
+    || bundle.version !== 1
+    || !bundle.settings
+    || !bundle.result
+  ) {
+    document.documentElement.dataset.defaultThermalResult = "unavailable";
+    return false;
+  }
+
+  const bundledParameters = settingsWithBuiltInFallback(bundle.settings);
+  const bundledThermalKey = thermalFeaKey(bundledParameters);
+  const currentThermalKey = thermalFeaKey(params);
+  const thermalDifference = parameterKeyDifference(bundledThermalKey, currentThermalKey);
+  if (thermalDifference) {
+    document.documentElement.dataset.defaultThermalMismatch = thermalDifference;
+    document.documentElement.dataset.defaultThermalResult = "geometry-mismatch";
+    return false;
+  }
+  delete document.documentElement.dataset.defaultThermalMismatch;
+
+  thermalFeaCache = { key: thermalFeaKey(params), result: bundle.result };
+  document.documentElement.dataset.defaultThermalResult = "fenicsx-loaded";
+  return true;
 }
 
 function updateInstallationDefaultLabels() {
@@ -2970,9 +3270,122 @@ function normalizedCapacitancePayload(payload) {
   };
 }
 
+function averageFinite(values, fallback = 0) {
+  const finite = values.map(Number).filter(Number.isFinite);
+  return finite.length ? finite.reduce((sum, value) => sum + value, 0) / finite.length : fallback;
+}
+
+function maxwellMatrixFromGroundAndMutual(groundPf, mutualPf) {
+  return groundPf.map((ground, i) => mutualPf[i].map((mutual, j) => (
+    i === j ? ground + mutualPf[i].reduce((sum, value) => sum + value, 0) : -mutual
+  )));
+}
+
+function repeatedNetworkForPlateCount(network, targetCount, p = params) {
+  const sourceGround = network?.node_ground_pf ?? network?.nodeGroundPf;
+  const sourceMutual = network?.mutual_pf_matrix ?? network?.mutualPfMatrix;
+  const sourceCount = Number(network?.node_count ?? sourceGround?.length);
+  if (!Array.isArray(sourceGround) || !Array.isArray(sourceMutual) || sourceCount === targetCount) return network;
+  if (!p.use_repeating_cell_approximation || sourceCount < 3 || targetCount < 3) return null;
+
+  const endGround = averageFinite([sourceGround[0], sourceGround[sourceCount - 1]]);
+  const interiorGround = averageFinite(sourceGround.slice(1, -1), endGround);
+  const groundPf = Array.from({ length: targetCount }, (_, index) => (
+    index === 0 || index === targetCount - 1 ? endGround : interiorGround
+  ));
+  const mutualByDistance = Array(sourceCount).fill(0);
+  for (let distance = 1; distance < sourceCount; distance += 1) {
+    mutualByDistance[distance] = averageFinite(
+      Array.from({ length: sourceCount - distance }, (_, index) => sourceMutual[index]?.[index + distance]),
+      0
+    );
+  }
+  const mutualPf = Array.from({ length: targetCount }, (_, i) => (
+    Array.from({ length: targetCount }, (_, j) => (
+      i === j ? 0 : Math.max(0, mutualByDistance[Math.abs(i - j)] || 0)
+    ))
+  ));
+  const maxwellPf = maxwellMatrixFromGroundAndMutual(groundPf, mutualPf);
+
+  const sourceElectricalGround = network.electrical_node_ground_pf ?? network.electricalNodeGroundPf;
+  const sourceElectricalMutual = network.electrical_mutual_pf_matrix ?? network.electricalMutualPfMatrix;
+  const electricalCount = targetCount + 2;
+  const terminalGround = Array.isArray(sourceElectricalGround)
+    ? averageFinite([sourceElectricalGround[0], sourceElectricalGround[sourceElectricalGround.length - 1]])
+    : 0;
+  const electricalGroundPf = [terminalGround, ...groundPf, terminalGround];
+  const electricalMutualPf = Array.from({ length: electricalCount }, () => Array(electricalCount).fill(0));
+  for (let i = 0; i < targetCount; i += 1) {
+    for (let j = 0; j < targetCount; j += 1) electricalMutualPf[i + 1][j + 1] = mutualPf[i][j];
+  }
+  if (Array.isArray(sourceElectricalMutual)) {
+    const sourceLast = sourceCount + 1;
+    // Only copy terminal-to-bias samples; the next source column is the
+    // opposite terminal, not another repeated bias plate.
+    for (let distance = 0; distance < Math.min(targetCount, sourceCount); distance += 1) {
+      const coupling = Math.max(0, averageFinite([
+        sourceElectricalMutual[0]?.[distance + 1],
+        sourceElectricalMutual[sourceLast]?.[sourceLast - distance - 1]
+      ], 0));
+      electricalMutualPf[0][distance + 1] = coupling;
+      electricalMutualPf[distance + 1][0] = coupling;
+      electricalMutualPf[electricalCount - 1][targetCount - distance] = coupling;
+      electricalMutualPf[targetCount - distance][electricalCount - 1] = coupling;
+    }
+    // End-to-end coupling from the solved length is not transferable.
+    // Unmeasured longer-range couplings are omitted in this approximation.
+    const terminalCoupling = 0;
+    electricalMutualPf[0][electricalCount - 1] = terminalCoupling;
+    electricalMutualPf[electricalCount - 1][0] = terminalCoupling;
+  }
+  const electricalMaxwellPf = maxwellMatrixFromGroundAndMutual(electricalGroundPf, electricalMutualPf);
+  const adjacentPf = Array.from({ length: targetCount - 1 }, (_, index) => mutualPf[index][index + 1]);
+  const adapted = structuredClone(network);
+  Object.assign(adapted, {
+    node_count: targetCount,
+    node_names: Array.from({ length: targetCount }, (_, index) => `hv_plate_${index + 1}`),
+    node_ground_pf: groundPf,
+    raw_node_ground_pf: groundPf.slice(),
+    mutual_pf_matrix: mutualPf,
+    raw_mutual_pf_matrix: mutualPf.map((row) => row.slice()),
+    maxwell_pf_matrix: maxwellPf,
+    raw_maxwell_pf_matrix: maxwellPf.map((row) => row.slice()),
+    single_node_equivalent_pf: maxwellPf.map((row, index) => row[index]),
+    adjacent_mutual_pf: adjacentPf,
+    average_adjacent_mutual_pf: averageFinite(adjacentPf, 0),
+    all_bias_equivalent_pf: groundPf.reduce((sum, value) => sum + value, 0),
+    total_ground_pf: groundPf.reduce((sum, value) => sum + value, 0),
+    electrical_node_count: electricalCount,
+    electrical_node_names: ["input_terminal", ...Array.from({ length: targetCount }, (_, index) => `hv_plate_${index + 1}`), "output_terminal"],
+    electrical_node_ground_pf: electricalGroundPf,
+    electrical_mutual_pf_matrix: electricalMutualPf,
+    electrical_maxwell_pf_matrix: electricalMaxwellPf,
+    total_electrical_ground_pf: electricalGroundPf.reduce((sum, value) => sum + value, 0),
+    repeating_interior_approximation: true,
+    exact_full_stack: false,
+    reconstruction_note: "End/interior Cg and measured coupling-distance classes reused; unmeasured long-range and length-specific terminal-to-terminal coupling omitted.",
+    reconstructed_from_plate_count: sourceCount,
+    reconstructed_for_plate_count: targetCount,
+    symmetry_strategy: "browser-end-and-interior-class-reconstruction"
+  });
+  return adapted;
+}
+
 function solvedCapacitanceForCurrentDesign() {
   if (lastResult?.parameterKey !== comparableResultParameters(params)) return null;
-  return normalizedCapacitancePayload(lastResult.capacitance);
+  const solved = normalizedCapacitancePayload(lastResult.capacitance);
+  if (!solved) return null;
+  const network = repeatedNetworkForPlateCount(solved.network, biasPlateCount(params));
+  if (!network) return null;
+  const totalPf = Number(network.total_ground_pf ?? network.totalGroundPf ?? solved.totalPf);
+  const parasiticPf = Number(network.average_adjacent_mutual_pf ?? network.averageAdjacentMutualPf ?? solved.parasiticPf);
+  return {
+    ...solved,
+    totalPf,
+    parasiticPf,
+    network,
+    reconstructedForPlateCount: network.reconstructed_for_plate_count ?? null
+  };
 }
 
 function capacitanceForAdmittance(circuit, p) {
@@ -3527,6 +3940,12 @@ function setupControls() {
   });
 
   const fieldSolver = document.getElementById("field_solver");
+  for (const id of ["noise_apply_shaping", "noise_pz_enabled"]) {
+    document.getElementById(id).addEventListener("change", (event) => {
+      params[id] = event.target.checked;
+      syncControls();
+    });
+  }
   fieldSolver.value = params.field_solver;
   fieldSolver.addEventListener("change", () => {
     params.field_solver = fieldSolver.value;
@@ -3548,9 +3967,7 @@ function setupControls() {
     if (params.use_direct_stage_circuit) applyDirectStageDefaultsForMaterial(params);
     normalizeParams();
     syncControls();
-    drawCadModel();
-    drawGeometry();
-    clearField();
+    refreshAfterParameterChange();
   });
 
   const directStageCapacitance = document.getElementById("use_direct_stage_capacitance");
@@ -3587,9 +4004,7 @@ function setupControls() {
     }
     normalizeParams();
     syncControls();
-    drawCadModel();
-    drawGeometry();
-    clearField();
+    refreshAfterParameterChange();
   });
 
   const inputSeriesMatchesStage = document.getElementById("input_series_matches_stage");
@@ -3598,7 +4013,7 @@ function setupControls() {
     params.input_series_matches_stage = inputSeriesMatchesStage.checked;
     normalizeParams();
     syncControls();
-    clearField();
+    refreshAfterParameterChange({ redrawGeometry: false });
   });
 
   const outputSeriesMatchesStage = document.getElementById("output_series_matches_stage");
@@ -3607,7 +4022,7 @@ function setupControls() {
     params.output_series_matches_stage = outputSeriesMatchesStage.checked;
     normalizeParams();
     syncControls();
-    clearField();
+    refreshAfterParameterChange({ redrawGeometry: false });
   });
 
   const washerIdMode = document.getElementById("washer_id_mode");
@@ -3683,6 +4098,9 @@ function setupControls() {
   });
   document.getElementById("solveFullWave").addEventListener("click", () => {
     solveFullWave();
+  });
+  document.getElementById("solveSpice").addEventListener("click", () => {
+    runSpiceSimulation();
   });
   document.getElementById("reset").addEventListener("click", () => {
     replaceCustomControlRanges(installationDefaultControlRanges);
@@ -3815,6 +4233,10 @@ function normalizeParams() {
     "load_cable_velocity_factor",
     "detector_capacitance_pf",
     "additional_ground_capacitance_pf",
+    "noise_lab_broadband_rms_mv",
+    "noise_mains_rms_mv",
+    "noise_cryostat_broadband_rms_mv",
+    "noise_cryostat_mains_rms_mv",
     "noise_fano_factor",
     "input_series_resistance_mohm",
     "output_series_resistance_ohm",
@@ -3900,7 +4322,7 @@ function normalizeParams() {
     ferriteFillRange.max
   );
   if (!Number.isFinite(params.input_series_resistance_mohm)) params.input_series_resistance_mohm = params.input_series_matches_stage ? matchedSeriesResistanceMohm(params) : 0;
-  if (!Number.isFinite(params.output_series_resistance_ohm)) params.output_series_resistance_ohm = params.output_series_matches_stage ? matchedEndSeriesResistanceOhm(params) : 50;
+  if (!Number.isFinite(params.output_series_resistance_ohm)) params.output_series_resistance_ohm = params.output_series_matches_stage ? matchedEndSeriesResistanceOhm(params) : 47;
   params.input_series_resistance_mohm = clamp(params.input_series_resistance_mohm, inputSeriesRange.min, inputSeriesRange.max);
   params.output_series_resistance_ohm = clamp(params.output_series_resistance_ohm, outputSeriesRange.min, outputSeriesRange.max);
   params.plate_conductivity_log10_s_per_m = clamp(params.plate_conductivity_log10_s_per_m, plateSigmaRange.min, plateSigmaRange.max);
@@ -3975,6 +4397,13 @@ function syncControls() {
   document.getElementById("input_series_matches_stage").checked = params.input_series_matches_stage;
   document.getElementById("output_series_matches_stage").checked = params.output_series_matches_stage;
   document.getElementById("full_wave_verify_resonances").checked = params.full_wave_verify_resonances;
+  document.getElementById("noise_apply_shaping").checked = params.noise_apply_shaping !== false;
+  document.getElementById("noise_pz_enabled").checked = Boolean(params.noise_pz_enabled);
+  document.getElementById("noise_pz_enabled").disabled = params.noise_apply_shaping === false;
+  for (const id of ["noise_pz_decay_us", "noise_pz_decay_us_manual"]) {
+    const control = document.getElementById(id);
+    if (control) control.disabled = params.noise_apply_shaping === false || !params.noise_pz_enabled;
+  }
   document.getElementById("washer_id_mode").value = params.washer_id_mode;
   document.getElementById("washer_od_mode").value = params.washer_od_mode;
   syncDynamicRanges();
@@ -4029,14 +4458,22 @@ function syncControls() {
   const groundIdManual = document.getElementById("ground_plate_inner_diameter_mm_manual");
   const hvOdInput = document.getElementById("hv_plate_od_mm");
   const hvOdManual = document.getElementById("hv_plate_od_mm_manual");
-  if (washerIdInput) washerIdInput.disabled = false;
-  if (washerIdManual) washerIdManual.disabled = false;
-  if (washerOdInput) washerOdInput.disabled = false;
-  if (washerOdManual) washerOdManual.disabled = false;
-  if (groundIdInput) groundIdInput.disabled = params.washer_id_mode !== "custom";
-  if (groundIdManual) groundIdManual.disabled = params.washer_id_mode !== "custom";
-  if (hvOdInput) hvOdInput.disabled = params.washer_od_mode !== "custom";
-  if (hvOdManual) hvOdManual.disabled = params.washer_od_mode !== "custom";
+  const epoxyWasher = washerUsesEpoxy(params);
+  const washerIdModeInput = document.getElementById("washer_id_mode");
+  const washerOdModeInput = document.getElementById("washer_od_mode");
+  for (const id of ["washer_id_control", "washer_id_mode_control", "washer_od_control", "washer_od_mode_control"]) {
+    document.getElementById(id)?.classList.toggle("control-disabled", epoxyWasher);
+  }
+  if (washerIdInput) washerIdInput.disabled = epoxyWasher;
+  if (washerIdManual) washerIdManual.disabled = epoxyWasher;
+  if (washerOdInput) washerOdInput.disabled = epoxyWasher;
+  if (washerOdManual) washerOdManual.disabled = epoxyWasher;
+  if (washerIdModeInput) washerIdModeInput.disabled = epoxyWasher;
+  if (washerOdModeInput) washerOdModeInput.disabled = epoxyWasher;
+  if (groundIdInput) groundIdInput.disabled = !epoxyWasher && params.washer_id_mode !== "custom";
+  if (groundIdManual) groundIdManual.disabled = groundIdInput?.disabled ?? false;
+  if (hvOdInput) hvOdInput.disabled = !epoxyWasher && params.washer_od_mode !== "custom";
+  if (hvOdManual) hvOdManual.disabled = hvOdInput?.disabled ?? false;
   syncCoreCircuitModeControls();
   document.getElementById("core_resistance_gohm_out").textContent = formatResistance(totalCoreResistanceOhm(params));
   document.getElementById("core_to_ground_gap_mm_out").textContent = `${params.core_to_ground_gap_mm.toLocaleString(undefined, { maximumFractionDigits: 2 })} mm`;
@@ -4049,6 +4486,7 @@ function syncControls() {
   updateCircuitEstimates();
   updateThermalReadouts();
   updateFullWaveReadouts();
+  updateSpiceSolverPanel();
   drawSlideGraphics();
 }
 
@@ -4309,10 +4747,14 @@ function localModelFromParameters(p) {
   };
 }
 
+function geometryCacheKey(p) {
+  return `${comparableResultParameters(p)}|physical-plates=${biasPlateCount(p)}`;
+}
+
 function modelForParameters(p, result = null) {
-  const key = comparableResultParameters(p);
-  if (result?.parameterKey === key && result.model?.geometry) return result.model;
-  if (lastResult?.parameterKey === key && lastResult.model?.geometry) return lastResult.model;
+  const key = geometryCacheKey(p);
+  if (result?.parameters && geometryCacheKey(result.parameters) === key && result.model?.geometry) return result.model;
+  if (lastResult?.parameters && geometryCacheKey(lastResult.parameters) === key && lastResult.model?.geometry) return lastResult.model;
   if (backendGeometryCache?.key === key && backendGeometryCache.model?.geometry) {
     return backendGeometryCache.model;
   }
@@ -4363,7 +4805,7 @@ async function refreshBackendGeometry(p, key, requestId) {
       signal: controller.signal
     });
     const components = componentsFromGeometrySummary(payload.geometry || payload);
-    if (requestId !== backendGeometryRequestId || comparableResultParameters(params) !== key || !components) return;
+    if (requestId !== backendGeometryRequestId || geometryCacheKey(params) !== key || !components) return;
     const model = {
       source: payload.source || "axisymmetric-model",
       parameters: payload.parameters || p,
@@ -4394,7 +4836,7 @@ async function refreshBackendGeometry(p, key, requestId) {
 
 function requestBackendGeometry(canvas, p) {
   if (!canUseBackendGeometry()) return;
-  const key = comparableResultParameters(p);
+  const key = geometryCacheKey(p);
   if (backendGeometryCache?.key === key || backendGeometryPendingKey === key) return;
   backendGeometryPendingKey = key;
   const requestId = backendGeometryRequestId + 1;
@@ -5965,7 +6407,7 @@ function drawEqsSlide(canvas) {
   });
   drawWrappedLines(ctx, [
     "Solid line and points: saved FEniCSx full-stack EQS solutions.",
-    "The continuous MELF cylinder is calibrated to 12 MΩ per stage; the physical helix still requires 3D validation."
+    "The continuous MELF cylinder is calibrated to 10 MΩ per stage; the physical helix still requires 3D validation."
   ], 88, 540, 19, "#5b6670", "14px Arial", 965);
 }
 
@@ -6093,7 +6535,7 @@ function drawIntrinsicComparisonSlide(canvas, spiceOnly = false) {
     "The source is the first bias plate itself; the output is the final bias plate at infinite impedance."
   ] : [
     "Both curves remove the source resistor, output resistor, cable, detector, and load conductance.",
-    "The continuous MELF cylinder is calibrated to 12 MΩ per stage; the physical helix still requires 3D validation."
+    "The continuous MELF cylinder is calibrated to 10 MΩ per stage; the physical helix still requires 3D validation."
   ], 88, 570, 18, "#5b6670", "13px Arial", 965);
 }
 
@@ -6525,9 +6967,12 @@ function biasPlateCount(p) {
 function feaCapacitanceForCurrentDesign() {
   const solved = solvedCapacitanceForCurrentDesign();
   if (!solved || !lastResult) return null;
+  const reusedCount = solved.reconstructedForPlateCount;
   return {
     ...solved,
-    solverLabel: resultSolverLabel(lastResult)
+    solverLabel: reusedCount
+      ? `${resultSolverLabel(lastResult)}; end/interior classes reused for ${reusedCount} plates`
+      : resultSolverLabel(lastResult)
   };
 }
 
@@ -6677,7 +7122,7 @@ function drawLogPlotFrame(ctx, x, y, width, height, fMin, fMax, yMin, yMax, opti
     ctx.stroke();
     ctx.fillStyle = "#5b6670";
     ctx.font = "13px Arial";
-    ctx.fillText(formatFrequency(frequency), xx - 22, y + height + 22);
+    ctx.fillText(options.xFormatter ? options.xFormatter(frequency) : formatFrequency(frequency), xx - 22, y + height + 22);
   }
 
   const yStart = Math.ceil(Math.log10(yMin));
@@ -6705,8 +7150,52 @@ function drawLogPlotFrame(ctx, x, y, width, height, fMin, fMax, yMin, yMax, opti
   return { xFor, yFor, left: x, right: x + width, top: y, bottom: y + height };
 }
 
+function drawLogXLinearYPlotFrame(ctx, x, y, width, height, xMin, xMax, yMin, yMax, options = {}) {
+  const xFor = (value) => x + ((Math.log10(value) - Math.log10(xMin)) / (Math.log10(xMax) - Math.log10(xMin))) * width;
+  const yFor = (value) => y + height - ((value - yMin) / Math.max(yMax - yMin, 1e-300)) * height;
+  ctx.save();
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = "#c9c1b0";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, width, height);
+  for (let decade = Math.ceil(Math.log10(xMin)); decade <= Math.floor(Math.log10(xMax)); decade += 1) {
+    const value = 10 ** decade;
+    const xx = xFor(value);
+    ctx.strokeStyle = "rgba(201, 193, 176, 0.55)";
+    ctx.beginPath();
+    ctx.moveTo(xx, y);
+    ctx.lineTo(xx, y + height);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.fillText(options.xFormatter ? options.xFormatter(value) : String(value), xx - 20, y + height + 22);
+  }
+  for (let index = 0; index <= 5; index += 1) {
+    const value = yMin + index / 5 * (yMax - yMin);
+    const yy = yFor(value);
+    ctx.strokeStyle = "rgba(201, 193, 176, 0.55)";
+    ctx.beginPath();
+    ctx.moveTo(x, yy);
+    ctx.lineTo(x + width, yy);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText(options.yFormatter ? options.yFormatter(value) : value.toPrecision(3), x - 10, yy + 4);
+  }
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#17202a";
+  ctx.font = "19px Arial";
+  if (options.title) ctx.fillText(options.title, x, y - 18);
+  ctx.restore();
+  return { xFor, yFor, left: x, right: x + width, top: y, bottom: y + height };
+}
+
 function drawLogCurve(ctx, samples, xFor, yFor, valueKey, color, options = {}) {
-  const valid = samples.filter((sample) => Number.isFinite(sample.frequencyHz ?? sample.frequency) && Number.isFinite(sample[valueKey]) && sample[valueKey] > 0);
+  const valid = samples.filter((sample) => Number.isFinite(sample.frequencyHz ?? sample.frequency)
+    && Number.isFinite(sample[valueKey])
+    && (options.allowNonPositive || sample[valueKey] > 0));
   if (!valid.length) return;
   ctx.save();
   ctx.strokeStyle = color;
@@ -7650,7 +8139,7 @@ function loadedLadderSamples(circuit, p, fMin, fMax, steps = 150) {
 
 function drawDbFrequencyFrame(ctx, x, y, width, height, fMin, fMax, maxDb, title) {
   const xFor = (frequency) => x + ((Math.log10(frequency) - Math.log10(fMin)) / (Math.log10(fMax) - Math.log10(fMin))) * width;
-  const yFor = (db) => y + height - (Math.max(0, db) / maxDb) * height;
+  const yFor = (db) => y + height - (Math.min(maxDb, Math.max(0, db)) / maxDb) * height;
   ctx.save();
   ctx.fillStyle = "#fffdf8";
   ctx.fillRect(x, y, width, height);
@@ -7783,12 +8272,71 @@ function spiceLadderRequestKey() {
   const mutual = network.mutual_pf_matrix ?? network.mutualPfMatrix ?? [];
   const electricalGround = network.electrical_node_ground_pf ?? network.electricalNodeGroundPf ?? [];
   const electricalMutual = network.electrical_mutual_pf_matrix ?? network.electricalMutualPfMatrix ?? [];
-  return `${comparableResultParameters(params)}|addedCg=${additionalGroundCapacitancePf(params)}|${JSON.stringify([nodeGround, mutual, electricalGround, electricalMutual])}`;
+  return `${spiceCircuitParameters(params)}|addedCg=${additionalGroundCapacitancePf(params)}|${JSON.stringify([nodeGround, mutual, electricalGround, electricalMutual])}`;
+}
+
+function cachedSpiceLadderResultForCurrentDesign() {
+  const key = spiceLadderRequestKey();
+  return key && spiceLadderCache?.key === key ? spiceLadderCache.payload : null;
+}
+
+function updateSpiceSolverPanel() {
+  const button = document.getElementById("solveSpice");
+  const status = document.getElementById("spiceSolveStatus");
+  if (!button || !status) return;
+  const network = feaCapacitanceNetworkForCurrentDesign();
+  const key = spiceLadderRequestKey();
+  const pending = Boolean(key && spiceLadderPendingKey === key);
+  const payload = cachedSpiceLadderResultForCurrentDesign();
+  const summary50 = payload?.summary?.at50Hz || {};
+  const count = biasPlateCount(params);
+  const sourceCount = network?.reconstructed_from_plate_count || Number(lastResult?.parameters?.plate_pairs);
+  const reuse = network && sourceCount !== count;
+  const set = (id, value) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  };
+
+  set("spiceTopology", `${count} bias plates / ${Math.max(0, count - 1)} interplate resistors`);
+  set("spiceCapacitanceReuse", !network ? "No matching FEA" : reuse
+    ? `${sourceCount}-plate FEA → ${count} plates (end/interior approximation)`
+    : "Matching FEA Cg / Cpar retained");
+  button.disabled = !network || pending;
+  button.textContent = pending ? translateText("Running SPICE...") : translateText("Run SPICE simulation");
+  set("spiceBackend", payload ? shortSpicePackageLabel(payload.spicePackage) : "Not run");
+  set("spiceFrequencyCount", payload?.samples?.length ? `${payload.samples.length}` : "--");
+  set("spiceRegulator50Hz", Number.isFinite(summary50.regulatorInputTlineAttenuationDb)
+    ? formatAttenuationDb(summary50.regulatorInputTlineAttenuationDb) : "--");
+  set("spiceFilterInput50Hz", Number.isFinite(summary50.fullTlineAttenuationDb)
+    ? formatAttenuationDb(summary50.fullTlineAttenuationDb) : "--");
+
+  if (!network) {
+    status.textContent = "Plate geometry has no matching capacitance network. Run the field FEA first.";
+  } else if (pending) {
+    status.textContent = "Running the complete circuit with the current FEA capacitance network...";
+  } else if (payload) {
+    status.textContent = `Current: ${count} bias plates and ${Math.max(0, count - 1)} interplate resistors, plus the configured input/output resistors. ${reuse ? "Reused FEA capacitance classes; no new field solve." : "Slides 3 and 5 use this SPICE result."}`;
+  } else if (spiceLadderError) {
+    status.textContent = `SPICE simulation failed: ${spiceLadderError}`;
+  } else {
+    status.textContent = "Matching FEA Cg and Cpar are retained. Run SPICE to update performance; no new electrostatic solve is needed.";
+  }
+  syncNoiseCableEditor();
+}
+
+function refreshSpiceDependentViews() {
+  fanoNoiseBudgetCache = null;
+  updateSpiceSolverPanel();
+  updateNoiseReadouts();
+  drawSpiceLadderSlide(document.getElementById("slideSpiceLadderCanvas"));
+  drawFanoNoiseSlide(document.getElementById("slideFanoNoiseCanvas"));
 }
 
 async function requestSpiceLadderResult(key, capacitanceNetwork) {
   const requestId = spiceLadderRequestId + 1;
   spiceLadderRequestId = requestId;
+  spiceLadderError = null;
+  updateSpiceSolverPanel();
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), SPICE_CONNECT_TIMEOUT_MS);
   try {
@@ -7804,12 +8352,14 @@ async function requestSpiceLadderResult(key, capacitanceNetwork) {
     if (requestId !== spiceLadderRequestId || spiceLadderRequestKey() !== key) return;
     spiceLadderCache = { key, payload };
     spiceLadderPendingKey = null;
-    drawSpiceLadderSlide(document.getElementById("slideSpiceLadderCanvas"));
+    spiceLadderDisabled = false;
+    refreshSpiceDependentViews();
   } catch (error) {
     if (requestId === spiceLadderRequestId) {
       spiceLadderPendingKey = null;
       spiceLadderDisabled = true;
-      drawSpiceLadderSlide(document.getElementById("slideSpiceLadderCanvas"));
+      spiceLadderError = error?.name === "AbortError" ? "backend request timed out" : error.message;
+      refreshSpiceDependentViews();
     }
   } finally {
     window.clearTimeout(timeout);
@@ -7829,12 +8379,48 @@ function spiceLadderResultForCurrentDesign() {
   return null;
 }
 
+function runSpiceSimulation() {
+  const capacitanceNetwork = feaCapacitanceNetworkForCurrentDesign();
+  const key = spiceLadderRequestKey();
+  if (!capacitanceNetwork || !key) {
+    updateSpiceSolverPanel();
+    return;
+  }
+  spiceLadderDisabled = false;
+  spiceLadderError = null;
+  spiceLadderCache = null;
+  fanoNoiseBudgetCache = null;
+  spiceLadderPendingKey = key;
+  requestSpiceLadderResult(key, capacitanceNetwork);
+}
+
 function backendSpiceCurve(samples, key) {
   return (samples || [])
     .map((sample) => ({
       frequency: sample.frequencyHz,
       attenuationDb: sample[key]?.attenuationDb
     }))
+    .filter((sample) => Number.isFinite(sample.frequency) && Number.isFinite(sample.attenuationDb));
+}
+
+function detectorEquivalentSourceCurve(transfer, payload, p = params) {
+  const calibration = trapezoidSignalCalibration(payload?.lmfeSignalStep, p);
+  const detectorCapF = Math.max(1e-15, detectorCapacitancePf(p) * 1e-12);
+  if (!transfer?.samples?.length || !calibration?.peakV || !(calibration.referenceChargeC > 0)) return [];
+  const detectorVoltageForReferenceCharge = calibration.referenceChargeC / detectorCapF;
+  const shapedSignalGainVPerV = calibration.peakV / detectorVoltageForReferenceCharge;
+  if (!(shapedSignalGainVPerV > 0)) return [];
+  return transfer.samples
+    .map((sample) => {
+      const frequency = Number(sample.frequencyHz);
+      const outputGain = Number(sample.outputGainVPerV);
+      const magnitude = outputGain * trapezoidTransferMagnitude(frequency, p) / shapedSignalGainVPerV;
+      return {
+        frequency,
+        magnitude,
+        attenuationDb: -20 * Math.log10(Math.max(magnitude, 1e-300))
+      };
+    })
     .filter((sample) => Number.isFinite(sample.frequency) && Number.isFinite(sample.attenuationDb));
 }
 
@@ -7876,28 +8462,25 @@ function drawSpiceLadderSlide(canvas) {
     return;
   }
 
-  const tlineSamples = backendSpiceCurve(payload.samples, "fullTline");
-  const lumpedSamples = backendSpiceCurve(payload.samples, "fullLumped");
   const unloadedSamples = backendSpiceCurve(payload.samples, "fullUnloaded");
   const instrumentSamples = backendSpiceCurve(payload.samples, "instrument50Ohm");
-  const intrinsicSamples = (window.DISCOIDAL_DEFAULT_EQS_SWEEP?.samples || [])
-    .filter((sample) => Number.isFinite(sample.frequencyHz) && Number.isFinite(sample.intrinsicSpiceDb))
-    .map((sample) => ({
-      frequency: sample.frequencyHz,
-      attenuationDb: Math.max(0, -sample.intrinsicSpiceDb)
-    }));
-  const allValues = [...tlineSamples, ...lumpedSamples, ...unloadedSamples, ...instrumentSamples, ...intrinsicSamples]
+  const regulatorSamples = backendSpiceCurve(payload.samples, "regulatorInputUnloaded");
+  const detectorSamples = detectorEquivalentSourceCurve(payload.lmfeFilterInputTransfer, payload);
+  const everythingSamples = detectorEquivalentSourceCurve(payload.lmfeEverythingTransfer, payload);
+  const curves = [unloadedSamples, instrumentSamples, regulatorSamples, detectorSamples, everythingSamples];
+  const allValues = curves.flat()
     .map((sample) => sample.attenuationDb)
-    .filter((value) => Number.isFinite(value) && value >= 0);
-  const fMin = Math.min(...tlineSamples.map((sample) => sample.frequency));
-  const fMax = Math.max(...tlineSamples.map((sample) => sample.frequency));
-  const maxDb = Math.max(5, Math.ceil(Math.max(...allValues, 1) / 10) * 10);
-  const plot = drawDbFrequencyFrame(ctx, 88, 104, 735, 330, fMin, fMax, maxDb, "|Vout/Vin| attenuation");
-  drawLogCurve(ctx, lumpedSamples, plot.xFor, plot.yFor, "attenuationDb", "#8a5b30", { dashed: [4, 6], lineWidth: 3 });
-  drawLogCurve(ctx, unloadedSamples, plot.xFor, plot.yFor, "attenuationDb", "#1f6f78", { dashed: [10, 5, 2, 5], lineWidth: 3 });
-  drawLogCurve(ctx, tlineSamples, plot.xFor, plot.yFor, "attenuationDb", "#b73e3e");
+    .filter((value) => Number.isFinite(value) && value >= 0 && value <= 240);
+  const populatedCurves = curves.filter((curve) => curve.length);
+  const fMin = Math.min(...populatedCurves.flatMap((curve) => curve.map((sample) => sample.frequency)));
+  const fMax = Math.max(...populatedCurves.flatMap((curve) => curve.map((sample) => sample.frequency)));
+  const maxDb = Math.max(20, Math.ceil(Math.max(...allValues, 1) / 20) * 20);
+  const plot = drawDbFrequencyFrame(ctx, 88, 104, 735, 330, fMin, fMax, maxDb, "attenuation / detector-equivalent response (dB)");
+  drawLogCurve(ctx, unloadedSamples, plot.xFor, plot.yFor, "attenuationDb", "#1f6f78", { lineWidth: 3 });
   drawLogCurve(ctx, instrumentSamples, plot.xFor, plot.yFor, "attenuationDb", "#315f8c", { dashed: [2, 5], lineWidth: 3 });
-  drawLogCurve(ctx, intrinsicSamples, plot.xFor, plot.yFor, "attenuationDb", "#7354a3", { dashed: [9, 6], lineWidth: 4 });
+  drawLogCurve(ctx, regulatorSamples, plot.xFor, plot.yFor, "attenuationDb", "#a25f24", { dashed: [12, 5], lineWidth: 3 });
+  drawLogCurve(ctx, detectorSamples, plot.xFor, plot.yFor, "attenuationDb", "#2f7d4f", { dashed: [7, 4], lineWidth: 4 });
+  drawLogCurve(ctx, everythingSamples, plot.xFor, plot.yFor, "attenuationDb", "#8b3f76", { dashed: [11, 4, 2, 4], lineWidth: 4 });
 
   const fiftyX = plot.xFor(50);
   if (50 >= fMin && 50 <= fMax) {
@@ -7915,49 +8498,887 @@ function drawSpiceLadderSlide(canvas) {
   }
 
   drawSlideLegend(ctx, [
-    { label: "Full ladder + T-line", color: "#b73e3e" },
-    { label: "Full ladder + lumped C", color: "#8a5b30", dashed: [4, 6] },
-    { label: "Full ladder unloaded", color: "#1f6f78", dashed: [10, 5, 2, 5] },
+    { label: "Filter unloaded", color: "#1f6f78" },
     { label: "50 ohm test ports", color: "#315f8c", dashed: [2, 5] },
-    { label: "Intrinsic filter, EM ports", color: "#7354a3", dashed: [9, 6] }
-  ], 845, 126, { maxWidth: 190 });
+    { label: "HV regulator + input T-line", color: "#a25f24", dashed: [12, 5] },
+    { label: "Filter + output T-line + detector/LMFE", color: "#2f7d4f", dashed: [7, 4] },
+    { label: "Everything: regulator to shaped energy", color: "#8b3f76", dashed: [11, 4, 2, 4] }
+  ], 845, 120, { maxWidth: 190, font: "14px Arial", lineHeight: 16, rowGap: 3 });
 
   const summary50 = payload.summary?.at50Hz || {};
   const circuit = payload.circuit || {};
+  const detector50 = backendSpiceMagnitudeFromCurve(detectorSamples, 50);
+  const everything50 = backendSpiceMagnitudeFromCurve(everythingSamples, 50);
   const cardRows = [
-    ["50 Hz loaded", formatAttenuationDb(summary50.fullTlineAttenuationDb), "full ladder + T-line"],
-    ["50 Hz unloaded", formatAttenuationDb(summary50.fullUnloadedAttenuationDb), "filter output terminal"],
+    ["50 Hz regulator path", formatAttenuationDb(summary50.regulatorInputUnloadedAttenuationDb), `${formatResistance(circuit.biasSourceResistanceOhm)} + input T-line`],
+    ["50 Hz detector path", Number.isFinite(detector50) ? formatAttenuationDb(-20 * Math.log10(detector50)) : "--", "signal/trapezoid normalized"],
+    ["50 Hz everything", Number.isFinite(everything50) ? formatAttenuationDb(-20 * Math.log10(everything50)) : "--", "regulator to shaped energy"],
     ["Backend", shortSpicePackageLabel(payload.spicePackage), payload.method || payload.source]
   ];
   cardRows.forEach((row, index) => {
-    const x = 88 + index * 315;
+    const x = 88 + index * 238;
     const y = 482;
     ctx.fillStyle = "#f5f2ea";
     ctx.strokeStyle = "#c9c1b0";
     ctx.lineWidth = 1;
-    ctx.fillRect(x, y, 280, 84);
-    ctx.strokeRect(x, y, 280, 84);
+    ctx.fillRect(x, y, 216, 84);
+    ctx.strokeRect(x, y, 216, 84);
     ctx.fillStyle = "#5b6670";
     ctx.font = "14px Arial";
     ctx.fillText(row[0], x + 16, y + 25);
     ctx.fillStyle = "#17202a";
-    ctx.font = "23px Arial";
+    ctx.font = "20px Arial";
     ctx.fillText(row[1], x + 16, y + 55);
     ctx.fillStyle = "#5b6670";
     ctx.font = "13px Arial";
     ctx.fillText(String(row[2] || ""), x + 16, y + 74);
   });
 
+}
+
+function drawDetectorFrontendModelSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const circuit = electromagneticCircuitForCurrentDesign();
+  const cdetPf = detectorCapacitancePf(params);
+  const outputOhm = outputSeriesResistanceOhm(circuit, params);
+  const payload = spiceLadderResultForCurrentDesign();
+  const referenceOhm = Number(payload?.lmfePickupReferenceTransimpedanceOhm);
+  const cableLengthM = Math.max(0, Number(params.load_cable_length_m) || 0);
+  const cableImpedanceOhm = Math.max(0, Number(params.load_cable_impedance_ohm) || 0);
+  const cableVelocityFactor = Math.max(0.01, Number(params.load_cable_velocity_factor) || 0.66);
+  const cableDelayNs = cableLengthM / (cableVelocityFactor * SPEED_OF_LIGHT_M_PER_S) * 1e9;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText("Reduced detector front-end and pickup injection", 54, 45);
+
+  const box = (x, y, width, height, title, detail, fill) => {
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = "#40515a";
+    ctx.lineWidth = 2;
+    ctx.fillRect(x, y, width, height);
+    ctx.strokeRect(x, y, width, height);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "bold 17px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(title, x + width / 2, y + 30);
+    ctx.font = "14px Arial";
+    ctx.textAlign = "left";
+    drawWrappedLines(ctx, [detail], x + 12, y + 56, 18, "#35434a", "14px Arial", width - 24);
+  };
+  const wire = (x1, y1, x2, y2, color = "#40515a", width = 3) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  };
+
+  box(54, 118, 190, 112, "Complete filter", `Rout = ${formatResistance(outputOhm)}`, "#dce8ec");
+  box(
+    306,
+    118,
+    205,
+    112,
+    `${cableLengthM.toLocaleString(undefined, { maximumFractionDigits: 1 })} m HV cable`,
+    `${formatResistance(cableImpedanceOhm)}, ${cableDelayNs.toLocaleString(undefined, { maximumFractionDigits: 1 })} ns delay`,
+    "#e8e0cd"
+  );
+  box(586, 88, 188, 112, "Detector input", `C19 = ${formatCapacitance(cdetPf)}`, "#eee5d6");
+  box(586, 270, 188, 112, "MX11RC + BF862", "JFET cascode and 1 m signal cable", "#dfd2c4");
+  box(846, 270, 192, 112, "Idealized op amps", "AOL = 100k, GBW = 10 MHz", "#dde4d5");
+  wire(244, 174, 306, 174);
+  wire(511, 174, 586, 174);
+  wire(680, 200, 680, 270);
+  wire(774, 326, 846, 326);
+
+  ctx.strokeStyle = "#b73e3e";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(548, 174, 22, 0, 2 * Math.PI);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(548, 196);
+  ctx.lineTo(548, 246);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(538, 228);
+  ctx.lineTo(548, 244);
+  ctx.lineTo(558, 228);
+  ctx.stroke();
+  ctx.fillStyle = "#b73e3e";
+  ctx.font = "15px Arial";
+  ctx.fillText("Ipickup = 1 A AC", 494, 276);
+
+  wire(942, 270, 942, 214, "#7354a3");
+  wire(942, 214, 742, 214, "#7354a3");
+  ctx.fillStyle = "#7354a3";
+  ctx.font = "15px Arial";
+  ctx.fillText("0.35 pF || 1 Gohm feedback", 782, 202);
+  wire(1038, 326, 1062, 326, "#2f7d4f", 4);
+  ctx.fillStyle = "#2f7d4f";
+  ctx.font = "bold 16px Arial";
+  ctx.fillText("Vout across R30", 848, 410);
+
+  const rows = [
+    ["Simulation input", "current injected at detector cathode"],
+    ["Cable termination", "complete selected filter, not a fixed resistor surrogate"],
+    ["Plotted quantity", "attenuation relative to peak pickup transimpedance"],
+    ["Peak transimpedance", Number.isFinite(referenceOhm) ? formatResistance(referenceOhm) : "run backend SPICE"]
+  ];
+  rows.forEach((row, index) => {
+    const x = 54 + (index % 2) * 514;
+    const y = 468 + Math.floor(index / 2) * 62;
+    ctx.fillStyle = "#f5f2ea";
+    ctx.strokeStyle = "#c9c1b0";
+    ctx.fillRect(x, y, 476, 48);
+    ctx.strokeRect(x, y, 476, 48);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.fillText(row[0], x + 14, y + 19);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "15px Arial";
+    ctx.fillText(row[1], x + 145, y + 28);
+  });
+}
+
+function drawThreeNoiseSourcesSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const budget = fanoNoiseBudget(params);
+  const circuit = electromagneticCircuitForCurrentDesign();
+  const cablePf = Number(params.source_cable_length_m) / (Number(params.source_cable_impedance_ohm)
+    * Number(params.source_cable_velocity_factor) * SPEED_OF_LIGHT_M_PER_S) * 1e12;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawWrappedLines(ctx, ["CAEN supply, external pickup, and cryostat pickup"], 50, 42, 26, "#17202a", "22px Arial");
+  const blocks = [
+    [50, "CAEN + output R", `${formatResistance(Number(params.bias_source_resistance_mohm) * 1e6)} / ${params.bias_source_capacitance_nf} nF`, "#dce8ec"],
+    [260, "RG-58 input", `${formatCapacitance(cablePf)} at low f`, "#e8e0cd"],
+    [470, "Complete filter", `${params.plate_pairs} bias plates; FEA C`, "#eee5d6"],
+    [680, "Cryostat cable", `${params.load_cable_length_m} m; ${params.load_cable_impedance_ohm} ohm`, "#e2d9ea"],
+    [890, "Detector + LMFE", "R30 differential output", "#dde4d5"]
+  ];
+  blocks.forEach(([x, title, detail, fill], index) => {
+    ctx.fillStyle = fill;
+    ctx.fillRect(x, 152, 160, 94);
+    drawWrappedLines(ctx, [title, detail], x + 10, 180, 25, "#17202a", "14px Arial", 140);
+    if (index < blocks.length - 1) drawArrow(ctx, x + 160, 199, x + 210, 199, "#40515a");
+  });
+  [[80, 130, "1. Supply voltage", "#315f8c"], [438, 438, "2. Outside pickup", "#a25f24"], [858, 858, "3. Inside pickup", "#7354a3"]].forEach(([x, target, label, color]) => {
+    drawWrappedLines(ctx, [label], x - 25, 103, 20, color, "16px Arial");
+    drawArrow(ctx, target, 115, target, target === 130 ? 152 : 195, color);
+  });
+  drawWrappedLines(ctx, ["Input cable at low frequency: series R, shunt cable C, series R"], 50, 302, 24, "#17202a", "18px Arial");
+  ctx.strokeStyle = "#40515a";
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(70, 364); ctx.lineTo(1000, 364); ctx.stroke();
+  [[220, "Regulator R", formatResistance(Number(params.bias_source_resistance_mohm) * 1e6)],
+    [690, "Filter input R", formatResistance(inputSeriesResistanceOhm(circuit, params))]].forEach(([x, label, value]) => {
+    ctx.fillStyle = "#dce8ec"; ctx.fillRect(x, 347, 140, 34);
+    ctx.strokeRect(x, 347, 140, 34);
+    drawWrappedLines(ctx, [label, value], x, 327, 40, "#17202a", "15px Arial");
+  });
+  ctx.beginPath(); ctx.moveTo(530, 364); ctx.lineTo(530, 392);
+  ctx.moveTo(508, 392); ctx.lineTo(552, 392); ctx.moveTo(508, 402); ctx.lineTo(552, 402);
+  ctx.moveTo(530, 402); ctx.lineTo(530, 427); ctx.moveTo(510, 427); ctx.lineTo(550, 427); ctx.stroke();
+  drawWrappedLines(ctx, [`Cable C = ${formatCapacitance(cablePf)}`, "Already in Tsource; do not add twice"], 575, 407, 22, "#35434a", "15px Arial", 465);
   drawWrappedLines(ctx, [
-    "ngspice runs separate loaded and unloaded AC analyses.",
-    "Unloaded is measured at the physical output terminal; it retains Rout but removes the cable, detector, and DC load.",
-    "Intrinsic additionally drives plate 1 directly, matching the open-output field-solve ports.",
-    "50 ohm test ports include the FEA end-terminal capacitance network and source mismatch; a matched through is 0 dB.",
-    `Capacitances: ${circuit.capacitanceSource || "unknown source"}`
-  ], 845, 300, 19, "#5b6670", "14px Arial", 230);
+    `${budget.ladderSource}. CAEN A1560H maximum-ripple scenarios; output R is provisional.`,
+    `Supply at ${budget.mainsFrequencyHz} Hz: ${budget.supplyMainsEquivalentEnergyEv.toFixed(2)} eV rms; two-band scenario: ${budget.supplyEquivalentEnergyEv.toFixed(2)} eV rms.`,
+    `Outside pickup: ${Math.hypot(budget.inputBroadbandEquivalentEnergyEv, budget.inputMainsEquivalentEnergyEv).toFixed(2)} eV rms; inside pickup: ${budget.cryostatEquivalentEnergyEv.toFixed(2)} eV rms.`,
+    `Fano alone: ${budget.fanoFwhmKev.toFixed(3)} keV FWHM; with independent modeled noise: ${budget.fanoPlusBiasFwhmKev.toFixed(3)} keV FWHM.`
+  ], 50, 477, 27, "#35434a", "16px Arial", 1000);
+}
+
+function drawSimplifiedAmplifierSpiceSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const cdetPf = detectorCapacitancePf(params);
+  const cableLengthM = Math.max(0, Number(params.load_cable_length_m) || 0);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("Reduced LMFE circuit and two independent excitations", 54, 42);
+
+  const box = (x, y, width, height, title, details, fill) => {
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = "#40515a";
+    ctx.lineWidth = 2;
+    ctx.fillRect(x, y, width, height);
+    ctx.strokeRect(x, y, width, height);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "bold 16px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(title, x + width / 2, y + 27);
+    ctx.textAlign = "left";
+    drawWrappedLines(ctx, details, x + 12, y + 51, 18, "#35434a", "13px Arial", width - 24);
+  };
+
+  const y = 154;
+  box(54, y, 166, 102, "Detector node", [`C19 = ${formatCapacitance(cdetPf)}`, `${cableLengthM.toLocaleString(undefined, { maximumFractionDigits: 1 })} m HV cable`], "#eee5d6");
+  box(278, y, 176, 102, "MX11RC J2", ["input JFET", "gate signal node"], "#dfd2c4");
+  box(512, y, 176, 102, "BF862 cascode", ["upper device", "bias network retained"], "#e8e0cd");
+  box(746, y, 176, 102, "Amplifier stages", ["finite gain and GBW", "later output stage omitted"], "#dde4d5");
+  box(974, y, 86, 102, "R30", ["Vout", "differential"], "#dce8ec");
+
+  drawArrow(ctx, 220, y + 51, 278, y + 51, "#40515a");
+  drawArrow(ctx, 454, y + 51, 512, y + 51, "#40515a");
+  drawArrow(ctx, 688, y + 51, 746, y + 51, "#40515a");
+  drawArrow(ctx, 922, y + 51, 974, y + 51, "#40515a");
+  ctx.fillStyle = "#35434a";
+  ctx.font = "13px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText(`O2/O4: two ${noiseCableValue("head").length_m} m output lines to R30`, 1060, y + 125);
+
+  ctx.strokeStyle = "#7354a3";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(834, y);
+  ctx.lineTo(834, 104);
+  ctx.lineTo(366, 104);
+  ctx.lineTo(366, y);
+  ctx.stroke();
+  ctx.fillStyle = "#7354a3";
+  ctx.font = "14px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("0.35 pF || 1 Gohm charge feedback", 600, 93);
+
+  drawArrow(ctx, 92, 329, 137, y + 102, "#b73e3e");
+  ctx.fillStyle = "#b73e3e";
+  ctx.font = "bold 15px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("Pickup solve", 54, 355);
+  ctx.font = "14px Arial";
+  ctx.fillText("Ipickup at cathode", 54, 377);
+
+  drawArrow(ctx, 340, 329, 352, y + 102, "#1f6f78");
+  ctx.fillStyle = "#1f6f78";
+  ctx.font = "bold 15px Arial";
+  ctx.fillText("Signal-gain solve", 278, 355);
+  ctx.font = "14px Arial";
+  ctx.fillText("Vgate = 1 V AC", 278, 377);
+
+  ctx.fillStyle = "#f5f2ea";
+  ctx.strokeStyle = "#c9c1b0";
+  ctx.lineWidth = 1;
+  ctx.fillRect(490, 302, 570, 106);
+  ctx.strokeRect(490, 302, 570, 106);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "bold 16px Arial";
+  ctx.fillText("Same-frequency input-referred check", 510, 328);
+  ctx.font = "18px Arial";
+  ctx.fillText("Ggate(f) = VR30,gate(f) / Vgate(f)", 510, 359);
+  ctx.fillText("Vn,gate(f) = Zpickup(f) Ipickup(f) / |Ggate(f)|", 510, 389);
+
+  ctx.fillStyle = "#e9f0ed";
+  ctx.strokeStyle = "#87a697";
+  ctx.fillRect(54, 446, 1006, 120);
+  ctx.strokeRect(54, 446, 1006, 120);
+  ctx.fillStyle = "#245a43";
+  ctx.font = "bold 17px Arial";
+  ctx.fillText("Detector-energy result", 76, 475);
+  drawWrappedLines(ctx, [
+    "The trapezoid cancels only in the AC ratio above. Energy broadening uses shaped pickup divided by the shaped response to a known charge step.",
+    "After conversion to energy: sigma_total = sqrt(sigma_Fano^2 + sigma_pickup^2)."
+  ], 76, 503, 27, "#35434a", "15px Arial", 954);
+  ctx.textAlign = "left";
+}
+
+const LMFE_STUDY_COLORS = Object.freeze({
+  "0.1": "#315f8c",
+  "0.3": "#1f6f78",
+  "1": "#b73e3e",
+  "3": "#a25f24",
+  "10": "#7354a3",
+  "30": "#557a38",
+  "100": "#3f4448"
+});
+
+function lmfeStudyForCurrentDesign() {
+  const currentPayload = spiceLadderResultForCurrentDesign();
+  const current = currentPayload?.lmfeOutputCapacitanceStudy;
+  if (current?.cases?.length) return { ...current, signalStep: currentPayload?.lmfeSignalStep, bundledReference: false };
+  const bundledPayload = window.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT?.spiceLadder;
+  const bundled = bundledPayload?.lmfeOutputCapacitanceStudy;
+  return bundled?.cases?.length ? { ...bundled, signalStep: bundledPayload?.lmfeSignalStep, bundledReference: true } : null;
+}
+
+function lmfeResistanceStudyForCurrentDesign() {
+  const currentPayload = spiceLadderResultForCurrentDesign();
+  const current = currentPayload?.lmfeOutputResistanceStudy;
+  if (current?.cases?.length) return { ...current, signalStep: currentPayload?.lmfeSignalStep, bundledReference: false };
+  const bundledPayload = window.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT?.spiceLadder;
+  const bundled = bundledPayload?.lmfeOutputResistanceStudy;
+  return bundled?.cases?.length ? { ...bundled, signalStep: bundledPayload?.lmfeSignalStep, bundledReference: true } : null;
+}
+
+function interpolatePositiveLogSample(samples, key, frequencyHz) {
+  if (!samples?.length || !(frequencyHz > 0)) return Number.NaN;
+  if (frequencyHz <= samples[0].frequencyHz) return Number(samples[0][key]);
+  if (frequencyHz >= samples.at(-1).frequencyHz) return Number(samples.at(-1)[key]);
+  let low = 0;
+  let high = samples.length - 1;
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (samples[middle].frequencyHz < frequencyHz) low = middle;
+    else high = middle;
+  }
+  const left = samples[low];
+  const right = samples[high];
+  const fraction = Math.log(frequencyHz / left.frequencyHz) / Math.log(right.frequencyHz / left.frequencyHz);
+  const a = Math.max(Number(left[key]), 1e-300);
+  const b = Math.max(Number(right[key]), 1e-300);
+  return Math.exp(Math.log(a) + fraction * (Math.log(b) - Math.log(a)));
+}
+
+const lmfeNoiseStudyCache = new Map();
+
+function trapezoidSignalCalibration(signalStep, p = params) {
+  if (!signalStep?.samples?.length || !(signalStep.referenceChargeC > 0)) return null;
+  const values = signalStep.samples.map((sample) => Number(Array.isArray(sample) ? sample[1] : sample.outputV));
+  if (!values.length || values.some((value) => !Number.isFinite(value))) return null;
+  const sampleRateHz = Math.max(1, Number(signalStep.sampleRateHz) || (Number(p.noise_sample_rate_msps) || 62.5) * 1e6);
+  const riseSamples = Math.max(1, Math.round(Math.max(0.01, Number(p.noise_trap_rise_us) || 10) * 1e-6 * sampleRateHz));
+  const flatSamples = Math.max(0, Math.round(Math.max(0, Number(p.noise_trap_flat_us) || 0) * 1e-6 * sampleRateHz));
+  const shaping = p.noise_apply_shaping !== false;
+  const support = shaping ? 2 * riseSamples + flatSamples : 1;
+  if (values.length <= support) return null;
+  const baselineCount = Math.max(8, Math.min(values.length, Math.floor((Number(signalStep.delayS) || 1e-6) * sampleRateHz * 0.8)));
+  const baseline = values.slice(0, baselineCount).reduce((sum, value) => sum + value, 0) / baselineCount;
+  const centered = values.map((value) => value - baseline);
+  if (shaping && p.noise_pz_enabled) {
+    const a = Math.exp(-1 / (sampleRateHz * Math.max(0.001, Number(p.noise_pz_decay_us) || 350) * 1e-6));
+    let previous = 0;
+    let accumulated = 0;
+    for (let index = 0; index < centered.length; index += 1) {
+      const input = centered[index];
+      accumulated += input - a * previous;
+      centered[index] = accumulated;
+      previous = input;
+    }
+  }
+  const prefix = new Float64Array(centered.length + 1);
+  centered.forEach((value, index) => { prefix[index + 1] = prefix[index] + value; });
+  const windowMean = (endInclusive) => (prefix[endInclusive + 1] - prefix[endInclusive + 1 - riseSamples]) / riseSamples;
+  let peakV = 0;
+  let peakIndex = support - 1;
+  for (let index = support - 1; index < centered.length; index += 1) {
+    const recent = shaping ? windowMean(index) : centered[index];
+    const delayed = shaping ? windowMean(index - riseSamples - flatSamples) : 0;
+    const magnitude = Math.abs(recent - delayed);
+    if (magnitude > peakV) {
+      peakV = magnitude;
+      peakIndex = index;
+    }
+  }
+  if (!(peakV > 0)) return null;
+  const chargePerOutputVoltC = Number(signalStep.referenceChargeC) / peakV;
+  const energyEvPerOutputV = chargePerOutputVoltC / 1.602176634e-19 * 2.96;
+  return {
+    peakV,
+    peakTimeS: peakIndex / sampleRateHz,
+    referenceChargeC: Number(signalStep.referenceChargeC),
+    collectionTimeS: Number(signalStep.collectionTimeS),
+    feedbackCapacitancePf: Number(signalStep.feedbackCapacitancePf),
+    chargePerOutputVoltC,
+    energyEvPerOutputV
+  };
+}
+
+function lmfeNoiseStudyFromRaw(study, p = params, cacheNamespace = "capacitance") {
+  if (!study?.cases?.length) return null;
+  const cacheKey = JSON.stringify([
+    cacheNamespace,
+    spiceLadderCache?.key,
+    study.bundledReference,
+    study.outputSeriesResistanceOhm,
+    study.designOutputSeriesResistanceOhm,
+    study.baseOutputStageCapacitancePf,
+    study.cases.length,
+    p.noise_sample_rate_msps,
+    p.noise_trap_rise_us,
+    p.noise_trap_flat_us,
+    p.noise_apply_shaping,
+    p.noise_pz_enabled,
+    p.noise_pz_decay_us,
+    p.noise_cryostat_broadband_rms_mv,
+    p.noise_cryostat_mains_rms_mv,
+    p.noise_mains_frequency_hz,
+    p.detector_capacitance_pf
+  ]);
+  if (lmfeNoiseStudyCache.has(cacheKey)) return lmfeNoiseStudyCache.get(cacheKey);
+
+  const sampleRateHz = Math.max(1, Number(p.noise_sample_rate_msps) || 62.5) * 1e6;
+  const nyquistHz = sampleRateHz / 2;
+  const z0 = Math.max(1e-9, Number(study.cableImpedanceOhm) || 50);
+  const broadbandInputV = Math.max(0, Number(p.noise_cryostat_broadband_rms_mv) || 0) * 1e-3;
+  const mainsInputV = Math.max(0, Number(p.noise_cryostat_mains_rms_mv) || 0) * 1e-3;
+  const mainsFrequencyHz = Math.max(1, Number(p.noise_mains_frequency_hz) || 50);
+  const frequencies = [];
+  const logEnd = Math.min(100e3, nyquistHz);
+  for (let index = 0; index <= 1200; index += 1) {
+    frequencies.push(10 ** (Math.log10(1) + index / 1200 * Math.log10(logEnd)));
+  }
+  if (nyquistHz > logEnd) {
+    for (let index = 1; index <= 7000; index += 1) {
+      frequencies.push(logEnd + index / 7000 * (nyquistHz - logEnd));
+    }
+  }
+
+  const cases = study.cases.map((entry) => {
+    const samples = entry.samples || [];
+    const transferAt = (frequencyHz) => {
+      const zPickup = interpolatePositiveLogSample(samples, "pickupTransimpedanceOhm", frequencyHz);
+      return zPickup / z0;
+    };
+    let outputIntegral = 0;
+    let previousFrequency = frequencies[0];
+    let previousTransfer = transferAt(previousFrequency);
+    let previousTrap = trapezoidTransferMagnitude(previousFrequency, p);
+    let previousOutput2 = (previousTransfer * previousTrap) ** 2;
+    for (let index = 1; index < frequencies.length; index += 1) {
+      const frequency = frequencies[index];
+      const transfer = transferAt(frequency);
+      const trap = trapezoidTransferMagnitude(frequency, p);
+      const output2 = (transfer * trap) ** 2;
+      const df = frequency - previousFrequency;
+      outputIntegral += 0.5 * (previousOutput2 + output2) * df;
+      previousFrequency = frequency;
+      previousTransfer = transfer;
+      previousTrap = trap;
+      previousOutput2 = output2;
+    }
+    const mainsTransfer = transferAt(mainsFrequencyHz);
+    const mainsTrap = trapezoidTransferMagnitude(mainsFrequencyHz, p);
+    const outputBroadbandRmsV = broadbandInputV * Math.sqrt(outputIntegral / Math.max(1, nyquistHz - 1));
+    const outputMainsRmsV = mainsInputV * mainsTransfer * mainsTrap;
+    const outputTotalRmsV = Math.hypot(outputBroadbandRmsV, outputMainsRmsV);
+    const calibration = trapezoidSignalCalibration(study.signalStep, p);
+    const energyScale = calibration?.energyEvPerOutputV;
+    return {
+      ...entry,
+      outputBroadbandRmsV,
+      outputMainsRmsV,
+      outputTotalRmsV,
+      equivalentBroadbandEnergyEv: Number.isFinite(energyScale) ? outputBroadbandRmsV * energyScale : null,
+      equivalentMainsEnergyEv: Number.isFinite(energyScale) ? outputMainsRmsV * energyScale : null,
+      equivalentEnergyEv: Number.isFinite(energyScale) ? outputTotalRmsV * energyScale : null
+    };
+  });
+  const value = {
+    ...study,
+    cases,
+    signalCalibration: trapezoidSignalCalibration(study.signalStep, p),
+    nyquistHz,
+    mainsFrequencyHz,
+    broadbandInputV,
+    mainsInputV
+  };
+  lmfeNoiseStudyCache.set(cacheKey, value);
+  if (lmfeNoiseStudyCache.size > 8) lmfeNoiseStudyCache.delete(lmfeNoiseStudyCache.keys().next().value);
+  return value;
+}
+
+function lmfePickupNoiseStudy(p = params) {
+  return lmfeNoiseStudyFromRaw(lmfeStudyForCurrentDesign(), p, "capacitance");
+}
+
+function lmfeResistanceNoiseStudy(p = params) {
+  return lmfeNoiseStudyFromRaw(lmfeResistanceStudyForCurrentDesign(), p, "resistance");
+}
+
+function lmfeRepresentativeCases(study) {
+  const factors = new Set([0.1, 1, 10, 100]);
+  return (study?.cases || []).filter((entry) => factors.has(Number(entry.outputCapacitanceScale)));
+}
+
+function formatPlotVoltage(value) {
+  if (value >= 1) return `${value.toPrecision(2)} V`;
+  if (value >= 1e-3) return `${(value * 1e3).toPrecision(2)} mV`;
+  if (value >= 1e-6) return `${(value * 1e6).toPrecision(2)} uV`;
+  if (value >= 1e-9) return `${(value * 1e9).toPrecision(2)} nV`;
+  return `${(value * 1e12).toPrecision(2)} pV`;
+}
+
+function formatEnergyRms(value) {
+  if (!(value >= 0)) return "--";
+  if (value >= 1000) return `${(value / 1000).toPrecision(4)} keV rms`;
+  if (value >= 1) return `${value.toPrecision(3)} eV rms`;
+  return `${(value * 1000).toPrecision(3)} meV rms`;
+}
+
+function drawLmfeSignalCalibrationSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const study = lmfeStudyForCurrentDesign();
+  const signal = study?.signalStep;
+  const calibration = trapezoidSignalCalibration(signal, params);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText("Known detector charge to differential R30 waveform", 66, 48);
+  if (!signal?.samples?.length) {
+    drawWrappedLines(ctx, ["Run the backend SPICE simulation to generate the detector-charge transient calibration."], 90, 130, 28, "#5b6670", "18px Arial", 860);
+    return;
+  }
+  const raw = signal.samples.map((sample) => ({ timeS: Number(sample[0]), value: Number(sample[1]) }));
+  const baselineRows = raw.filter((sample) => sample.timeS < Number(signal.delayS) * 0.8);
+  const baseline = baselineRows.length ? baselineRows.reduce((sum, sample) => sum + sample.value, 0) / baselineRows.length : raw[0].value;
+  const samples = raw.map((sample) => ({ timeUs: sample.timeS * 1e6, value: sample.value - baseline }));
+  const xMin = 0;
+  const xMax = Math.min(samples.at(-1).timeUs, 32);
+  const visible = samples.filter((sample) => sample.timeUs <= xMax);
+  let yMin = Math.min(...visible.map((sample) => sample.value));
+  let yMax = Math.max(...visible.map((sample) => sample.value));
+  const yPad = Math.max((yMax - yMin) * 0.12, 1e-9);
+  yMin -= yPad;
+  yMax += yPad;
+  const x = 86;
+  const y = 100;
+  const width = 760;
+  const height = 390;
+  const xFor = (value) => x + (value - xMin) / Math.max(xMax - xMin, 1e-12) * width;
+  const yFor = (value) => y + height - (value - yMin) / Math.max(yMax - yMin, 1e-30) * height;
+  ctx.fillStyle = "#fffdf8";
+  ctx.strokeStyle = "#c9c1b0";
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeRect(x, y, width, height);
+  for (let index = 0; index <= 5; index += 1) {
+    const xx = x + index / 5 * width;
+    const timeUs = xMin + index / 5 * (xMax - xMin);
+    ctx.strokeStyle = "rgba(201, 193, 176, 0.55)";
+    ctx.beginPath();
+    ctx.moveTo(xx, y);
+    ctx.lineTo(xx, y + height);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.fillText(`${timeUs.toFixed(0)} us`, xx - 16, y + height + 22);
+    const yy = y + index / 5 * height;
+    const value = yMax - index / 5 * (yMax - yMin);
+    ctx.strokeStyle = "rgba(201, 193, 176, 0.55)";
+    ctx.beginPath();
+    ctx.moveTo(x, yy);
+    ctx.lineTo(x + width, yy);
+    ctx.stroke();
+    ctx.fillStyle = "#5b6670";
+    ctx.textAlign = "right";
+    ctx.fillText(formatPlotVoltage(value), x - 10, yy + 4);
+    ctx.textAlign = "left";
+  }
+  ctx.fillStyle = "#17202a";
+  ctx.font = "19px Arial";
+  ctx.fillText("Differential voltage across R30", x, y - 18);
+  ctx.strokeStyle = "#b73e3e";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  visible.forEach((sample, index) => {
+    const xx = xFor(sample.timeUs);
+    const yy = yFor(sample.value);
+    if (index === 0) ctx.moveTo(xx, yy);
+    else ctx.lineTo(xx, yy);
+  });
+  ctx.stroke();
+
+  const referenceChargeFc = Number(signal.referenceChargeC) * 1e15;
+  const feedbackStepV = Number(signal.referenceChargeC) / (Number(signal.feedbackCapacitancePf) * 1e-12);
+  const cards = [
+    ["Injected charge", `${referenceChargeFc.toPrecision(3)} fC`, `${Number(signal.collectionTimeS) * 1e9} ns collection`],
+    ["Feedback capacitor", formatCapacitance(signal.feedbackCapacitancePf), `Q/Cf = ${formatPlotVoltage(feedbackStepV)}`],
+    [params.noise_apply_shaping === false ? "Raw R30 signal" : "Shaped R30 signal", calibration ? formatPlotVoltage(calibration.peakV) : "--", params.noise_apply_shaping === false ? "Energy shaping bypassed" : `${params.noise_trap_rise_us}/${params.noise_trap_flat_us} us trap${params.noise_pz_enabled ? " + PZ" : ""}`]
+  ];
+  cards.forEach((row, index) => {
+    const cx = 86 + index * 310;
+    ctx.fillStyle = "#f5f2ea";
+    ctx.strokeStyle = "#c9c1b0";
+    ctx.fillRect(cx, 530, 275, 58);
+    ctx.strokeRect(cx, 530, 275, 58);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.fillText(row[0], cx + 14, 548);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "18px Arial";
+    ctx.fillText(row[1], cx + 14, 574);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText(row[2], cx + 263, 574);
+    ctx.textAlign = "left";
+  });
+}
+
+function drawLmfeFrequencyStudySlide(canvas, mode) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const study = lmfeStudyForCurrentDesign();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText(mode === "gate" ? "Small-signal gain from J2 gate to differential output" : "HV-cable pickup transimpedance (not attenuation)", 70, 48);
+  if (study?.bundledReference) {
+    ctx.fillStyle = "#7354a3";
+    ctx.font = "bold 13px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText("Bundled reference design", 1030, 48);
+    ctx.textAlign = "left";
+  }
+  if (!study?.cases?.length) {
+    drawWrappedLines(ctx, ["Run the backend SPICE simulation to generate the dual-excitation LMFE capacitance study."], 90, 130, 28, "#5b6670", "18px Arial", 860);
+    return;
+  }
+  const z0 = Math.max(1e-9, Number(study.cableImpedanceOhm) || 50);
+  const cases = lmfeRepresentativeCases(study);
+  const key = mode === "gate" ? "gateSignalGainVPerV" : "pickupTransimpedanceOhm";
+  const values = cases.flatMap((entry) => entry.samples.map((sample) => sample[key]));
+  const fMin = Math.min(...cases.flatMap((entry) => entry.samples.map((sample) => sample.frequencyHz)));
+  const fMax = Math.max(...cases.flatMap((entry) => entry.samples.map((sample) => sample.frequencyHz)));
+  const bounds = logScaleBounds(values, 0.1);
+  const frame = drawLogPlotFrame(ctx, 86, 100, 760, 390, fMin, fMax, bounds.min, bounds.max, {
+    title: mode === "gate" ? "|V_R30/V_gate| (V/V)" : "|V_R30/I_pickup| (V/A = ohm)",
+    yFormatter: mode === "gate" ? ((value) => value.toPrecision(1)) : formatResistance
+  });
+  cases.forEach((entry) => {
+    drawLogCurve(ctx, entry.samples, frame.xFor, frame.yFor, key, LMFE_STUDY_COLORS[String(entry.outputCapacitanceScale)], { lineWidth: 4 });
+  });
+  drawSlideLegend(ctx, cases.map((entry) => ({
+    label: `${entry.outputCapacitanceScale}x Cg,out (${formatCapacitance(entry.outputStageCapacitancePf)})`,
+    color: LMFE_STUDY_COLORS[String(entry.outputCapacitanceScale)]
+  })), 875, 130, { maxWidth: 175, font: "15px Arial", lineHeight: 17, rowGap: 5 });
+  const cards = mode === "gate" ? [
+    ["Output series R", formatResistance(study.outputSeriesResistanceOhm)],
+    ["Reference Cg,out", formatCapacitance(study.baseOutputStageCapacitancePf)],
+    ["Detector C19", formatCapacitance(study.detectorCapacitancePf)]
+  ] : [
+    ["Output series R", formatResistance(study.outputSeriesResistanceOhm)],
+    ["Reference Cg,out", formatCapacitance(study.baseOutputStageCapacitancePf)],
+    ["Pickup convention", `1 A AC; Vpickup/${formatResistance(z0)}`]
+  ];
+  cards.forEach((row, index) => {
+    const x = 86 + index * 310;
+    ctx.fillStyle = "#f5f2ea";
+    ctx.strokeStyle = "#c9c1b0";
+    ctx.fillRect(x, 530, 275, 58);
+    ctx.strokeRect(x, 530, 275, 58);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.fillText(row[0], x + 14, 550);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "21px Arial";
+    ctx.fillText(row[1], x + 14, 578);
+  });
+}
+
+function drawLmfePickupNoiseSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const study = lmfePickupNoiseStudy(params);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const energyCalibrated = Number.isFinite(study?.signalCalibration?.energyEvPerOutputV);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText(
+    energyCalibrated
+      ? "Equivalent detector-energy noise versus output capacitance"
+      : "Trap-filtered pickup at the differential R30 output",
+    58,
+    45
+  );
+  if (study?.bundledReference) {
+    ctx.fillStyle = "#7354a3";
+    ctx.font = "bold 13px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText("Bundled reference electrical sweep", 1030, 45);
+    ctx.textAlign = "left";
+  }
+  if (!study?.cases?.length) {
+    drawWrappedLines(ctx, ["Run the backend SPICE simulation to generate the capacitance sweep and gate-reference solution."], 90, 130, 28, "#5b6670", "18px Arial", 860);
+    return;
+  }
+  const samples = study.cases.map((entry) => ({
+    frequency: entry.outputStageCapacitancePf,
+    total: energyCalibrated ? entry.equivalentEnergyEv : entry.outputTotalRmsV,
+    mains: energyCalibrated ? entry.equivalentMainsEnergyEv : entry.outputMainsRmsV,
+    broadband: energyCalibrated ? entry.equivalentBroadbandEnergyEv : entry.outputBroadbandRmsV
+  }));
+  const values = samples.flatMap((sample) => [sample.total, sample.mains, sample.broadband]);
+  const bounds = logScaleBounds(values, 0.15);
+  const cMin = Math.min(...samples.map((sample) => sample.frequency));
+  const cMax = Math.max(...samples.map((sample) => sample.frequency));
+  const frame = drawLogPlotFrame(ctx, 86, 100, 740, 360, cMin, cMax, bounds.min, bounds.max, {
+    title: energyCalibrated ? "Equivalent detector energy RMS" : "Differential R30 RMS voltage after trapezoid",
+    xFormatter: (value) => formatCapacitance(value),
+    yFormatter: energyCalibrated ? formatEnergyRms : formatPlotVoltage
+  });
+  drawLogCurve(ctx, samples, frame.xFor, frame.yFor, "total", "#b73e3e", { lineWidth: 5 });
+  drawLogCurve(ctx, samples, frame.xFor, frame.yFor, "mains", "#315f8c", { lineWidth: 3, dashed: [9, 5] });
+  drawLogCurve(ctx, samples, frame.xFor, frame.yFor, "broadband", "#557a38", { lineWidth: 3, dashed: [3, 5] });
+  drawSlideLegend(ctx, [
+    { label: "Total at R30", color: "#b73e3e" },
+    { label: `${study.mainsFrequencyHz} Hz line pickup`, color: "#315f8c", dashed: [9, 5] },
+    { label: "White broadband pickup", color: "#557a38", dashed: [3, 5] }
+  ], 850, 132, { maxWidth: 190, font: "15px Arial" });
+  const reference = study.cases.find((entry) => Number(entry.outputCapacitanceScale) === 1) || study.cases[0];
+  const best = study.cases.reduce((lowest, entry) => entry.outputTotalRmsV < lowest.outputTotalRmsV ? entry : lowest, study.cases[0]);
+  const cards = [
+    ["Reference Cg,out", formatCapacitance(reference.outputStageCapacitancePf), energyCalibrated ? formatEnergyRms(reference.equivalentEnergyEv) : formatPlotVoltage(reference.outputTotalRmsV)],
+    ["Output series R", formatResistance(study.outputSeriesResistanceOhm), `Cdet = ${formatCapacitance(study.detectorCapacitancePf)}`],
+    ["Charge calibration", energyCalibrated ? formatPlotVoltage(study.signalCalibration.peakV) : "Run SPICE", energyCalibrated ? `per ${(study.signalCalibration.referenceChargeC * 1e15).toPrecision(2)} fC` : "transient required"],
+    ["Lowest solved", formatCapacitance(best.outputStageCapacitancePf), energyCalibrated ? formatEnergyRms(best.equivalentEnergyEv) : formatPlotVoltage(best.outputTotalRmsV)]
+  ];
+  cards.forEach((row, index) => {
+    const x = 58 + index * 258;
+    ctx.fillStyle = "#f5f2ea";
+    ctx.strokeStyle = "#c9c1b0";
+    ctx.fillRect(x, 500, 232, 82);
+    ctx.strokeRect(x, 500, 232, 82);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.fillText(row[0], x + 13, 522);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "20px Arial";
+    ctx.fillText(row[1], x + 13, 550);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.fillText(row[2], x + 13, 572);
+  });
+}
+
+function drawLmfeResistanceNoiseSlide(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const study = lmfeResistanceNoiseStudy(params);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const energyCalibrated = Number.isFinite(study?.signalCalibration?.energyEvPerOutputV);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "22px Arial";
+  ctx.fillText(
+    energyCalibrated
+      ? "Equivalent detector-energy noise versus output resistance"
+      : "Trap-filtered pickup at R30 versus output resistance",
+    58,
+    45
+  );
+  if (study?.bundledReference) {
+    ctx.fillStyle = "#7354a3";
+    ctx.font = "bold 13px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText("Bundled reference electrical sweep", 1030, 45);
+    ctx.textAlign = "left";
+  }
+  if (!study?.cases?.length) {
+    drawWrappedLines(ctx, ["Run the backend SPICE simulation to generate the output-resistance study."], 90, 130, 28, "#5b6670", "18px Arial", 860);
+    return;
+  }
+
+  const factors = [0.1, 1, 10];
+  const colors = { "0.1": "#315f8c", "1": "#b73e3e", "10": "#7354a3" };
+  const curves = factors.map((factor) => ({
+    factor,
+    samples: study.cases
+      .filter((entry) => Number(entry.outputCapacitanceScale) === factor)
+      .sort((left, right) => left.outputSeriesResistanceOhm - right.outputSeriesResistanceOhm)
+      .map((entry) => ({
+        frequency: entry.outputSeriesResistanceOhm,
+        total: energyCalibrated ? entry.equivalentEnergyEv : entry.outputTotalRmsV
+      }))
+  })).filter((curve) => curve.samples.length);
+  const allSamples = curves.flatMap((curve) => curve.samples);
+  const yValues = allSamples.map((sample) => sample.total);
+  const yDataMin = Math.min(...yValues);
+  const yDataMax = Math.max(...yValues);
+  const yPadding = Math.max((yDataMax - yDataMin) * 0.08, yDataMax * 0.005);
+  const rMin = Math.min(...allSamples.map((sample) => sample.frequency));
+  const rMax = Math.max(...allSamples.map((sample) => sample.frequency));
+  const frame = drawLogXLinearYPlotFrame(ctx, 86, 100, 740, 360, rMin, rMax, yDataMin - yPadding, yDataMax + yPadding, {
+    title: energyCalibrated ? "Equivalent detector energy RMS" : "Differential R30 RMS voltage after trapezoid",
+    xFormatter: (value) => formatResistance(value),
+    yFormatter: energyCalibrated ? formatEnergyRms : formatPlotVoltage
+  });
+  curves.forEach((curve) => {
+    drawLogCurve(ctx, curve.samples, frame.xFor, frame.yFor, "total", colors[String(curve.factor)], { lineWidth: curve.factor === 1 ? 5 : 3 });
+  });
+  drawSlideLegend(ctx, curves.map((curve) => ({
+    label: `${curve.factor}x Cg,out (${formatCapacitance(study.baseOutputStageCapacitancePf * curve.factor)})`,
+    color: colors[String(curve.factor)]
+  })), 850, 132, { maxWidth: 190, font: "15px Arial" });
+
+  const referenceCases = study.cases.filter((entry) => Number(entry.outputCapacitanceScale) === 1);
+  const designResistance = Number(study.designOutputSeriesResistanceOhm);
+  const designCase = referenceCases.reduce((closest, entry) => (
+    !closest || Math.abs(entry.outputSeriesResistanceOhm - designResistance) < Math.abs(closest.outputSeriesResistanceOhm - designResistance)
+      ? entry
+      : closest
+  ), null);
+  const energyMetric = (entry) => energyCalibrated ? entry?.equivalentEnergyEv : entry?.outputTotalRmsV;
+  const case22 = referenceCases.find((entry) => Number(entry.outputSeriesResistanceOhm) === 22);
+  const case51 = referenceCases.find((entry) => Number(entry.outputSeriesResistanceOhm) === 51);
+  const value22 = energyMetric(case22);
+  const value51 = energyMetric(case51);
+  const resistanceSpanPct = Number.isFinite(value22) && Number.isFinite(value51)
+    ? 100 * Math.abs(value51 - value22) / Math.max(1e-300, (value51 + value22) / 2)
+    : Number.NaN;
+  const cards = [
+    ["Design Cg,out", formatCapacitance(study.baseOutputStageCapacitancePf), `Cdet = ${formatCapacitance(study.detectorCapacitancePf)}`],
+    ["Selected output R", formatResistance(designResistance), designCase ? (energyCalibrated ? formatEnergyRms(designCase.equivalentEnergyEv) : formatPlotVoltage(designCase.outputTotalRmsV)) : "not sampled"],
+    ["22-51 ohm energy span", Number.isFinite(resistanceSpanPct) ? `${resistanceSpanPct.toPrecision(3)}%` : "--", "negligible energy effect"],
+    ["Selection criterion", "Fast-step fidelity", "background rejection + test"]
+  ];
+  cards.forEach((row, index) => {
+    const x = 58 + index * 258;
+    ctx.fillStyle = "#f5f2ea";
+    ctx.strokeStyle = "#c9c1b0";
+    ctx.fillRect(x, 500, 232, 82);
+    ctx.strokeRect(x, 500, 232, 82);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.fillText(row[0], x + 13, 522);
+    ctx.fillStyle = "#17202a";
+    ctx.font = "20px Arial";
+    ctx.fillText(row[1], x + 13, 550);
+    ctx.fillStyle = "#5b6670";
+    ctx.font = "13px Arial";
+    ctx.fillText(row[2], x + 13, 572);
+  });
+}
+
+function backendSpiceMagnitudeFromCurve(curve, frequencyHz) {
+  if (!curve.length || !(frequencyHz > 0)) return Number.NaN;
+  if (frequencyHz <= curve[0].frequency) return 10 ** (-curve[0].attenuationDb / 20);
+  if (frequencyHz >= curve.at(-1).frequency) return 10 ** (-curve.at(-1).attenuationDb / 20);
+  const upperIndex = curve.findIndex((sample) => sample.frequency >= frequencyHz);
+  const lower = curve[upperIndex - 1];
+  const upper = curve[upperIndex];
+  const fraction = Math.log(frequencyHz / lower.frequency) / Math.log(upper.frequency / lower.frequency);
+  const attenuationDb = lower.attenuationDb + fraction * (upper.attenuationDb - lower.attenuationDb);
+  return 10 ** (-attenuationDb / 20);
+}
+
+function backendSpiceMagnitudeAt(payload, curveKey, frequencyHz) {
+  const curve = backendSpiceCurve(payload?.samples, curveKey).sort((left, right) => left.frequency - right.frequency);
+  return backendSpiceMagnitudeFromCurve(curve, frequencyHz);
 }
 
 function trapezoidTransferMagnitude(frequencyHz, p = params) {
+  if (p.noise_apply_shaping === false) return 1;
   const sampleRateHz = Math.max(1, Number(p.noise_sample_rate_msps) || 62.5) * 1e6;
   const riseSamples = Math.max(1, Math.round(
     Math.max(0.01, Number(p.noise_trap_rise_us) || 10) * 1e-6 * sampleRateHz
@@ -7966,14 +9387,18 @@ function trapezoidTransferMagnitude(frequencyHz, p = params) {
     Math.max(0, Number(p.noise_trap_flat_us) || 0) * 1e-6 * sampleRateHz
   ));
   const frequency = Math.max(0, Math.min(sampleRateHz / 2, Number(frequencyHz) || 0));
-  if (!(frequency > 0)) return 0;
+  const a = Math.exp(-1 / (sampleRateHz * Math.max(0.001, Number(p.noise_pz_decay_us) || 350) * 1e-6));
+  if (!(frequency > 0)) return p.noise_pz_enabled ? (riseSamples + flatSamples) * (1 - a) : 0;
   const omega = 2 * Math.PI * frequency / sampleRateHz;
   const denominator = riseSamples * Math.sin(omega / 2);
   const movingAverage = Math.abs(denominator) < 1e-14
     ? 1
     : Math.abs(Math.sin(riseSamples * omega / 2) / denominator);
   const windowDifference = 2 * Math.abs(Math.sin((riseSamples + flatSamples) * omega / 2));
-  return movingAverage * windowDifference;
+  const pzMagnitude = p.noise_pz_enabled
+    ? Math.hypot(1 - a, 2 * Math.sqrt(a) * Math.sin(omega / 2)) / (2 * Math.abs(Math.sin(omega / 2)))
+    : 1;
+  return movingAverage * windowDifference * pzMagnitude;
 }
 
 function noisePathMagnitude(circuit, p, frequencyHz) {
@@ -7983,10 +9408,43 @@ function noisePathMagnitude(circuit, p, frequencyHz) {
 
 function fanoNoiseBudget(p = params) {
   const circuit = electromagneticCircuitForCurrentDesign();
-  const cacheKey = JSON.stringify([p, circuit]);
+  const spicePayload = cachedSpiceLadderResultForCurrentDesign();
+  const cacheKey = JSON.stringify([p, circuit, spicePayload ? spiceLadderCache?.key : "browser-mna"]);
   if (fanoNoiseBudgetCache?.key === cacheKey) {
     return fanoNoiseBudgetCache.value;
   }
+  const filterInputCurve = backendSpiceCurve(spicePayload?.samples, "fullTline").sort((left, right) => left.frequency - right.frequency);
+  const regulatorCurve = backendSpiceCurve(spicePayload?.samples, "regulatorInputTline").sort((left, right) => left.frequency - right.frequency);
+  const signalCalibration = trapezoidSignalCalibration(spicePayload?.lmfeSignalStep, p);
+  const energyPerDetectorVolt = Math.max(1e-15, detectorCapacitancePf(p) * 1e-12) / 1.602176634e-19 * 2.96;
+  const fullNoiseModel = Boolean(signalCalibration && [
+    spicePayload?.lmfeEverythingTransfer,
+    spicePayload?.lmfeInputPickupTransfer,
+    spicePayload?.lmfeCryostatPickupTransfer
+  ].every((transfer) => transfer?.samples?.length));
+  // Express all R30 responses in equivalent detector volts before common shaping.
+  const lmfeMagnitude = (transfer, frequencyHz) => interpolatePositiveLogSample(
+    transfer.samples, "outputGainVPerV", frequencyHz
+  ) * signalCalibration.energyEvPerOutputV / energyPerDetectorVolt;
+  const filterInputMagnitude = (frequencyHz) => {
+    if (fullNoiseModel) return lmfeMagnitude(spicePayload.lmfeInputPickupTransfer, frequencyHz);
+    const backendMagnitude = backendSpiceMagnitudeFromCurve(filterInputCurve, frequencyHz);
+    return Number.isFinite(backendMagnitude)
+      ? backendMagnitude
+      : ladderTransferMagnitude(circuit, p, frequencyHz, { includeLoad: true });
+  };
+  const regulatorMagnitude = (frequencyHz) => {
+    if (fullNoiseModel) return lmfeMagnitude(spicePayload.lmfeEverythingTransfer, frequencyHz);
+    const backendMagnitude = backendSpiceMagnitudeFromCurve(regulatorCurve, frequencyHz);
+    return Number.isFinite(backendMagnitude) ? backendMagnitude : filterInputMagnitude(frequencyHz);
+  };
+  const filteredNoiseMagnitude = (frequencyHz) => filterInputMagnitude(frequencyHz)
+    * trapezoidTransferMagnitude(frequencyHz, p);
+  const regulatorNoiseMagnitude = (frequencyHz) => regulatorMagnitude(frequencyHz)
+    * trapezoidTransferMagnitude(frequencyHz, p);
+  const cryostatNoiseMagnitude = (frequencyHz) => (fullNoiseModel
+    ? lmfeMagnitude(spicePayload.lmfeCryostatPickupTransfer, frequencyHz) : 1)
+    * trapezoidTransferMagnitude(frequencyHz, p);
   const endpointEv = 2039e3;
   const pairEnergyEv = 2.96;
   const enteredFanoFactor = Number(p.noise_fano_factor);
@@ -8002,41 +9460,81 @@ function fanoNoiseBudget(p = params) {
   const nyquistHz = sampleRateHz / 2;
   const waveformSamples = Math.max(1, Math.round(Number(p.noise_waveform_samples) || 8192));
   const waveformDurationUs = waveformSamples / sampleRateHz * 1e6;
-  const trapSupportUs = 2 * Math.max(0, Number(p.noise_trap_rise_us) || 0)
+  const trapSupportUs = p.noise_apply_shaping === false ? 0 : 2 * Math.max(0, Number(p.noise_trap_rise_us) || 0)
     + Math.max(0, Number(p.noise_trap_flat_us) || 0);
   const supplyRmsV = Math.max(0, Number(p.noise_supply_noise_pp_mv) || 0) * 1e-3 / (2 * Math.sqrt(2));
-  const labBroadbandRmsV = Math.max(0, Number(p.noise_lab_broadband_rms_mv) || 0) * 1e-3;
-  const mainsInputRmsV = Math.max(0, Number(p.noise_mains_rms_mv) || 0) * 1e-3;
+  const inputCableBroadbandRmsV = Math.max(0, Number(p.noise_lab_broadband_rms_mv) || 0) * 1e-3;
+  const inputCableMainsRmsV = Math.max(0, Number(p.noise_mains_rms_mv) || 0) * 1e-3;
+  const cryostatBroadbandRmsV = Math.max(0, Number(p.noise_cryostat_broadband_rms_mv) || 0) * 1e-3;
+  const cryostatMainsRmsV = Math.max(0, Number(p.noise_cryostat_mains_rms_mv) || 0) * 1e-3;
   const mainsFrequencyHz = Math.max(0, Number(p.noise_mains_frequency_hz) || 50);
-  const points = 900;
+  // Resolve the repeated trapezoid lobes above 100 kHz with a linear grid.
+  const integrationFrequencies = [];
+  const logEnd = Math.min(100e3, nyquistHz);
+  for (let index = 1; index <= 1200; index += 1) integrationFrequencies.push(logEnd ** (index / 1200));
+  if (nyquistHz > logEnd) {
+    for (let index = 1; index <= 7000; index += 1) integrationFrequencies.push(logEnd + (nyquistHz - logEnd) * index / 7000);
+  }
   let weightedBandwidthHz = 0;
+  let trapWeightedBandwidthHz = 0;
   let previousFrequency = 1;
-  let previousMagnitude2 = noisePathMagnitude(circuit, p, previousFrequency) ** 2;
+  let previousMagnitude2 = filteredNoiseMagnitude(previousFrequency) ** 2;
+  let previousTrapMagnitude2 = cryostatNoiseMagnitude(previousFrequency) ** 2;
   let worstSupplyMagnitude = 0;
-  let worstSupplyFrequencyHz = 5;
-  for (let index = 1; index <= points; index += 1) {
-    const frequency = 10 ** (Math.log10(nyquistHz) * index / points);
-    const pathMagnitude = noisePathMagnitude(circuit, p, frequency);
+  let worstSupplyFrequencyHz = 20;
+  let worstSupplyHighMagnitude = 0;
+  let worstSupplyHighFrequencyHz = 1000;
+  for (const frequency of integrationFrequencies) {
+    const pathMagnitude = filteredNoiseMagnitude(frequency);
+    const supplyPathMagnitude = regulatorNoiseMagnitude(frequency);
     const magnitude2 = pathMagnitude ** 2;
+    const trapMagnitude2 = cryostatNoiseMagnitude(frequency) ** 2;
     weightedBandwidthHz += 0.5 * (previousMagnitude2 + magnitude2) * (frequency - previousFrequency);
-    if (frequency >= 5 && frequency <= Math.min(nyquistHz, 50e6) && pathMagnitude > worstSupplyMagnitude) {
-      worstSupplyMagnitude = pathMagnitude;
+    trapWeightedBandwidthHz += 0.5 * (previousTrapMagnitude2 + trapMagnitude2) * (frequency - previousFrequency);
+    if (frequency >= 20 && frequency <= Math.min(nyquistHz, 1000) && supplyPathMagnitude > worstSupplyMagnitude) {
+      worstSupplyMagnitude = supplyPathMagnitude;
       worstSupplyFrequencyHz = frequency;
+    }
+    if (frequency >= 1000 && frequency <= Math.min(nyquistHz, 20e6) && supplyPathMagnitude > worstSupplyHighMagnitude) {
+      worstSupplyHighMagnitude = supplyPathMagnitude;
+      worstSupplyHighFrequencyHz = frequency;
     }
     previousFrequency = frequency;
     previousMagnitude2 = magnitude2;
+    previousTrapMagnitude2 = trapMagnitude2;
   }
-  const broadbandOutputV = labBroadbandRmsV * Math.sqrt(weightedBandwidthHz / Math.max(1, nyquistHz - 1));
-  const supplyOutputV = supplyRmsV * worstSupplyMagnitude;
-  const mainsLadderMagnitude = ladderTransferMagnitude(circuit, p, mainsFrequencyHz, { includeLoad: true });
+  const inputBroadbandOutputV = inputCableBroadbandRmsV * Math.sqrt(weightedBandwidthHz / Math.max(1, nyquistHz - 1));
+  const supplyMainsOutputV = supplyRmsV * regulatorNoiseMagnitude(mainsFrequencyHz);
+  const supplyLowOutputV = Math.max(supplyRmsV * worstSupplyMagnitude, supplyMainsOutputV);
+  const supplyHighOutputV = supplyRmsV * 0.5 * worstSupplyHighMagnitude;
+  const supplyOutputV = Math.hypot(supplyLowOutputV, supplyHighOutputV);
+  if (supplyMainsOutputV > supplyRmsV * worstSupplyMagnitude) {
+    worstSupplyFrequencyHz = mainsFrequencyHz;
+    worstSupplyMagnitude = regulatorNoiseMagnitude(mainsFrequencyHz);
+  }
+  const mainsLadderMagnitude = filterInputMagnitude(mainsFrequencyHz);
   const mainsTrapMagnitude = trapezoidTransferMagnitude(mainsFrequencyHz, p);
-  const mainsOutputV = mainsInputRmsV * mainsLadderMagnitude * mainsTrapMagnitude;
-  const totalOutputV = Math.hypot(supplyOutputV, broadbandOutputV, mainsOutputV);
+  const inputMainsOutputV = inputCableMainsRmsV * mainsLadderMagnitude * mainsTrapMagnitude;
+  const cryostatBroadbandOutputV = cryostatBroadbandRmsV * Math.sqrt(trapWeightedBandwidthHz / Math.max(1, nyquistHz - 1));
+  const cryostatMainsOutputV = cryostatMainsRmsV * cryostatNoiseMagnitude(mainsFrequencyHz);
+  const totalOutputV = Math.hypot(
+    supplyOutputV,
+    inputBroadbandOutputV,
+    inputMainsOutputV,
+    cryostatBroadbandOutputV,
+    cryostatMainsOutputV
+  );
   const equivalentEnergyEv = totalOutputV * detectorCapF / 1.602176634e-19 * pairEnergyEv;
   const voltageToEnergy = detectorCapF / 1.602176634e-19 * pairEnergyEv;
   const supplyEquivalentEnergyEv = supplyOutputV * voltageToEnergy;
-  const broadbandEquivalentEnergyEv = broadbandOutputV * voltageToEnergy;
-  const mainsEquivalentEnergyEv = mainsOutputV * voltageToEnergy;
+  const inputBroadbandEquivalentEnergyEv = inputBroadbandOutputV * voltageToEnergy;
+  const inputMainsEquivalentEnergyEv = inputMainsOutputV * voltageToEnergy;
+  const cryostatBroadbandEquivalentEnergyEv = cryostatBroadbandOutputV * voltageToEnergy;
+  const cryostatMainsEquivalentEnergyEv = cryostatMainsOutputV * voltageToEnergy;
+  const cryostatEquivalentEnergyEv = Math.hypot(
+    cryostatBroadbandEquivalentEnergyEv,
+    cryostatMainsEquivalentEnergyEv
+  );
   const fwhmFactor = 2.354820045;
   const fanoFwhmKev = fwhmFactor * fanoSigmaEv / 1000;
   const fanoPlusBiasFwhmKev = fwhmFactor * Math.hypot(fanoSigmaEv, equivalentEnergyEv) / 1000;
@@ -8060,25 +9558,48 @@ function fanoNoiseBudget(p = params) {
     trapSupportUs,
     trapFitsRecord: trapSupportUs <= waveformDurationUs,
     supplyRmsV,
-    labBroadbandRmsV,
-    mainsInputRmsV,
+    inputCableBroadbandRmsV,
+    inputCableMainsRmsV,
+    cryostatBroadbandRmsV,
+    cryostatMainsRmsV,
+    cableBroadbandRmsV: inputCableBroadbandRmsV,
+    mainsCableRmsV: inputCableMainsRmsV,
+    labBroadbandRmsV: inputCableBroadbandRmsV,
+    mainsInputRmsV: inputCableMainsRmsV,
     mainsFrequencyHz,
     worstSupplyMagnitude,
     worstSupplyFrequencyHz,
     weightedBandwidthHz,
+    trapWeightedBandwidthHz,
     supplyOutputV,
-    broadbandOutputV,
-    mainsOutputV,
+    inputBroadbandOutputV,
+    inputMainsOutputV,
+    cryostatBroadbandOutputV,
+    cryostatMainsOutputV,
+    broadbandOutputV: inputBroadbandOutputV,
+    mainsOutputV: inputMainsOutputV,
     totalOutputV,
     supplyEquivalentEnergyEv,
-    broadbandEquivalentEnergyEv,
-    mainsEquivalentEnergyEv,
+    supplyLowEquivalentEnergyEv: supplyLowOutputV * voltageToEnergy,
+    supplyHighEquivalentEnergyEv: supplyHighOutputV * voltageToEnergy,
+    worstSupplyHighFrequencyHz,
+    supplyMainsEquivalentEnergyEv: supplyMainsOutputV * voltageToEnergy,
+    fullNoiseModel,
+    coherentMainsEnergyEv: (supplyMainsOutputV + inputMainsOutputV + cryostatMainsOutputV) * voltageToEnergy,
+    inputBroadbandEquivalentEnergyEv,
+    inputMainsEquivalentEnergyEv,
+    cryostatBroadbandEquivalentEnergyEv,
+    cryostatMainsEquivalentEnergyEv,
+    cryostatEquivalentEnergyEv,
+    broadbandEquivalentEnergyEv: inputBroadbandEquivalentEnergyEv,
+    mainsEquivalentEnergyEv: inputMainsEquivalentEnergyEv,
     equivalentEnergyEv,
     mainsLadderMagnitude,
     mainsTrapMagnitude,
-    mainsCombinedMagnitude: mainsLadderMagnitude * mainsTrapMagnitude,
+    mainsCombinedMagnitude: mainsTrapMagnitude,
     fanoPlusBiasFwhmKev,
-    margin: equivalentEnergyEv > 0 ? targetSigmaEv / equivalentEnergyEv : Number.POSITIVE_INFINITY
+    margin: equivalentEnergyEv > 0 ? targetSigmaEv / equivalentEnergyEv : Number.POSITIVE_INFINITY,
+    ladderSource: fullNoiseModel ? "complete LMFE SPICE" : "legacy approximation; run SPICE for all three paths"
   };
   fanoNoiseBudgetCache = { key: cacheKey, value: result };
   return result;
@@ -8110,8 +9631,8 @@ function drawFanoNoiseSlide(canvas) {
 
   const rows = [
     ["Literature-weighted F", budget.fanoFactor.toFixed(4), "adjustable cryogenic Ge estimate"],
-    ["Calculated Fano limit", `${budget.fanoFwhmKev.toFixed(3)} keV FWHM`, `${budget.fanoSigmaEv.toFixed(0)} eV rms at 2039 keV`],
-    ["Predicted bias path", `${budget.equivalentEnergyEv.toFixed(1)} eV rms`, `${(budget.equivalentEnergyEv / budget.fanoSigmaEv).toFixed(3)}x Fano sigma`]
+    ["Calculated Fano limit", `${budget.fanoSigmaEv.toFixed(0)} eV σ`, "at 2039 keV deposited energy"],
+    ["Predicted bias + cable", `${budget.equivalentEnergyEv.toFixed(1)} eV σ`, `${(budget.equivalentEnergyEv / budget.fanoSigmaEv).toFixed(3)}x Fano σ`]
   ];
   rows.forEach(([label, value, note], index) => {
     const x = 72 + index * 328;
@@ -8132,13 +9653,14 @@ function drawFanoNoiseSlide(canvas) {
   const entries = [
     { label: "Target allocation", value: budget.targetSigmaEv, color: "#8a6a18" },
     { label: "Supply bound", value: Math.max(1e-4, budget.supplyEquivalentEnergyEv), color: "#65737e" },
-    { label: `${budget.mainsFrequencyHz.toFixed(0)} Hz line`, value: Math.max(1e-4, budget.mainsEquivalentEnergyEv), color: "#b73e3e" },
-    { label: "Broadband pickup", value: Math.max(1e-4, budget.broadbandEquivalentEnergyEv), color: "#587b9b" },
-    { label: "Total bias path", value: Math.max(1e-4, budget.equivalentEnergyEv), color: budget.margin >= 1 ? "#557a38" : "#b73e3e" },
+    { label: "RG-58 input broadband", value: Math.max(1e-4, budget.inputBroadbandEquivalentEnergyEv), color: "#587b9b" },
+    { label: `RG-58 input ${budget.mainsFrequencyHz.toFixed(0)} Hz`, value: Math.max(1e-4, budget.inputMainsEquivalentEnergyEv), color: "#b55f3f" },
+    { label: "Cryostat custom cable", value: Math.max(1e-4, budget.cryostatEquivalentEnergyEv), color: "#805c8f" },
+    { label: "Total bias + cable", value: Math.max(1e-4, budget.equivalentEnergyEv), color: budget.margin >= 1 ? "#557a38" : "#b73e3e" },
     { label: "Irreducible Fano", value: budget.fanoSigmaEv, color: "#1f6f78" }
   ];
   const minLog = -1;
-  const maxLog = 4;
+  const maxLog = Math.max(4, Math.ceil(Math.log10(Math.max(...entries.map((entry) => entry.value)))));
   const xFor = (value) => plot.left + (Math.log10(Math.max(10 ** minLog, value)) - minLog) / (maxLog - minLog) * (plot.right - plot.left);
   for (let decade = minLog; decade <= maxLog; decade += 1) {
     const x = xFor(10 ** decade);
@@ -8150,10 +9672,10 @@ function drawFanoNoiseSlide(canvas) {
     ctx.fillStyle = "#5b6670";
     ctx.font = "14px Arial";
     ctx.textAlign = "center";
-    ctx.fillText(`${10 ** decade} eV`, x, plot.bottom + 22);
+    ctx.fillText(`${10 ** decade} eV σ`, x, plot.bottom + 22);
   }
   entries.forEach((entry, index) => {
-    const y = plot.top + 21 + index * 31;
+    const y = plot.top + 17 + index * 27;
     ctx.fillStyle = "#17202a";
     ctx.font = "16px Arial";
     ctx.textAlign = "right";
@@ -8163,9 +9685,10 @@ function drawFanoNoiseSlide(canvas) {
   });
   ctx.textAlign = "left";
   drawWrappedLines(ctx, [
-    `${budget.mainsFrequencyHz.toFixed(0)} Hz: trap ${formatAttenuationDb(attenuationDbFromMagnitude(budget.mainsTrapMagnitude))}, ladder ${formatAttenuationDb(attenuationDbFromMagnitude(budget.mainsLadderMagnitude))}; ${(budget.mainsInputRmsV * 1e3).toFixed(2)} mV rms becomes ${budget.mainsEquivalentEnergyEv.toFixed(1)} eV rms.`,
-    `Supply p-p bound is placed at the worst response (${formatFrequency(budget.worstSupplyFrequencyHz)}). Broadband pickup is integrated to ${formatFrequency(budget.nyquistHz)}. Record ${budget.waveformDurationUs.toFixed(1)} us; trap support ${budget.trapSupportUs.toFixed(1)} us${budget.trapFitsRecord ? "." : " DOES NOT FIT."}`,
-    `The bias path is ${(budget.equivalentEnergyEv / budget.fanoSigmaEv).toFixed(3)}x the calculated Fano RMS fluctuation; the design target is ${budget.targetFraction.toFixed(2)}x Fano, with ${budget.margin.toFixed(2)}x margin to that target.`
+    `${budget.mainsFrequencyHz.toFixed(0)} Hz RG-58 input pickup: ladder ${formatAttenuationDb(attenuationDbFromMagnitude(budget.mainsLadderMagnitude))}, trap ${formatAttenuationDb(attenuationDbFromMagnitude(budget.mainsTrapMagnitude))}; ${(budget.inputCableMainsRmsV * 1e3).toFixed(2)} mV σ becomes ${budget.inputMainsEquivalentEnergyEv.toFixed(1)} eV σ.`,
+    `CAEN A1560H: ${budget.supplyMainsEquivalentEnergyEv.toFixed(2)} eV σ if low-band ripple is at ${budget.mainsFrequencyHz.toFixed(0)} Hz. Two-band maxima scenario: ${budget.supplyEquivalentEnergyEv.toFixed(2)} eV σ; source R remains provisional.`,
+    `${budget.ladderSource}. Cryostat pickup: ${budget.cryostatEquivalentEnergyEv.toFixed(1)} eV σ. Coherent mains can sum to ${budget.coherentMainsEnergyEv.toFixed(1)} eV σ.`,
+    `The bias path is ${(budget.equivalentEnergyEv / budget.fanoSigmaEv).toFixed(3)}x the calculated Fano σ; the design target is ${budget.targetFraction.toFixed(2)}x Fano, with ${budget.margin.toFixed(2)}x margin to that target.`
   ], 76, 490, 20, "#5b6670", "15px Arial", 970);
 }
 
@@ -8995,7 +10518,7 @@ function captureResultParameters(result, p) {
   const components = componentsFromGeometrySummary(result.model?.geometry);
   if (components) {
     backendGeometryCache = {
-      key: result.parameterKey,
+      key: geometryCacheKey(result.parameters),
       components,
       model: result.model
     };
@@ -9007,11 +10530,19 @@ function currentSolvedResultForSlides() {
   const currentKey = comparableResultParameters(params);
   if (lastResult?.parameterKey === currentKey) {
     const bundledDefault = Boolean(lastResult.bundledDefault);
+    const solvedPlateCount = Number(lastResult.parameters?.plate_pairs);
+    const currentPlateCount = biasPlateCount(params);
+    const reusedPlateClasses = params.use_repeating_cell_approximation
+      && solvedPlateCount >= 3
+      && currentPlateCount >= 3
+      && solvedPlateCount !== currentPlateCount;
     return {
       result: lastResult,
       parameters: lastResult.parameters || params,
-      mode: bundledDefault ? "bundled-default" : "last-run",
-      blurb: bundledDefault
+      mode: reusedPlateClasses ? "repeated-cell-reuse" : bundledDefault ? "bundled-default" : "last-run",
+      blurb: reusedPlateClasses
+        ? `Reusing solved end and interior FEniCSx classes from ${solvedPlateCount} plates to reconstruct the ${currentPlateCount}-plate repeated-cell capacitance network.`
+        : bundledDefault
         ? `Displaying the bundled FEniCSx field result for this exact default geometry: ${resultSolverLabel(lastResult)}.`
         : `Displaying the last solved field result for this exact design: ${resultSolverLabel(lastResult)}.`
     };
@@ -9120,6 +10651,10 @@ function drawSimulationResultsSlide(canvas) {
 }
 
 function drawThermalSlide(canvas) {
+  if (canvas && EpoxyCure.materials[params.epoxy_material]) {
+    EpoxyCure.draw(canvas, params);
+    return;
+  }
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
@@ -9251,7 +10786,7 @@ function drawThermalSlide(canvas) {
   ctx.textAlign = "right";
   ctx.font = "16px Arial";
   ctx.fillStyle = "#8a6a18";
-  ctx.fillText("Bulk cured tensile-strength proxy: 20 MPa", plot.right - 12, strengthY - 10);
+  ctx.fillText("Provisional bulk tensile proxy: 20 MPa", plot.right - 12, strengthY - 10);
 
   const full = thermalStressEstimate(params, 1);
   const half = thermalStressEstimate(params, 0.5);
@@ -9308,7 +10843,8 @@ function drawThermalSlide(canvas) {
   ctx.textAlign = "left";
   ctx.fillStyle = "#17202a";
   ctx.font = "23px Arial";
-  ctx.fillText("Bulk-stress comparison", panelX, 76);
+  const epoxyLabel = epoxyMaterialPresets[params.epoxy_material]?.label || "Selected epoxy";
+  ctx.fillText(epoxyLabel.includes("CAT 23LV") ? "CAT 23LV cooldown" : "Bulk-stress comparison", panelX, 76);
   ctx.font = "15px Arial";
   ctx.fillStyle = "#5b6670";
   ctx.fillText(`Closed form at ${params.thermal_min_temperature_c.toFixed(0)} °C: ${thermalStressEstimate(params).stressMpa.toFixed(1)} MPa`, panelX, 106);
@@ -9494,7 +11030,7 @@ function drawFullWaveSlide(canvas) {
   const handoffResidual = overlapResiduals.find((sample) => sample.frequency === overlapFrequency)?.differenceDb;
   const overlapValidated = sharedFrequencies.length >= 2
     && Number.isFinite(handoffResidual)
-    && Math.abs(handoffResidual) <= 1;
+    && Math.abs(handoffResidual) <= Number(result.overlap_validation?.tolerance_db || 2);
   const attenuationValues = allCurve.map((sample) => sample.attenuationDb).filter(Number.isFinite);
   const yMin = Math.min(0, Math.floor((Math.min(...attenuationValues) - 5) / 20) * 20);
   const yMax = Math.max(20, Math.ceil((Math.max(...attenuationValues) + 5) / 20) * 20);
@@ -9566,7 +11102,14 @@ function drawFullWaveSlide(canvas) {
     });
   };
   drawCurve(eqsCurve, "#1f6f78");
+  ctx.save();
+  if (!overlapValidated) ctx.setLineDash([8, 5]);
   drawCurve(meepCurve, "#b73e3e");
+  ctx.restore();
+  if (!overlapValidated) {
+    ctx.fillStyle = "#b73e3e"; ctx.font = "bold 14px Arial"; ctx.textAlign = "left";
+    ctx.fillText("RF diagnostic only: EQS/MEEP handoff failed", frame.left, 69);
+  }
 
   const anchorX = xFor(normalizationFrequency);
   ctx.save();
@@ -9644,7 +11187,7 @@ function drawFullWaveSlide(canvas) {
     ["EQS vs RC", Number.isFinite(eqsValidationDifference) ? `max ${eqsValidationDifference.toFixed(2)} dB` : "not available"],
     ["Normalize at", formatFrequency(normalizationFrequency)],
     ["Handoff check", `${formatFrequency(overlapFrequency)}; ${Number.isFinite(handoffResidual) ? `${handoffResidual >= 0 ? "+" : ""}${handoffResidual.toFixed(2)} dB` : "no shared point"}`],
-    ["Overlap status", overlapValidated ? "consistent within 1 dB" : "handoff not validated"],
+    ["Overlap status", overlapValidated ? "consistent within 2 dB" : "handoff not validated"],
     ["Low-loss ladder f0", ladderModes.length ? ladderModes.slice(0, 2).map((mode) => formatFrequency(mode.naturalFrequencyHz)).join(" / ") : "not found"],
     ["Predicted loaded peaks", loadedLadderModes.length ? loadedLadderModes.slice(0, 2).map((mode) => formatFrequency(mode.loadedPeakFrequencyHz)).join(" / ") : "none; overdamped"],
     [result.resonance_verification?.enabled ? "First verified mode" : "First coarse bracket", resonance ? formatFrequency(resonance.frequency) : "not bracketed"],
@@ -9804,6 +11347,7 @@ function drawSlideGraphics() {
   drawMaterialSlide(document.getElementById("slideModelerCanvas"));
   drawSimulationResultsSlide(document.getElementById("slideResultsCanvas"));
   drawThermalSlide(document.getElementById("slideThermalCanvas"));
+  drawThermalFeaViewer(document.getElementById("slideThermalFeaModelCanvas"));
   drawEdgeSlide(document.getElementById("slideEdgeCanvas"));
   drawDeformationSlide(document.getElementById("slideDeformationCanvas"));
   drawPackingSlide(document.getElementById("slidePackingCanvas"));
@@ -9815,6 +11359,13 @@ function drawSlideGraphics() {
   drawCparExtractionSlide(document.getElementById("slideCparExtractionCanvas"));
   drawLoadedLadderSlide(document.getElementById("slideLoadedLadderCanvas"));
   drawSpiceLadderSlide(document.getElementById("slideSpiceLadderCanvas"));
+  drawDetectorFrontendModelSlide(document.getElementById("slideDetectorFrontendCanvas"));
+  drawSimplifiedAmplifierSpiceSlide(document.getElementById("slideSimplifiedAmplifierCanvas"));
+  drawThreeNoiseSourcesSlide(document.getElementById("slideThreeNoiseSourcesCanvas"));
+  drawLmfeSignalCalibrationSlide(document.getElementById("slideLmfeGateGainCanvas"));
+  drawLmfeFrequencyStudySlide(document.getElementById("slideLmfePickupTransferCanvas"), "pickup");
+  drawLmfePickupNoiseSlide(document.getElementById("slideLmfePickupNoiseCanvas"));
+  drawLmfeResistanceNoiseSlide(document.getElementById("slideLmfeResistanceNoiseCanvas"));
   drawFanoNoiseSlide(document.getElementById("slideFanoNoiseCanvas"));
   drawStageValidationSlide(document.getElementById("slideStageValidationCanvas"));
   drawCparStrategyValidationSlide(document.getElementById("slideCparStrategyValidationCanvas"));
@@ -10091,14 +11642,14 @@ function drawPrototypeGeometrySlide(canvas) {
   ctx.font = "23px Arial";
   ctx.fillText("Shared radial envelope", 70, 58);
   drawRing(28, 26, "rgba(85, 122, 56, 0.24)", "#557a38", 3);
-  drawRing(20, 6.6, "rgba(214, 183, 93, 0.55)", "#a7862e", 3);
+  drawRing(23, 4, "rgba(214, 183, 93, 0.55)", "#a7862e", 3);
 
   ctx.save();
   ctx.strokeStyle = "#557a38";
   ctx.lineWidth = 2;
   ctx.setLineDash([8, 7]);
   ctx.beginPath();
-  ctx.arc(centerX, centerY, radiusPx(5.1), 0, Math.PI * 2);
+  ctx.arc(centerX, centerY, radiusPx(4), 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 
@@ -10117,9 +11668,9 @@ function drawPrototypeGeometrySlide(canvas) {
 
   const radialLabels = [
     { x: 76, y: 92, color: "#557a38", label: "Ground tube ID 26.0 mm" },
-    { x: 300, y: 92, color: "#a7862e", label: "Washer OD 20.0 mm" },
-    { x: 76, y: 520, color: "#a7862e", label: "Washer ID 6.6 mm" },
-    { x: 300, y: 520, color: "#557a38", label: "Ground minimum ID 5.1 mm" }
+    { x: 300, y: 92, color: "#a7862e", label: "Epoxy to bias OD 23.0 mm" },
+    { x: 76, y: 520, color: "#a7862e", label: "Epoxy from ground ID 4.0 mm" },
+    { x: 300, y: 520, color: "#557a38", label: "Ground minimum ID 4.0 mm" }
   ];
   radialLabels.forEach((entry) => {
     ctx.strokeStyle = entry.color;
@@ -10156,10 +11707,10 @@ function drawPrototypeGeometrySlide(canvas) {
   ctx.fillText("Fixed two-pair simulation", panelX, 58);
 
   const rows = [
-    ["Washer", "6.6 x 20 x 1.5 mm", "stock candidate"],
-    ["Plate edge radius", "0.75 mm", "same machined copper"],
-    ["MELF radial gap", "1.45 mm", "(5.1 - 2.2) / 2"],
-    ["Ferrite radial gap", "1.55 mm", "(5.1 - 2.0) / 2"],
+    ["Epoxy gap", "1.0 mm", "continuous dielectric"],
+    ["Copper plates", "2.0 mm", "1.0 mm edge radius"],
+    ["MELF radial gap", "0.90 mm", "(4.0 - 2.2) / 2"],
+    ["Ferrite radial gap", "1.00 mm", "(4.0 - 2.0) / 2"],
     ["One washer C", formatCapacitance(pairCapPf), "analytic overlap"],
     ["Node shunt C", formatCapacitance(shuntCapPf), "two washers"]
   ];
@@ -10182,7 +11733,7 @@ function drawPrototypeGeometrySlide(canvas) {
   });
 
   drawWrappedLines(ctx, [
-    "The washer and copper geometry remain fixed. Only the central resistive insert and its termination method change."
+    "The epoxy gap and copper geometry remain fixed. Only the central resistive insert and its termination method change."
   ], panelX, 535, 22, "#5b6670", "16px Arial", 390);
 }
 
@@ -10282,7 +11833,18 @@ function drawPrototypePerformanceSlide(canvas) {
 function populateEpoxyChoiceTable() {
   const body = document.getElementById("epoxyChoiceTableBody");
   if (!body) return;
-  const comparisonOrder = ["mg_9510", "mg_832fx", "mg_832fxt", "mg_832fxc", "epoxies_etc_20_3241"];
+  const comparisonOrder = [
+    "stycast_2850ft_cat11",
+    "stycast_2850ft_23lv",
+    "mg_9510",
+    "three_m_dp270",
+    "master_bond_ep30",
+    "mg_832c",
+    "mg_832fx",
+    "mg_832fxt",
+    "mg_832fxc",
+    "epoxies_etc_20_3241"
+  ];
   body.replaceChildren();
   for (const key of comparisonOrder) {
     const material = epoxyMaterialPresets[key];
@@ -10309,7 +11871,7 @@ function populateEpoxyChoiceTable() {
   const note = document.getElementById("epoxyChoiceNote");
   if (note && selected?.epsrEstimated) {
     note.textContent = translateText(
-      `${selected.label} uses a provisional relative permittivity of 3.1 from the related 832FX. Shore A and Shore D values are not directly comparable; bulk dielectric strength is not a DC partial-discharge rating.`
+      `${selected.label} uses a provisional relative permittivity of ${selected.epsr} from ${selected.epsrEstimateBasis || "the related 832FX"}. Shore A and Shore D values are not directly comparable; bulk dielectric strength is not a DC partial-discharge rating.`
     );
   } else if (note) {
     note.textContent = translateText(
@@ -11340,6 +12902,8 @@ function clearField() {
   updateEdgeEstimate();
   updateCircuitEstimates();
   updateDielectricMarginReadouts();
+  fanoNoiseBudgetCache = null;
+  updateSpiceSolverPanel();
 }
 
 async function fetchJson(url, options = {}) {
@@ -11466,7 +13030,17 @@ function drawSolvedResult(result) {
     : result.adaptive?.enabled
       ? "Backend adaptive FD"
       : "Backend solver";
-  setModelStatus(result.source?.startsWith("js") ? jsModelLabel : backendModelLabel);
+  const solvedPlateCount = Number(result.parameters?.plate_pairs);
+  const currentPlateCount = biasPlateCount(params);
+  const reusedPlateClasses = params.use_repeating_cell_approximation
+    && solvedPlateCount >= 3
+    && currentPlateCount >= 3
+    && solvedPlateCount !== currentPlateCount;
+  setModelStatus(
+    reusedPlateClasses
+      ? `${backendModelLabel}; end/interior classes reused from ${solvedPlateCount} for ${currentPlateCount} plates`
+      : result.source?.startsWith("js") ? jsModelLabel : backendModelLabel
+  );
   drawSlideGraphics();
 }
 
@@ -11512,7 +13086,9 @@ function solveAndDraw() {
 }
 
 function redrawActiveViewerPanel(panelId) {
-  if (panelId === "cadPanel") {
+  if (panelId === "noiseSchematicPanel") {
+    syncNoiseCableEditor();
+  } else if (panelId === "cadPanel") {
     drawCadModel();
   } else if (panelId === "geometryPanel") {
     drawGeometry();
@@ -11528,6 +13104,7 @@ function redrawActiveViewerPanel(panelId) {
 }
 
 function setupViewerTabs() {
+  setupNoiseCableEditor();
   document.querySelectorAll(".viewer-tab").forEach((button) => {
     button.addEventListener("click", () => {
       const panelId = button.dataset.viewerPanel;
@@ -11570,8 +13147,8 @@ const SLIDE_SECTION_DEFINITIONS = [
       "Discoidal Capacitor Bias Filter",
       "From Full-Geometry FEA to SPICE",
       "SPICE Simulation of the Complete Filter",
-      "Bias Noise After the Energy Filter",
       "Reference Design",
+      "Bias and Cable Noise After the Energy Filter",
       "Using the Modeler"
     ]
   },
@@ -11581,11 +13158,20 @@ const SLIDE_SECTION_DEFINITIONS = [
     titles: [
       "What Is Modeled",
       "Electrical Model for SPICE Simulation",
+      "Detector Front-End Pickup Model",
+      "Three Noise Sources in the Complete SPICE Model",
+      "CAEN Output Network and 50 Hz Pickup",
+      "Simplified Amplifier SPICE Model",
+      "Detector Charge Sets the Energy Calibration",
+      "HV-Cable Pickup Transimpedance",
+      "Output Capacitance versus Energy Noise",
+      "Output Resistance versus Energy Noise",
       "Bias-to-Ground Capacitance from FEA",
       "Bias-to-Bias Parasitic Capacitance from FEA",
       "Electroquasistatic FEA Checks the Distributed RC Model",
       "Full-Field Noise Transmission to First Resonance",
       "Peak Electric Field from FEA",
+      "Thermal FEA Model",
       "From Damped Resonances to Field-Derived Transfer"
     ]
   },
@@ -11611,17 +13197,18 @@ const SLIDE_SECTION_DEFINITIONS = [
     id: "engineering",
     label: "Engineering decisions",
     titles: [
-      "Possible Thermal Limits of Heat-Cured Epoxy",
-      "Compare Core and Potting Approaches",
+      "DP270 Default Thermal Screen",
+      "Ferrite and MELF Core Paths Considered",
       "Available MELF Resistance Falls Short at 50/60 Hz",
-      "Ferrite Has the Larger Potential Payoff",
-      "Discrete HV Capacitors Stay a Backup",
+      "Ferrite Offered Higher Resistance but Was Set Aside",
+      "Continuous Epoxy Removes the Washer Seam",
+      "Avoid High-K Capacitors Without PD Qualification",
       "Partial Discharge Is a System Property",
       "Thin Epoxy Reduces Volume, Not Necessarily Local Stress",
       "Soft Metal Helps Only the Bulk-Epoxy Layout",
       "CTE-Matched Metal Trades Tension for Lower Shear",
       "Epoxy Choice",
-      "Measure the Ferrite Before Trusting the Model"
+      "Why Ferrite Was Set Aside"
     ]
   }
 ];
@@ -11845,6 +13432,7 @@ async function initializeApp() {
   setupTabs();
   normalizeParams();
   loadBundledDefaultFieldResult();
+  loadBundledDefaultThermalResult();
   setupSlideDeck();
   installationDefaults = structuredClone(params);
   installationDefaultControlRanges = structuredClone(customControlRanges);

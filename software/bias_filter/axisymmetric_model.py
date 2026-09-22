@@ -90,7 +90,13 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
     min_ground_id = core_od + 0.02
     p["tube_id_mm"] = max(12.02, float(p.get("tube_id_mm", 24.0)))
     max_ground_id = max(min_ground_id, p["tube_id_mm"] - 2.02)
-    if p["washer_id_mode"] == "ground_id":
+    if p["washer_material"] == "epoxy":
+        p["ground_plate_inner_diameter_mm"] = max(
+            min_ground_id,
+            min(float(p.get("ground_plate_inner_diameter_mm", core_od + 4.0)), max_ground_id),
+        )
+        p["core_to_ground_gap_mm"] = (p["ground_plate_inner_diameter_mm"] - core_od) / 2.0
+    elif p["washer_id_mode"] == "ground_id":
         p["ground_plate_inner_diameter_mm"] = max(min_ground_id, min(p["washer_id_mm"], max_ground_id))
         p["washer_id_mm"] = p["ground_plate_inner_diameter_mm"]
         p["core_to_ground_gap_mm"] = (p["ground_plate_inner_diameter_mm"] - core_od) / 2.0
@@ -109,7 +115,14 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
     p["washer_od_mm"] = max(p["washer_id_mm"] + min_washer_width_diameter, p["washer_od_mm"])
     min_hv_od = max(12.0, p["ground_plate_inner_diameter_mm"] + 2.0)
     max_hv_od = max(min_hv_od, p["tube_id_mm"] - 0.02)
-    if p["washer_od_mode"] == "bias_od":
+    if p["washer_material"] == "epoxy":
+        p["hv_plate_od_mm"] = max(
+            min_hv_od,
+            min(float(p.get("hv_plate_od_mm", min_hv_od)), max_hv_od),
+        )
+        p["washer_id_mm"] = p["ground_plate_inner_diameter_mm"]
+        p["washer_od_mm"] = p["hv_plate_od_mm"]
+    elif p["washer_od_mode"] == "bias_od":
         p["hv_plate_od_mm"] = max(min_hv_od, min(p["washer_od_mm"], max_hv_od))
         p["washer_od_mm"] = p["hv_plate_od_mm"]
     elif p["washer_od_mode"] == "bias_flat_od":
@@ -145,7 +158,7 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
         else:
             if "output_series_resistance_ohm" not in p and "output_series_resistance_mohm" in p:
                 p["output_series_resistance_ohm"] = float(p["output_series_resistance_mohm"]) * 1e6
-            p["output_series_resistance_ohm"] = max(0.0, float(p.get("output_series_resistance_ohm", 50.0)))
+            p["output_series_resistance_ohm"] = max(0.0, float(p.get("output_series_resistance_ohm", 47.0)))
         edge_resistance_mohm = p["input_series_resistance_mohm"] + p["output_series_resistance_ohm"] / 1e6
         total_resistance_mohm = stage_count * p["melf_stage_resistance_mohm"] + edge_resistance_mohm
         if total_resistance_mohm > 0:
@@ -162,7 +175,7 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
         if p["output_series_matches_stage"]:
             p["output_series_resistance_ohm"] = matched_end_series_resistance_ohm(p)
         else:
-            p["output_series_resistance_ohm"] = max(0.0, float(p.get("output_series_resistance_ohm", 50.0)))
+            p["output_series_resistance_ohm"] = max(0.0, float(p.get("output_series_resistance_ohm", 47.0)))
         stage_count = max(0, int(p.get("plate_pairs", 1)) - 1)
         total_resistance_ohm = (
             p["input_series_resistance_mohm"] * 1e6
@@ -299,14 +312,14 @@ def core_resistance_for_length_ohm(p: dict[str, Any], length_mm: float) -> float
 
 def stage_core_resistance_ohm(p: dict[str, Any]) -> float:
     if p.get("use_direct_stage_circuit", False):
-        return float(p.get("melf_stage_resistance_mohm", 12.0)) * 1e6
+        return float(p.get("melf_stage_resistance_mohm", 10.0)) * 1e6
     return core_resistance_for_length_ohm(p, stage_core_length_mm(p))
 
 
 def matched_end_series_resistance_ohm(p: dict[str, Any]) -> float:
     """Reuse a discrete stage R, or reuse bulk material conductivity at the end."""
     if p.get("use_direct_stage_circuit", False):
-        return float(p.get("melf_stage_resistance_mohm", 12.0)) * 1e6
+        return float(p.get("melf_stage_resistance_mohm", 10.0)) * 1e6
     return core_resistance_for_length_ohm(p, end_core_length_mm(p))
 
 

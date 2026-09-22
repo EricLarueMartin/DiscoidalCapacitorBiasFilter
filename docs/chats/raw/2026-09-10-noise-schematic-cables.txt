@@ -1,0 +1,14 @@
+Reconstructed collaboration record.
+User requested a Designer noise schematic tab with editable cable lengths and
+per-length resistance, inductance and capacitance; presets LEGEND HV, RG58,
+LEGEND LMFE Signal, and a provisional LEGEND Flex Signal. User described the
+flex as adjacent 0.25 mm traces with 0.25 mm gap and approximately 100 ohm
+differential impedance, and supplied its local KiCad/Gerber directory.
+
+Assistant inspected the imported artwork, found no fabrication stack-up, and
+implemented explicit RLC noise-circuit cables. The flex preset assumes 35 um
+copper and fully filled effective epsilon=3.4, with 50 ohm odd-mode equivalents
+representing 100 ohm differential operation. It is not an extracted coupled-line
+model; common-mode conversion and neighboring-pair crosstalk remain unmodeled.
+Source/load lengths stay linked to existing Electrical controls. Cable changes
+invalidate SPICE only, not the FEA capacitance solve.

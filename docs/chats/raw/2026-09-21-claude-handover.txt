@@ -1,0 +1,9 @@
+Reconstructed collaboration record.
+User requested a handover for the group's Claude account to stop spending
+personal Codex tokens, including Pi access, current work, and skills locations.
+Assistant created CLAUDE_HANDOVER.local.md in the project root and added its
+exact filename to .gitignore. It contains machine-specific paths and key-file
+references, but no passwords or private-key contents. SSH, existing passwordless
+sudo, active service, and HTTP 200 were verified read-only. The handover warns
+that substantial local work is uncommitted and not present in a fresh clone.
+No project commit, push, service modification, or solver run was performed.

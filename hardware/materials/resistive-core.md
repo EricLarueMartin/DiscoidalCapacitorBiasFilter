@@ -8,7 +8,7 @@ Current placeholders:
 
 - Fair-Rite 61 NiZn: `epsr = 12`, `rho = 1e8 ohm-cm`.
 - Generic NiZn ferrite: `epsr = 15`, `rho = 1e8 ohm-cm`.
-- Vishay MMB0207 12 Mohm MELF: defaults to entered stage resistance with `Stage R = 12 Mohm`, `core OD = 2.2 mm`, and calculated geometric/effective-medium Cpar.
+- Vishay MMB0207 10 Mohm MELF: defaults to entered stage resistance with `Stage R = 10 Mohm`, `core OD = 2.2 mm`, and calculated geometric/effective-medium Cpar.
 - MELF chain in MG 9510 epoxy: defaults to entered stage resistance and entered package capacitance with `Stage R = 240 Mohm`, `Stage Cpar = 0.5 pF`.
 - Conductive-epoxy-dominated core/contact region: `epsr = 4`, `rho = 1e-3 ohm-cm`.
 - Custom: user-set `Conductor epsr` and volume resistivity.
@@ -60,9 +60,9 @@ Likely fallback if ferrite is noisy or insufficiently predictable.
 
 ### Vishay MMB 0207 As Per-Stage Core
 
-Current concrete alternate: a 0207 MELF resistor in the 10 Mohm to 15 Mohm range, with the web default now set to the 12 Mohm value that was found in stock. The body is just under 6 mm long and about 2.2 mm diameter, with roughly 3.2 mm between metal end caps. That geometry looks compatible with a 1.5 mm thick plate plus washer stack if the resistor is soldered into the bias path instead of bonding ferrite discs with conductive epoxy.
+Current concrete choice: a 10 Mohm 0207 MELF resistor. The previously considered 12 Mohm value was unavailable, so the web reference now uses the stocked 10 Mohm part. The body is just under 6 mm long and about 2.2 mm diameter, with roughly 3.2 mm between metal end caps. That geometry looks compatible with a plate-plus-dielectric stack if the resistor is soldered into the bias path.
 
-For the current axisymmetric field-screening model, approximate this option as a `2.2 mm` diameter central core for geometry and local electric-field visualization. For the RC ladder model, the preset checks `Enter stage R` and leaves `Enter resistor Cpar` unchecked, so one 12 Mohm 0207 MELF is used per stage while capacitance remains geometric. The MELF body is treated as an alumina ceramic substrate with an effective-permittivity correction for metal-film shielding,
+For the current axisymmetric field-screening model, approximate this option as a `2.2 mm` diameter central core for geometry and local electric-field visualization. For the RC ladder model, the preset checks `Enter stage R` and leaves `Enter resistor Cpar` unchecked, so one 10 Mohm 0207 MELF is used per stage while capacitance remains geometric. The MELF body is treated as an alumina ceramic substrate with an effective-permittivity correction for metal-film shielding,
 
 ```text
 eps_eff = eps_substrate / (1 - film_fill_factor)
@@ -82,7 +82,7 @@ Possible issue:
 
 ### Vishay MMB 0207 Candidate
 
-Current candidate under consideration: Vishay Beyschlag professional thin-film MELF 0207 in the high-Mohm MMB 0207 family. Verify the exact orderable code before purchase, especially for the 12 Mohm stocked value now used by the web default.
+Current candidate under consideration: Vishay Beyschlag professional thin-film MELF 0207 in the high-Mohm MMB 0207 family. The reference design uses the available 10 Mohm value; verify the exact orderable code before purchase.
 
 Useful official limits from the 2026-01-20 Vishay MMB 0207 professional datasheet:
 
@@ -94,7 +94,7 @@ Useful official limits from the 2026-01-20 Vishay MMB 0207 professional datashee
 
 First-pass sizing correction:
 
-- The `MMB0207 MELF` web preset is one 12 Mohm part per direct stage, with Cpar estimated from the effective ceramic/film body plus surrounding epoxy geometry.
+- The `MMB0207 MELF` web preset is one 10 Mohm part per direct stage, with Cpar estimated from the effective ceramic/film body plus surrounding epoxy geometry.
 - A 24-part / 240 Mohm chain remains a possible resistance scenario, but it is not the default single-MELF stage.
 - Do not size the resistor count as if the full 6 kV detector-bias supply appears across the resistor string in normal operation. With sub-nA detector current, steady resistor drop is `I * R`.
 - See `docs/knowledge/resistor-voltage-stress.md` before making resistor voltage-rating or resistor-count arguments.

@@ -1,0 +1,13 @@
+Reconstructed user-facing conversation; routine tool steps omitted.
+
+User: In the discoidal capacitor project i want to add more epoxy options. 3m dp 270, master bond ep 30, and mg chemicals 832c
+
+Assistant outcome: Added 3M DP270, base Master Bond EP30 and MG Chemicals 832C to the web material selector and epoxy comparison table, with manufacturer source links and documented electrical values in the knowledge note. EP30 uses an explicitly labeled provisional generic relative permittivity of 3.2 because its public manufacturer page omits that property. Thermal FEA support and the Stycast CAT 23LV default are unchanged. Existing unrelated working-tree edits were preserved. Changes are local; no deployment was performed.
+
+Follow-up user: push those new epoxies live and grab the dielectric strength CTE and bond strength from datasheets. do a thermal calc using the curing temperature. on some of these a heat cure is not required but still recommended and to maximize dielectric breakdown strength i'll likely want to heat to the recommended cure temeprature
+
+Assistant outcome: Published the new epoxy options and an interactive cure-schedule cooldown comparison. Verified published full-cure alternatives, dielectric strength, piecewise CTE for DP270/832C and substrate-specific lap shear. EP30 public manufacturer data lacks CTE; no numeric thermal result or substituted variant is presented. Constant-modulus screening from an 80 C stress-free reference to 20 C gives 34.19 MPa DP270/alumina and 40.64 MPa 832C/alumina at E=3 GPa, nu=0.35, k=1. No evidence found that hotter cure maximizes assembled dielectric strength. Thermal FEA was not added. Automated physics checks passed; live files match local hashes and the page returns HTTP 200.
+
+User: ah good point, though the MELF resistors are going to be encapsulated so not sure what the interface really is. that's pretty close to the shear strength on copper so i should probably only head to 40 or so. what's the Tg on that? set the default to dp270 as that's currently what i'm planning on using
+
+Assistant: DP270 Tg is 43 C onset / 49 C midpoint in the 3M TDS. Changed the web default to DP270, continuous epoxy gaps, epsr=3.5, and a clearly labeled provisional 40 C thermal reference (no datasheet cure duration at 40 C). MELF thermal label now identifies the ceramic-body approximation and unknown coating. Copper lap-shear strength is not a direct bulk thermal stress limit.

@@ -1,0 +1,4676 @@
+{
+  "status": "ok",
+  "source": "ngspice-ac",
+  "method": "ngspice-batch-ac",
+  "spicePackage": "ngspice-44.2 : Circuit level simulation program",
+  "spiceRuntime": {
+    "ngspicePath": "/usr/bin/ngspice",
+    "ngspiceVersion": "ngspice-44.2 : Circuit level simulation program",
+    "pyspiceAvailable": true
+  },
+  "spiceFallbackReason": null,
+  "parameters": {
+    "units": "mm",
+    "bias_voltage_v": 6000,
+    "core_volume_resistivity_log10_ohm_cm": 8.0,
+    "core_volume_resistivity_ohm_cm": 100000000.0,
+    "use_direct_stage_circuit": true,
+    "use_direct_stage_capacitance": false,
+    "melf_stage_resistance_mohm": 12.0,
+    "melf_stage_resistance_log10_ohm": 7.079181246047625,
+    "melf_stage_parasitic_pf": 0.3,
+    "melf_substrate_epsr": 9.8,
+    "melf_metal_fill_factor": 0.5,
+    "ferrite_conductor_fill_factor": 0.0,
+    "input_series_resistance_mohm": 12.0,
+    "output_series_resistance_ohm": 50.0,
+    "input_series_matches_stage": true,
+    "output_series_matches_stage": false,
+    "load_current_na": 1.0,
+    "load_cable_length_m": 10.0,
+    "load_cable_impedance_ohm": 50.0,
+    "load_cable_velocity_factor": 0.66,
+    "detector_capacitance_pf": 10.0,
+    "additional_ground_capacitance_pf": 0.0,
+    "noise_sample_rate_msps": 62.5,
+    "noise_waveform_samples": 8192,
+    "noise_trap_rise_us": 10.0,
+    "noise_trap_flat_us": 4.0,
+    "noise_supply_noise_pp_mv": 10.0,
+    "noise_lab_broadband_rms_mv": 0.05,
+    "noise_mains_rms_mv": 0.2,
+    "noise_mains_frequency_hz": 50.0,
+    "noise_fano_factor": 0.114545454545455,
+    "core_resistance_gohm": 0.03600005,
+    "core_od_mm": 2.2,
+    "use_package_core_od": true,
+    "core_material": "mmb0207_melf",
+    "ferrite_epsr": 6.0,
+    "core_to_ground_gap_mm": 1.1999999999999997,
+    "hv_to_tube_gap_mm": 2.0,
+    "hv_plate_od_mm": 22.0,
+    "ground_plate_inner_diameter_mm": 4.6,
+    "washer_id_mm": 6.6,
+    "washer_od_mm": 20.0,
+    "washer_id_mode": "ground_flat_id",
+    "washer_od_mode": "bias_flat_od",
+    "ground_plate_od_mm": 26.0,
+    "tube_id_mm": 26.0,
+    "plate_gap_mm": 1.0,
+    "plate_thickness_mm": 2.0,
+    "bias_plate_thickness_mm": 2.0,
+    "ground_plate_thickness_mm": 2.0,
+    "ground_matches_bias_thickness": true,
+    "edge_diameter_percent": 100.0,
+    "edge_radius_mm": 1.0,
+    "washer_material": "epoxy",
+    "washer_epsr": 5.36,
+    "epoxy_material": "stycast_2850ft_cat11",
+    "epoxy_epsr": 5.36,
+    "plate_material": "copper",
+    "plate_conductivity_log10_s_per_m": 7.763427993562937,
+    "plate_relative_permeability": 1.0,
+    "tube_material": "copper",
+    "tube_conductivity_log10_s_per_m": 7.763427993562937,
+    "tube_relative_permeability": 1.0,
+    "rf_compare_frequency_log10_mhz": 0.0,
+    "plate_pairs": 3,
+    "include_ground_tube": true,
+    "field_solver": "backend_auto",
+    "mesh_edge_radius_ratio": 0.2,
+    "tube_wall_thickness_mm": 1.0,
+    "domain_margin_mm": 4.0,
+    "grid_r_count": 90,
+    "grid_z_count": 150,
+    "solver_iterations": 700,
+    "solver_tolerance_v": 0.01,
+    "solve_strategy": "end_repeat_approx",
+    "use_repeating_cell_approximation": true,
+    "thermal_min_temperature_c": 20.0,
+    "thermal_epoxy_modulus_gpa": 3.0,
+    "thermal_restraint_factor": 1.0,
+    "thermal_mesh_size_mm": 0.3,
+    "full_wave_resolution_per_mm": 2.0,
+    "full_wave_timeout_hours": 2.0,
+    "full_wave_verify_resonances": false,
+    "full_wave_eqs_frequencies_hz": [
+      50.0,
+      1000.0,
+      1000000.0,
+      31250000.0,
+      100000000.0,
+      300000000.0,
+      1000000000.0
+    ],
+    "full_wave_frequencies_hz": [
+      300000000.0,
+      1000000000.0,
+      3000000000.0,
+      10000000000.0,
+      30000000000.0
+    ],
+    "washer_id_matches_ground": false,
+    "washer_od_matches_bias": false
+  },
+  "circuit": {
+    "pairCapPf": 13.285865023088604,
+    "geometricShuntCapPf": 26.57173004617721,
+    "additionalGroundCapacitancePf": 0.0,
+    "shuntCapPf": 26.57173004617721,
+    "totalGroundCapPf": 79.71519013853163,
+    "parasiticPf": 0.3169995640473755,
+    "stageResistanceOhm": 12000000.0,
+    "washerCapGain": 1.2465116279069768,
+    "capacitanceSource": "analytical-or-entered",
+    "stages": 3,
+    "internalResistiveSections": 2,
+    "resistiveSections": 4,
+    "inputSeriesResistanceOhm": 12000000.0,
+    "outputSeriesResistanceOhm": 50.0,
+    "loadConductanceS": 1.6666666666666667e-13,
+    "cableCapPf": 1010.8002884792486,
+    "detectorCapPf": 10.0,
+    "loadCapPfLumped": 1020.8002884792486,
+    "cableDelayS": 5.054001442396243e-08,
+    "cableZ0Ohm": 50.0,
+    "instrumentSourceOhm": 50.0,
+    "instrumentLoadOhm": 50.0
+  },
+  "samples": [
+    {
+      "frequencyHz": 1.0,
+      "fullTline": {
+        "magnitude": 0.9723153293343914,
+        "attenuationDb": 0.24385734383620933,
+        "phaseDeg": -13.662082875337902
+      },
+      "fullLumped": {
+        "magnitude": 0.9723153125328415,
+        "attenuationDb": 0.24385749392785588,
+        "phaseDeg": -13.662087157003157
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9999476804420314,
+        "attenuationDb": 0.00045445379494196214,
+        "phaseDeg": -0.6887185866625474
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777599129897717e-06,
+        "attenuationDb": 111.1261058772931,
+        "phaseDeg": -0.15214162663058822
+      },
+      "scaledStage": {
+        "magnitude": 0.9876279291957999,
+        "attenuationDb": 0.10813274247904335,
+        "phaseDeg": -18.061036190773454
+      }
+    },
+    {
+      "frequencyHz": 1.12201845,
+      "fullTline": {
+        "magnitude": 0.9655153890649969,
+        "attenuationDb": 0.304815994755484,
+        "phaseDeg": -15.257756837426031
+      },
+      "fullLumped": {
+        "magnitude": 0.9655153680542661,
+        "attenuationDb": 0.30481618377048386,
+        "phaseDeg": -15.257761528410603
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9999341344539415,
+        "attenuationDb": 0.0005721197057100537,
+        "phaseDeg": -0.7727491912684509
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777582686278057e-06,
+        "attenuationDb": 111.12611101911646,
+        "phaseDeg": -0.17070566635057324
+      },
+      "scaledStage": {
+        "magnitude": 0.9844639279596042,
+        "attenuationDb": 0.13600384699467225,
+        "phaseDeg": -20.25396774434915
+      }
+    },
+    {
+      "frequencyHz": 1.25892541,
+      "fullTline": {
+        "magnitude": 0.9571542194903359,
+        "attenuationDb": 0.3803616357353106,
+        "phaseDeg": -17.02058779840007
+      },
+      "fullLumped": {
+        "magnitude": 0.9571541941487542,
+        "attenuationDb": 0.38036186570262365,
+        "phaseDeg": -17.02059300067175
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9999170822100959,
+        "attenuationDb": 0.0007202446330985578,
+        "phaseDeg": -0.867030695093083
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777562207975314e-06,
+        "attenuationDb": 111.12611742256578,
+        "phaseDeg": -0.19153484069947285
+      },
+      "scaledStage": {
+        "magnitude": 0.9805022590690716,
+        "attenuationDb": 0.17102802768321243,
+        "phaseDeg": -22.710035571740995
+      }
+    },
+    {
+      "frequencyHz": 1.41253754,
+      "fullTline": {
+        "magnitude": 0.9469305993746109,
+        "attenuationDb": 0.4736369862093586,
+        "phaseDeg": -18.960955257518993
+      },
+      "fullLumped": {
+        "magnitude": 0.9469305690501716,
+        "attenuationDb": 0.47363726436568543,
+        "phaseDeg": -18.9609609336728
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9998956161210786,
+        "attenuationDb": 0.0009067141762993452,
+        "phaseDeg": -0.9728129215494674
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777536394864103e-06,
+        "attenuationDb": 111.12612549418625,
+        "phaseDeg": -0.21490553162439394
+      },
+      "scaledStage": {
+        "magnitude": 0.9755487249914662,
+        "attenuationDb": 0.2150206870200228,
+        "phaseDeg": -25.459540071042642
+      }
+    },
+    {
+      "frequencyHz": 1.58489319,
+      "fullTline": {
+        "magnitude": 0.9345138191902551,
+        "attenuationDb": 0.5882854415361038,
+        "phaseDeg": -21.087282748912422
+      },
+      "fullLumped": {
+        "magnitude": 0.9345137822510988,
+        "attenuationDb": 0.5882857848691126,
+        "phaseDeg": -21.087289003332483
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9998685943001978,
+        "attenuationDb": 0.0011414504044817216,
+        "phaseDeg": -1.0914977773900083
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777503786926287e-06,
+        "attenuationDb": 111.126135690523,
+        "phaseDeg": -0.24112784006595123
+      },
+      "scaledStage": {
+        "magnitude": 0.9693657899118034,
+        "attenuationDb": 0.2702462223805465,
+        "phaseDeg": -28.535753515113928
+      }
+    },
+    {
+      "frequencyHz": 1.77827941,
+      "fullTline": {
+        "magnitude": 0.9195550478138168,
+        "attenuationDb": 0.728445344914168,
+        "phaseDeg": -23.40503322764803
+      },
+      "fullLumped": {
+        "magnitude": 0.9195550027510191,
+        "attenuationDb": 0.7284457705662246,
+        "phaseDeg": -23.405040065701563
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9998345780490719,
+        "attenuationDb": 0.0014369556647563073,
+        "phaseDeg": -1.2246576663900341
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777462878186624e-06,
+        "attenuationDb": 111.12614848249534,
+        "phaseDeg": -0.27054969794254313
+      },
+      "scaledStage": {
+        "magnitude": 0.9616651611077136,
+        "attenuationDb": 0.3395223429594363,
+        "phaseDeg": -31.974997442431953
+      }
+    },
+    {
+      "frequencyHz": 1.99526231,
+      "fullTline": {
+        "magnitude": 0.9017061661101748,
+        "attenuationDb": 0.8986992098382149,
+        "phaseDeg": -25.915564136084402
+      },
+      "fullLumped": {
+        "magnitude": 0.9017061131656535,
+        "attenuationDb": 0.8986997198383678,
+        "phaseDeg": -25.915571494571633
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9997917587524787,
+        "attenuationDb": 0.001808948849483056,
+        "phaseDeg": -1.3740560407805384
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777411260145393e-06,
+        "attenuationDb": 111.12616462324324,
+        "phaseDeg": -0.3035614886949448
+      },
+      "scaledStage": {
+        "magnitude": 0.9521004255124552,
+        "attenuationDb": 0.42634481496487997,
+        "phaseDeg": -35.81662422096347
+      }
+    },
+    {
+      "frequencyHz": 2.23872114,
+      "fullTline": {
+        "magnitude": 0.8806469932983575,
+        "attenuationDb": 1.1039628666141155,
+        "phaseDeg": -28.614930745903518
+      },
+      "fullLumped": {
+        "magnitude": 0.880646931206364,
+        "attenuationDb": 1.1039634790322883,
+        "phaseDeg": -28.614938690013666
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9997378606304315,
+        "attenuationDb": 0.002277212120381046,
+        "phaseDeg": -1.5416703892838854
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777346402318536e-06,
+        "attenuationDb": 111.12618490405985,
+        "phaseDeg": -0.34060121679421984
+      },
+      "scaledStage": {
+        "magnitude": 0.9402606884884368,
+        "attenuationDb": 0.535034420006208,
+        "phaseDeg": -40.102854663864655
+      }
+    },
+    {
+      "frequencyHz": 2.51188643,
+      "fullTline": {
+        "magnitude": 0.8561203861943258,
+        "attenuationDb": 1.349303225528356,
+        "phaseDeg": -31.492784642781682
+      },
+      "fullLumped": {
+        "magnitude": 0.8561203141639843,
+        "attenuationDb": 1.3493039563223352,
+        "phaseDeg": -31.49279305262974
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9996700191057682,
+        "attenuationDb": 0.002866650625951642,
+        "phaseDeg": -1.7297178762876289
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777264679508085e-06,
+        "attenuationDb": 111.12621045856555,
+        "phaseDeg": -0.3821603207728137
+      },
+      "scaledStage": {
+        "magnitude": 0.925666761523183,
+        "attenuationDb": 0.6709066093126309,
+        "phaseDeg": -44.8784073385832
+      }
+    },
+    {
+      "frequencyHz": 2.81838293,
+      "fullTline": {
+        "magnitude": 0.8279724343060374,
+        "attenuationDb": 1.639682438893251,
+        "phaseDeg": -34.53157085571518
+      },
+      "fullLumped": {
+        "magnitude": 0.8279723524385981,
+        "attenuationDb": 1.6396832977280964,
+        "phaseDeg": -34.53157973815709
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9995846302151684,
+        "attenuationDb": 0.003608605614796993,
+        "phaseDeg": -1.9406839252609256
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7777161857875304e-06,
+        "attenuationDb": 111.12624261072372,
+        "phaseDeg": -0.42879018470341923
+      },
+      "scaledStage": {
+        "magnitude": 0.9077722238844315,
+        "attenuationDb": 0.8404621996155623,
+        "phaseDeg": -50.18984455323757
+      }
+    },
+    {
+      "frequencyHz": 3.16227766,
+      "fullTline": {
+        "magnitude": 0.7961922738273385,
+        "attenuationDb": 1.97964082166071,
+        "phaseDeg": -37.70625415015604
+      },
+      "fullLumped": {
+        "magnitude": 0.7961921815718324,
+        "attenuationDb": 1.9796418281025172,
+        "phaseDeg": -37.70626342200087
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9994771625065938,
+        "attenuationDb": 0.004542496363579871,
+        "phaseDeg": -2.177354035530966
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.777703245499061e-06,
+        "attenuationDb": 111.12628307496551,
+        "phaseDeg": -0.48110944151283525
+      },
+      "scaledStage": {
+        "magnitude": 0.8859726717468897,
+        "attenuationDb": 1.0515934785697962,
+        "phaseDeg": -56.08453455432404
+      }
+    },
+    {
+      "frequencyHz": 3.54813389,
+      "fullTline": {
+        "magnitude": 0.7609436762283956,
+        "attenuationDb": 2.3729497557441355,
+        "phaseDeg": -40.98477995496624
+      },
+      "fullLumped": {
+        "magnitude": 0.7609435752370138,
+        "attenuationDb": 2.372950908523352,
+        "phaseDeg": -40.98478946271459
+      },
+      "fullUnloaded": {
+        "magnitude": 0.999341917247037,
+        "attenuationDb": 0.005717915802260722,
+        "phaseDeg": -2.4428490386607713
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.777686939304517e-06,
+        "attenuationDb": 111.12633406465355,
+        "phaseDeg": -0.5398121755672716
+      },
+      "scaledStage": {
+        "magnitude": 0.8596274443591221,
+        "attenuationDb": 1.3137945545503955,
+        "phaseDeg": -62.60912416101825
+      }
+    },
+    {
+      "frequencyHz": 3.98107171,
+      "fullTline": {
+        "magnitude": 0.7225799275281475,
+        "attenuationDb": 2.8222821364239215,
+        "phaseDeg": -44.329378390770934
+      },
+      "fullLumped": {
+        "magnitude": 0.7225798180836205,
+        "attenuationDb": 2.8222834520197724,
+        "phaseDeg": -44.32938812369218
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9991717288038318,
+        "attenuationDb": 0.0071972532507183625,
+        "phaseDeg": -2.740664189473196
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7776664169240416e-06,
+        "attenuationDb": 111.12639823883671,
+        "phaseDeg": -0.6056771129561546
+      },
+      "scaledStage": {
+        "magnitude": 0.8280988271149003,
+        "attenuationDb": 1.6383566094841733,
+        "phaseDeg": -69.80740899223015
+      }
+    },
+    {
+      "frequencyHz": 4.46683592,
+      "fullTline": {
+        "magnitude": 0.6816354569889884,
+        "attenuationDb": 3.328956534599645,
+        "phaseDeg": -47.69865795990956
+      },
+      "fullLumped": {
+        "magnitude": 0.6816353416053605,
+        "attenuationDb": 3.3289580049010095,
+        "phaseDeg": -47.698667755645296
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9989575943689889,
+        "attenuationDb": 0.009058942636189699,
+        "phaseDeg": -3.074712219863985
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7776405773513044e-06,
+        "attenuationDb": 111.12647904073563,
+        "phaseDeg": -0.679577921430636
+      },
+      "scaledStage": {
+        "magnitude": 0.7908135281994998,
+        "attenuationDb": 2.03851819910105,
+        "phaseDeg": -77.71750564178926
+      }
+    },
+    {
+      "frequencyHz": 5.01187234,
+      "fullTline": {
+        "magnitude": 0.638792453658023,
+        "attenuationDb": 3.8928044603779632,
+        "phaseDeg": -51.050250096455876
+      },
+      "fullLumped": {
+        "magnitude": 0.6387923343932068,
+        "attenuationDb": 3.8928060820645087,
+        "phaseDeg": -51.05025984701776
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9986882062134583,
+        "attenuationDb": 0.011401575952107834,
+        "phaseDeg": -3.4493705705643114
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.777608039169569e-06,
+        "attenuationDb": 111.12658079065723,
+        "phaseDeg": -0.7624947606514655
+      },
+      "scaledStage": {
+        "magnitude": 0.747349172986136,
+        "attenuationDb": 2.529528834631436,
+        "phaseDeg": -86.36828577091418
+      }
+    },
+    {
+      "frequencyHz": 5.62341325,
+      "fullTline": {
+        "magnitude": 0.5948268827453066,
+        "attenuationDb": 4.512188242002369,
+        "phaseDeg": -54.34362115745278
+      },
+      "fullLumped": {
+        "magnitude": 0.5948267621185827,
+        "attenuationDb": 4.512190003440106,
+        "phaseDeg": -54.343630764524654
+      },
+      "fullUnloaded": {
+        "magnitude": 0.998349367100545,
+        "attenuationDb": 0.014349060974318392,
+        "phaseDeg": -3.869532929558803
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7775670941977552e-06,
+        "attenuationDb": 111.12670883108721,
+        "phaseDeg": -0.8555272475669476
+      },
+      "scaledStage": {
+        "magnitude": 0.6975436628110688,
+        "attenuationDb": 3.1285720499928478,
+        "phaseDeg": -95.77512350415324
+      }
+    },
+    {
+      "frequencyHz": 6.30957344,
+      "fullTline": {
+        "magnitude": 0.5505435787646212,
+        "attenuationDb": 5.184165967343931,
+        "phaseDeg": -57.54262405689558
+      },
+      "fullLumped": {
+        "magnitude": 0.5505434577829137,
+        "attenuationDb": 5.184167876064541,
+        "phaseDeg": -57.54263346236058
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9979232719782197,
+        "attenuationDb": 0.018056986626946544,
+        "phaseDeg": -4.340664876960933
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7775155504294533e-06,
+        "attenuationDb": 111.126870018062,
+        "phaseDeg": -0.9599089603367162
+      },
+      "scaledStage": {
+        "magnitude": 0.6416166434526612,
+        "attenuationDb": 3.854487580702889,
+        "phaseDeg": -105.93517701070161
+      }
+    },
+    {
+      "frequencyHz": 7.07945784,
+      "fullTline": {
+        "magnitude": 0.5067123843132683,
+        "attenuationDb": 5.904769623948248,
+        "phaseDeg": -60.617431244371126
+      },
+      "fullLumped": {
+        "magnitude": 0.5067122653169901,
+        "attenuationDb": 5.904771663741812,
+        "phaseDeg": -60.61744033316888
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9973876046850375,
+        "attenuationDb": 0.022720668018651056,
+        "phaseDeg": -4.868863434223584
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7774506518359816e-06,
+        "attenuationDb": 111.12707297231951,
+        "phaseDeg": -1.0770237117440806
+      },
+      "scaledStage": {
+        "magnitude": 0.5802808455808096,
+        "attenuationDb": 4.727235295442176,
+        "phaseDeg": -116.82262942011107
+      }
+    },
+    {
+      "frequencyHz": 7.94328235,
+      "fullTline": {
+        "magnitude": 0.46401583321857326,
+        "attenuationDb": 6.669344002603284,
+        "phaseDeg": -63.545652341169514
+      },
+      "fullLumped": {
+        "magnitude": 0.4640157181745544,
+        "attenuationDb": 6.669346156106901,
+        "phaseDeg": -63.54566120841335
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9967144316731611,
+        "attenuationDb": 0.028585068740367536,
+        "phaseDeg": -5.460919715143671
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7773689644135638e-06,
+        "attenuationDb": 111.12732843621754,
+        "phaseDeg": -1.2084237240201616
+      },
+      "scaledStage": {
+        "magnitude": 0.5148097176257582,
+        "attenuationDb": 5.7670652776447,
+        "phaseDeg": -128.38456194263276
+      }
+    },
+    {
+      "frequencyHz": 8.91250938,
+      "fullTline": {
+        "magnitude": 0.42301467647540925,
+        "attenuationDb": 7.472891290716106,
+        "phaseDeg": -66.3126253452493
+      },
+      "fullLumped": {
+        "magnitude": 0.4230145664964419,
+        "attenuationDb": 7.472893548948148,
+        "phaseDeg": -66.31263377437458
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9958688398581959,
+        "attenuationDb": 0.03595712463331595,
+        "phaseDeg": -6.124383474826484
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.777266140384968e-06,
+        "attenuationDb": 111.12765001203584,
+        "phaseDeg": -1.3558500523762158
+      },
+      "scaledStage": {
+        "magnitude": 0.44702300906700543,
+        "attenuationDb": 6.99340244771212,
+        "phaseDeg": -140.5383241083672
+      }
+    },
+    {
+      "frequencyHz": 10.0,
+      "fullTline": {
+        "magnitude": 0.384132587748909,
+        "attenuationDb": 8.310376961138386,
+        "phaseDeg": -68.91101571895885
+      },
+      "fullLumped": {
+        "magnitude": 0.3841324844386912,
+        "attenuationDb": 8.31037929715803,
+        "phaseDeg": -68.9110239141824
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9948072767585155,
+        "attenuationDb": 0.04522093276838567,
+        "phaseDeg": -6.867627410353079
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7771366952492097e-06,
+        "attenuationDb": 111.1280548606566,
+        "phaseDeg": -1.5212553609422637
+      },
+      "scaledStage": {
+        "magnitude": 0.3791612958410827,
+        "attenuationDb": 8.423520022699096,
+        "phaseDeg": -153.17132079940617
+      }
+    },
+    {
+      "frequencyHz": 11.2201845,
+      "fullTline": {
+        "magnitude": 0.34765741503803066,
+        "attenuationDb": 9.176970065923573,
+        "phaseDeg": -71.33994509405431
+      },
+      "fullLumped": {
+        "magnitude": 0.3476573193516908,
+        "attenuationDb": 9.176972456556033,
+        "phaseDeg": -71.33995289021806
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9934755344589771,
+        "attenuationDb": 0.05685646902578277,
+        "phaseDeg": -7.699908737605593
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7769737562079444e-06,
+        "attenuationDb": 111.12856449061192,
+        "phaseDeg": -1.7068293872915563
+      },
+      "scaledStage": {
+        "magnitude": 0.31364797726464555,
+        "attenuationDb": 10.071150178195964,
+        "phaseDeg": -166.14393698192325
+      }
+    },
+    {
+      "frequencyHz": 12.5892541,
+      "fullTline": {
+        "magnitude": 0.31375417411263523,
+        "attenuationDb": 10.068209754391763,
+        "phaseDeg": -73.60387351195361
+      },
+      "fullLumped": {
+        "magnitude": 0.3137540847398979,
+        "attenuationDb": 10.06821222856393,
+        "phaseDeg": -73.60388100880822
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9918063492016842,
+        "attenuationDb": 0.0714623166547841,
+        "phaseDeg": -8.631422474886744
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7767686649962976e-06,
+        "attenuationDb": 111.12920600384598,
+        "phaseDeg": -1.9150274020409128
+      },
+      "scaledStage": {
+        "magnitude": 0.25277725591428846,
+        "attenuationDb": 11.945240101090986,
+        "phaseDeg": -179.29584326105885
+      }
+    },
+    {
+      "frequencyHz": 14.1253754,
+      "fullTline": {
+        "magnitude": 0.2824846645668842,
+        "attenuationDb": 10.980102480767455,
+        "phaseDeg": -75.71143034443661
+      },
+      "fullLumped": {
+        "magnitude": 0.2824845833933806,
+        "attenuationDb": 10.980104976705407,
+        "phaseDeg": -75.71143762423345
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9897165659280105,
+        "attenuationDb": 0.08978320860486824,
+        "phaseDeg": -9.673340875527382
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7765105237353683e-06,
+        "attenuationDb": 111.13001352186512,
+        "phaseDeg": -2.1486019365279003
+      },
+      "scaledStage": {
+        "magnitude": 0.19840210505842285,
+        "attenuationDb": 14.04907448532963,
+        "phaseDeg": 167.54479307080047
+      }
+    },
+    {
+      "frequencyHz": 15.8489319,
+      "fullTline": {
+        "magnitude": 0.2538293623175488,
+        "attenuationDb": 11.909162825684746,
+        "phaseDeg": -77.67432688163794
+      },
+      "fullLumped": {
+        "magnitude": 0.2538292871169713,
+        "attenuationDb": 11.909165399004111,
+        "phaseDeg": -77.67433399604327
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9871038734225351,
+        "attenuationDb": 0.11274287810514873,
+        "phaseDeg": -10.837830047846609
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7761856591570136e-06,
+        "attenuationDb": 111.1310298706028,
+        "phaseDeg": -2.410638037267827
+      },
+      "scaledStage": {
+        "magnitude": 0.1517060655120591,
+        "attenuationDb": 16.379941098074774,
+        "phaseDeg": 154.55035802812156
+      }
+    },
+    {
+      "frequencyHz": 17.7827941,
+      "fullTline": {
+        "magnitude": 0.2277085446853,
+        "attenuationDb": 12.852413446542187,
+        "phaseDeg": -79.50642504446203
+      },
+      "fullLumped": {
+        "magnitude": 0.2277084763699956,
+        "attenuationDb": 12.852416052414021,
+        "phaseDeg": -79.50643210638044
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9838431381032834,
+        "attenuationDb": 0.14148278110225332,
+        "phaseDeg": -12.138030847002286
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7757767891761745e-06,
+        "attenuationDb": 111.13230920185526,
+        "phaseDeg": -2.7045925995342297
+      },
+      "scaledStage": {
+        "magnitude": 0.11311745578789699,
+        "attenuationDb": 18.929407429801902,
+        "phaseDeg": 141.8827651316037
+      }
+    },
+    {
+      "frequencyHz": 19.9526231,
+      "fullTline": {
+        "magnitude": 0.20400090903102272,
+        "attenuationDb": 13.80735794694502,
+        "phaseDeg": -81.22299429836727
+      },
+      "fullLumped": {
+        "magnitude": 0.20400084720568556,
+        "attenuationDb": 13.807360579326115,
+        "phaseDeg": -81.22300129662264
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9797824718411563,
+        "attenuationDb": 0.17740668544343782,
+        "phaseDeg": -13.58798908995952
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7752622849163523e-06,
+        "attenuationDb": 111.13391932463489,
+        "phaseDeg": -3.0343376659624166
+      },
+      "scaledStage": {
+        "magnitude": 0.08237442617355578,
+        "attenuationDb": 21.684151954308003,
+        "phaseDeg": 129.68401127905398
+      }
+    },
+    {
+      "frequencyHz": 22.3872114,
+      "fullTline": {
+        "magnitude": 0.18255890397032176,
+        "attenuationDb": 14.771939605873712,
+        "phaseDeg": -82.8401533839948
+      },
+      "fullLumped": {
+        "magnitude": 0.182558847737465,
+        "attenuationDb": 14.771942281352434,
+        "phaseDeg": -82.84016048015003
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9747392627957132,
+        "attenuationDb": 0.22223080136851756,
+        "phaseDeg": -15.202513973419615
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.77461493387325e-06,
+        "attenuationDb": 111.13594561081072,
+        "phaseDeg": -3.4042084803930597
+      },
+      "scaledStage": {
+        "magnitude": 0.058700372978117664,
+        "attenuationDb": 24.62718278532922,
+        "phaseDeg": 118.06956028012613
+      }
+    },
+    {
+      "frequencyHz": 25.1188643,
+      "fullTline": {
+        "magnitude": 0.16322072689207243,
+        "attenuationDb": 15.744493847514613,
+        "phaseDeg": -84.37447901343316
+      },
+      "fullLumped": {
+        "magnitude": 0.16322067634723939,
+        "attenuationDb": 15.744496537288873,
+        "phaseDeg": -84.37448622004985
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9684966286907832,
+        "attenuationDb": 0.27803773417955424,
+        "phaseDeg": -16.996941949237197
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.773800502409435e-06,
+        "attenuationDb": 111.1384955503185,
+        "phaseDeg": -3.8190562409417987
+      },
+      "scaledStage": {
+        "magnitude": 0.04102408564098242,
+        "attenuationDb": 27.739221797454064,
+        "phaseDeg": 107.12509667192313
+      }
+    },
+    {
+      "frequencyHz": 28.1838293,
+      "fullTline": {
+        "magnitude": 0.1458192733810808,
+        "attenuationDb": 16.723701403781874,
+        "phaseDeg": -85.84275418810759
+      },
+      "fullLumped": {
+        "magnitude": 0.14581922746766096,
+        "attenuationDb": 16.72370413866699,
+        "phaseDeg": -85.84276159197618
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9608009444675306,
+        "attenuationDb": 0.3473315738674686,
+        "phaseDeg": -18.98677666918693
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7727761105027296e-06,
+        "attenuationDb": 111.14170392758248,
+        "phaseDeg": -4.284305542940178
+      },
+      "scaledStage": {
+        "magnitude": 0.02818368084621504,
+        "attenuationDb": 31.000045755543148,
+        "phaseDeg": 96.9064608603814
+      }
+    },
+    {
+      "frequencyHz": 31.6227766,
+      "fullTline": {
+        "magnitude": 0.1301885281590204,
+        "attenuationDb": 17.708545657404922,
+        "phaseDeg": -87.26182827477999
+      },
+      "fullLumped": {
+        "magnitude": 0.13018848753899356,
+        "attenuationDb": 17.708548367483377,
+        "phaseDeg": -87.26183602613193
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9513614735207196,
+        "attenuationDb": 0.43308879631144326,
+        "phaseDeg": -21.187180253236146
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7714878878396433e-06,
+        "attenuationDb": 111.14574030106166,
+        "phaseDeg": -4.806016977452074
+      },
+      "scaledStage": {
+        "magnitude": 0.01907737902862544,
+        "attenuationDb": 34.38962583330223,
+        "phaseDeg": 87.44208917999721
+      }
+    },
+    {
+      "frequencyHz": 35.4813389,
+      "fullTline": {
+        "magnitude": 0.11616791536296985,
+        "attenuationDb": 18.69827608003129,
+        "phaseDeg": -88.64856339133199
+      },
+      "fullLumped": {
+        "magnitude": 0.11616787887563909,
+        "attenuationDb": 18.69827880819403,
+        "phaseDeg": -88.64857153741087
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9398534310926704,
+        "attenuationDb": 0.5387973754698129,
+        "phaseDeg": -23.612291299759576
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.769868333708611e-06,
+        "attenuationDb": 111.15081749454396,
+        "phaseDeg": -5.390954106523652
+      },
+      "scaledStage": {
+        "magnitude": 0.01275118881692897,
+        "attenuationDb": 37.888986465284674,
+        "phaseDeg": 78.73703831912093
+      }
+    },
+    {
+      "frequencyHz": 39.8107171,
+      "fullTline": {
+        "magnitude": 0.1036050672138787,
+        "attenuationDb": 19.692380063783048,
+        "phaseDeg": -90.01984396806509
+      },
+      "fullLumped": {
+        "magnitude": 0.1036050343133013,
+        "attenuationDb": 19.69238282205383,
+        "phaseDeg": -90.01985263985735
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9259261118257927,
+        "attenuationDb": 0.668473365856985,
+        "phaseDeg": -26.274364622232536
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7678329742017115e-06,
+        "attenuationDb": 111.15720242138048,
+        "phaseDeg": -6.046654354750086
+      },
+      "scaledStage": {
+        "magnitude": 0.008432601179811516,
+        "attenuationDb": 41.48076878321945,
+        "phaseDeg": 70.7777181336541
+      }
+    },
+    {
+      "frequencyHz": 44.6683592,
+      "fullTline": {
+        "magnitude": 0.09235743972668543,
+        "attenuationDb": 20.69056229638445,
+        "phaseDeg": -91.39263198540544
+      },
+      "fullLumped": {
+        "magnitude": 0.09235740999052618,
+        "attenuationDb": 20.690565092965212,
+        "phaseDeg": -91.39264126473213
+      },
+      "fullUnloaded": {
+        "magnitude": 0.9092178129578888,
+        "attenuationDb": 0.826641287504109,
+        "phaseDeg": -29.182749808914036
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.765276172523058e-06,
+        "attenuationDb": 111.16522977027203,
+        "phaseDeg": -6.78150276683877
+      },
+      "scaledStage": {
+        "magnitude": 0.005527432761854704,
+        "attenuationDb": 45.14953063335885,
+        "phaseDeg": 63.53664172872345
+      }
+    },
+    {
+      "frequencyHz": 50.1187234,
+      "fullTline": {
+        "magnitude": 0.08229308537843802,
+        "attenuationDb": 21.692733091173086,
+        "phaseDeg": -92.78405199322464
+      },
+      "fullLumped": {
+        "magnitude": 0.08229305856814376,
+        "attenuationDb": 21.692735920952696,
+        "phaseDeg": -92.78406201811583
+      },
+      "fullUnloaded": {
+        "magnitude": 0.8893788946718718,
+        "attenuationDb": 1.0182636150409772,
+        "phaseDeg": -32.34277185074626
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7620661710996454e-06,
+        "attenuationDb": 111.17531842391531,
+        "phaseDeg": -7.604806115144756
+      },
+      "scaledStage": {
+        "magnitude": 0.003596731041652514,
+        "attenuationDb": 48.881840737615875,
+        "phaseDeg": 56.97673642812327
+      }
+    },
+    {
+      "frequencyHz": 56.2341325,
+      "fullTline": {
+        "magnitude": 0.07329084982480588,
+        "attenuationDb": 22.699004850601376,
+        "phaseDeg": -94.21149299206142
+      },
+      "fullLumped": {
+        "magnitude": 0.07329082573273704,
+        "attenuationDb": 22.699007705815717,
+        "phaseDeg": -94.21150386712061
+      },
+      "fullUnloaded": {
+        "magnitude": 0.8661033351133166,
+        "attenuationDb": 1.2486057810804099,
+        "phaseDeg": -35.754629240110745
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7580388652712567e-06,
+        "attenuationDb": 111.18799236397265,
+        "phaseDeg": -8.526865425189413
+      },
+      "scaledStage": {
+        "magnitude": 0.002326423228512769,
+        "attenuationDb": 52.666225490453485,
+        "phaseDeg": 51.05498701886867
+      }
+    },
+    {
+      "frequencyHz": 63.0957344,
+      "fullTline": {
+        "magnitude": 0.06524017581555218,
+        "attenuationDb": 23.709697545026025,
+        "phaseDeg": -95.6927156536155
+      },
+      "fullLumped": {
+        "magnitude": 0.06524015409263854,
+        "attenuationDb": 23.709700437152836,
+        "phaseDeg": -95.69272752034662
+      },
+      "fullUnloaded": {
+        "magnitude": 0.8391672285507351,
+        "attenuationDb": 1.5230296940373869,
+        "phaseDeg": -39.41248556023353
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.752990644867518e-06,
+        "attenuationDb": 111.20390528821999,
+        "phaseDeg": -9.559040750372827
+      },
+      "scaledStage": {
+        "magnitude": 0.0014974375652678665,
+        "attenuationDb": 56.49302552401388,
+        "phaseDeg": 45.7253371135813
+      }
+    },
+    {
+      "frequencyHz": 70.7945784,
+      "fullTline": {
+        "magnitude": 0.05804066220769738,
+        "attenuationDb": 24.72535282354606,
+        "phaseDeg": -97.24595312611233
+      },
+      "fullLumped": {
+        "magnitude": 0.05804064262681317,
+        "attenuationDb": 24.725355753861145,
+        "phaseDeg": -97.24596612925126
+      },
+      "fullUnloaded": {
+        "magnitude": 0.8084701100088357,
+        "attenuationDb": 1.8467206357004078,
+        "phaseDeg": -43.30397480312494
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.746669656773452e-06,
+        "attenuationDb": 111.2238714047264,
+        "phaseDeg": -10.713802977169268
+      },
+      "scaledStage": {
+        "magnitude": 0.0009600411580210181,
+        "attenuationDb": 60.35420295757832,
+        "phaseDeg": 40.94088889536274
+      }
+    },
+    {
+      "frequencyHz": 79.4328235,
+      "fullTline": {
+        "magnitude": 0.05160147827707009,
+        "attenuationDb": 25.746757130875125,
+        "phaseDeg": -98.88999297062604
+      },
+      "fullLumped": {
+        "magnitude": 0.051601460454763465,
+        "attenuationDb": 25.74676013083986,
+        "phaseDeg": -98.89000728025665
+      },
+      "fullUnloaded": {
+        "magnitude": 0.7740722742640375,
+        "attenuationDb": 2.224369756660919,
+        "phaseDeg": -47.410344823309075
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.738765849890534e-06,
+        "attenuationDb": 111.2489019211664,
+        "phaseDeg": -12.004762976175108
+      },
+      "scaledStage": {
+        "magnitude": 0.000613540760945174,
+        "attenuationDb": 64.24313158732883,
+        "phaseDeg": 36.65549009758318
+      }
+    },
+    {
+      "frequencyHz": 89.1250938,
+      "fullTline": {
+        "magnitude": 0.045840705538250266,
+        "attenuationDb": 26.774974134508422,
+        "phaseDeg": -100.64422569821758
+      },
+      "fullLumped": {
+        "magnitude": 0.045840689423886895,
+        "attenuationDb": 26.77497718785598,
+        "phaseDeg": -100.64424144460575
+      },
+      "fullUnloaded": {
+        "magnitude": 0.7362195787598286,
+        "attenuationDb": 2.659852745277048,
+        "phaseDeg": -51.70740145592529
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.728899821035427e-06,
+        "attenuationDb": 111.28024814310693,
+        "phaseDeg": -13.446665242710175
+      },
+      "scaledStage": {
+        "magnitude": 0.0003910934273875081,
+        "attenuationDb": 68.15438965249011,
+        "phaseDeg": 32.82482054159399
+      }
+    },
+    {
+      "frequencyHz": 100.0,
+      "fullTline": {
+        "magnitude": 0.04068466064663971,
+        "attenuationDb": 27.811386042627,
+        "phaseDeg": -102.52864197797845
+      },
+      "fullLumped": {
+        "magnitude": 0.040684645886954154,
+        "attenuationDb": 27.81138919371689,
+        "phaseDeg": -102.5286593815324
+      },
+      "fullUnloaded": {
+        "magnitude": 0.6953477492779677,
+        "attenuationDb": 3.1559589349135937,
+        "phaseDeg": -56.167283130834925
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.716610615887754e-06,
+        "attenuationDb": 111.31945213035527,
+        "phaseDeg": -15.055330252402891
+      },
+      "scaledStage": {
+        "magnitude": 0.0002487835284045521,
+        "attenuationDb": 72.083567540703,
+        "phaseDeg": 29.407087639964722
+      }
+    },
+    {
+      "frequencyHz": 112.201845,
+      "fullTline": {
+        "magnitude": 0.03606723157818529,
+        "attenuationDb": 28.85774383312237,
+        "phaseDeg": -104.56375731441406
+      },
+      "fullLumped": {
+        "magnitude": 0.03606721826410528,
+        "attenuationDb": 28.85774703948576,
+        "phaseDeg": -104.56377643978888
+      },
+      "fullUnloaded": {
+        "magnitude": 0.6520616628017716,
+        "attenuationDb": 3.7142266575002623,
+        "phaseDeg": -60.76091191990498
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7013435111801e-06,
+        "attenuationDb": 111.36840372147738,
+        "phaseDeg": -16.847523262720607
+      },
+      "scaledStage": {
+        "magnitude": 0.00015799568367176538,
+        "attenuationDb": 76.02709554991661,
+        "phaseDeg": 26.36342919932994
+      }
+    },
+    {
+      "frequencyHz": 125.892541,
+      "fullTline": {
+        "magnitude": 0.03192925449880927,
+        "attenuationDb": 29.91622442960766,
+        "phaseDeg": -106.77043752912454
+      },
+      "fullLumped": {
+        "magnitude": 0.031929242117951714,
+        "attenuationDb": 29.916227797640673,
+        "phaseDeg": -106.77045872385801
+      },
+      "fullUnloaded": {
+        "magnitude": 0.6070908735634121,
+        "attenuationDb": 4.334925917103422,
+        "phaseDeg": -65.46079055391415
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.6824387433955068e-06,
+        "attenuationDb": 111.42940373735443,
+        "phaseDeg": -18.84072541512126
+      },
+      "scaledStage": {
+        "magnitude": 0.00010020634660114344,
+        "attenuationDb": 79.98209542834388,
+        "phaseDeg": 23.658102966731775
+      }
+    },
+    {
+      "frequencyHz": 141.253754,
+      "fullTline": {
+        "magnitude": 0.028217943185472733,
+        "attenuationDb": 30.989492905718336,
+        "phaseDeg": -109.1695966700562
+      },
+      "fullLumped": {
+        "magnitude": 0.028217931817677646,
+        "attenuationDb": 30.989496404890218,
+        "phaseDeg": -109.16961999542548
+      },
+      "fullUnloaded": {
+        "magnitude": 0.5612287377694025,
+        "attenuationDb": 5.017201979704212,
+        "phaseDeg": -70.24371119951913
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.6591234446777848e-06,
+        "attenuationDb": 111.50523001833322,
+        "phaseDeg": -21.05277570146131
+      },
+      "scaledStage": {
+        "magnitude": 6.348737734360767e-05,
+        "attenuationDb": 83.94625226422248,
+        "phaseDeg": 21.25852938176765
+      }
+    },
+    {
+      "frequencyHz": 158.489319,
+      "fullTline": {
+        "magnitude": 0.024886382987488985,
+        "attenuationDb": 32.0807643922342,
+        "phaseDeg": -111.78173511219978
+      },
+      "fullLumped": {
+        "magnitude": 0.02488637235747332,
+        "attenuationDb": 32.08076810234196,
+        "phaseDeg": -111.78176086117851
+      },
+      "fullUnloaded": {
+        "magnitude": 0.5152665628166335,
+        "attenuationDb": 5.7593607857635885,
+        "phaseDeg": -75.09294851016419
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.6305095801536218e-06,
+        "attenuationDb": 111.59920224380458,
+        "phaseDeg": -23.501355251301128
+      },
+      "scaledStage": {
+        "magnitude": 4.0189677667757214e-05,
+        "attenuationDb": 87.91770953909821,
+        "phaseDeg": 19.13523322692637
+      }
+    },
+    {
+      "frequencyHz": 177.827941,
+      "fullTline": {
+        "magnitude": 0.021893088656793756,
+        "attenuationDb": 33.193859284880034,
+        "phaseDeg": -114.62629168457613
+      },
+      "fullLumped": {
+        "magnitude": 0.021893078767583337,
+        "attenuationDb": 33.193863208337845,
+        "phaseDeg": -114.62631993677039
+      },
+      "fullUnloaded": {
+        "magnitude": 0.46993461402199466,
+        "attenuationDb": 6.559251298515068,
+        "phaseDeg": -79.99962626696187
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.595602056846662e-06,
+        "attenuationDb": 111.7152378072575,
+        "phaseDeg": -26.20328513505795
+      },
+      "scaledStage": {
+        "magnitude": 2.54244165738384e-05,
+        "attenuationDb": 91.89498008505205,
+        "phaseDeg": 17.26172405667169
+      }
+    },
+    {
+      "frequencyHz": 199.526231,
+      "fullTline": {
+        "magnitude": 0.019201623524468588,
+        "attenuationDb": 34.33324099060711,
+        "phaseDeg": -117.72079205327883
+      },
+      "fullLumped": {
+        "magnitude": 0.019201614300564065,
+        "attenuationDb": 34.33324516305825,
+        "phaseDeg": -117.72082293586631
+      },
+      "fullUnloaded": {
+        "magnitude": 0.42585879225034734,
+        "attenuationDb": 7.414687638258083,
+        "phaseDeg": -84.96312408371311
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.5533217966706032e-06,
+        "attenuationDb": 111.85788894706975,
+        "phaseDeg": -29.17362532973243
+      },
+      "scaledStage": {
+        "magnitude": 1.6075196436918053e-05,
+        "attenuationDb": 95.87687422692608,
+        "phaseDeg": 15.614339292658043
+      }
+    },
+    {
+      "frequencyHz": 223.872114,
+      "fullTline": {
+        "magnitude": 0.016780264423665477,
+        "attenuationDb": 35.50402399668512,
+        "phaseDeg": -121.07980205436743
+      },
+      "fullLumped": {
+        "magnitude": 0.016780255667177786,
+        "attenuationDb": 35.504028529265995,
+        "phaseDeg": -121.07983587848176
+      },
+      "fullUnloaded": {
+        "magnitude": 0.38353689320973916,
+        "attenuationDb": 8.323857080361798,
+        "phaseDeg": -89.99055630293539
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.5025492399416776e-06,
+        "attenuationDb": 112.03234737248074,
+        "phaseDeg": -32.424583031101655
+      },
+      "scaledStage": {
+        "magnitude": 1.0159630988110105e-05,
+        "attenuationDb": 99.86244131887256,
+        "phaseDeg": 14.17206982752426
+      }
+    },
+    {
+      "frequencyHz": 251.188643,
+      "fullTline": {
+        "magnitude": 0.014601691241121446,
+        "attenuationDb": 36.71193678273808,
+        "phaseDeg": -124.71372832200807
+      },
+      "fullLumped": {
+        "magnitude": 0.014601683041979436,
+        "attenuationDb": 36.711941660040395,
+        "phaseDeg": -124.71376491992542
+      },
+      "fullUnloaded": {
+        "magnitude": 0.34333365272511246,
+        "attenuationDb": 9.285672520094305,
+        "phaseDeg": -95.09547419042946
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.4421923235924444e-06,
+        "attenuationDb": 112.24440276371105,
+        "phaseDeg": -35.964283027835464
+      },
+      "scaledStage": {
+        "magnitude": 6.418801738768412e-06,
+        "attenuationDb": 103.85092076825433,
+        "phaseDeg": 12.916381622127986
+      }
+    },
+    {
+      "frequencyHz": 281.838293,
+      "fullTline": {
+        "magnitude": 0.012642667335490649,
+        "attenuationDb": 37.9632257886732,
+        "phaseDeg": -128.62756084729926
+      },
+      "fullLumped": {
+        "magnitude": 0.01264265955682913,
+        "attenuationDb": 37.963231132847376,
+        "phaseDeg": -128.6276004662377
+      },
+      "fullUnloaded": {
+        "magnitude": 0.3054905545976608,
+        "attenuationDb": 10.300044261589287,
+        "phaseDeg": -100.2959879621486
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.371280969872811e-06,
+        "attenuationDb": 112.50033968015073,
+        "phaseDeg": -39.79549423762371
+      },
+      "scaledStage": {
+        "magnitude": 4.05428964651367e-06,
+        "attenuationDb": 107.84170455346667,
+        "phaseDeg": 11.831040606743862
+      }
+    },
+    {
+      "frequencyHz": 316.227766,
+      "fullTline": {
+        "magnitude": 0.010883671189652906,
+        "attenuationDb": 39.26449174629178,
+        "phaseDeg": -132.81970965686938
+      },
+      "fullLumped": {
+        "magnitude": 0.010883663857075844,
+        "attenuationDb": 39.264497598175346,
+        "phaseDeg": -132.8197521935177
+      },
+      "fullUnloaded": {
+        "magnitude": 0.27014511124657015,
+        "attenuationDb": 11.368057747603908,
+        "phaseDeg": -105.61250344031598
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.2890836077802408e-06,
+        "attenuationDb": 112.8067668923852,
+        "phaseDeg": -43.914476564055
+      },
+      "scaledStage": {
+        "magnitude": 2.56026394922403e-06,
+        "attenuationDb": 111.83430517983844,
+        "phaseDeg": 10.901948318915048
+      }
+    },
+    {
+      "frequencyHz": 354.813389,
+      "fullTline": {
+        "magnitude": 0.009308443325414029,
+        "attenuationDb": 40.62245882228264,
+        "phaseDeg": -137.28112665353441
+      },
+      "fullLumped": {
+        "magnitude": 0.009308436458978242,
+        "attenuationDb": 40.622465229489876,
+        "phaseDeg": -137.2811719467569
+      },
+      "fullUnloaded": {
+        "magnitude": 0.23735444248552987,
+        "attenuationDb": 12.492052706433302,
+        "phaseDeg": -111.0652433279875
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.195234814814427e-06,
+        "attenuationDb": 113.17038036653409,
+        "phaseDeg": -48.31013947851394
+      },
+      "scaledStage": {
+        "magnitude": 1.6165288743934225e-06,
+        "attenuationDb": 115.82833067254572,
+        "phaseDeg": 10.11699081776743
+      }
+    },
+    {
+      "frequencyHz": 398.107171,
+      "fullTline": {
+        "magnitude": 0.007903424390538417,
+        "attenuationDb": 42.043693942082385,
+        "phaseDeg": -141.9949182635611
+      },
+      "fullLumped": {
+        "magnitude": 0.007903417970794187,
+        "attenuationDb": 42.043700997405466,
+        "phaseDeg": -141.9949661870417
+      },
+      "fullUnloaded": {
+        "magnitude": 0.20711902040117386,
+        "attenuationDb": 13.675600332515323,
+        "phaseDeg": -116.6717027291986
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.0898544068549935e-06,
+        "attenuationDb": 113.59767937349135,
+        "phaseDeg": -52.96371574677641
+      },
+      "scaledStage": {
+        "magnitude": 1.0205323685039458e-06,
+        "attenuationDb": 119.82346432185452,
+        "phaseDeg": 9.465903502646203
+      }
+    },
+    {
+      "frequencyHz": 446.683592,
+      "fullTline": {
+        "magnitude": 0.006657091793236147,
+        "attenuationDb": 43.53430909223867,
+        "phaseDeg": -146.93659736550515
+      },
+      "fullLumped": {
+        "magnitude": 0.006657085885302432,
+        "attenuationDb": 43.5343168006622,
+        "phaseDeg": -146.93664765622287
+      },
+      "fullUnloaded": {
+        "magnitude": 0.17940356887525838,
+        "attenuationDb": 14.923378435714266,
+        "phaseDeg": -122.44419199930847
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.9736333420562892e-06,
+        "attenuationDb": 114.0946705319316,
+        "phaseDeg": -57.84908949764371
+      },
+      "scaledStage": {
+        "magnitude": 6.442102324857782e-07,
+        "attenuationDb": 123.81944762457627,
+        "phaseDeg": 8.940153074059126
+      }
+    },
+    {
+      "frequencyHz": 501.187234,
+      "fullTline": {
+        "magnitude": 0.005559239732079615,
+        "attenuationDb": 45.09969194799509,
+        "phaseDeg": -152.07500614238614
+      },
+      "fullLumped": {
+        "magnitude": 0.005559234332988399,
+        "attenuationDb": 45.09970038366894,
+        "phaseDeg": -152.07505850394284
+      },
+      "fullUnloaded": {
+        "magnitude": 0.1541532446498759,
+        "attenuationDb": 16.24094659439567,
+        "phaseDeg": -128.387638392523
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.8478626537298426e-06,
+        "attenuationDb": 114.66660623530464,
+        "phaseDeg": -62.9337918364973
+      },
+      "scaledStage": {
+        "magnitude": 4.0662739014655204e-07,
+        "attenuationDb": 127.81606741859,
+        "phaseDeg": 8.532836905112083
+      }
+    },
+    {
+      "frequencyHz": 562.341325,
+      "fullTline": {
+        "magnitude": 0.004600282202986707,
+        "attenuationDb": 46.74431051662658,
+        "phaseDeg": -157.37377171123953
+      },
+      "fullLumped": {
+        "magnitude": 0.004600277338327362,
+        "attenuationDb": 46.74431970169712,
+        "phaseDeg": -157.3738257453052
+      },
+      "fullUnloaded": {
+        "magnitude": 0.13130415777416682,
+        "attenuationDb": 17.63443043330738,
+        "phaseDeg": -134.4978360638143
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.7143910120655788e-06,
+        "attenuationDb": 115.31780237619523,
+        "phaseDeg": -68.18050677987172
+      },
+      "scaledStage": {
+        "magnitude": 2.5665090864443847e-07,
+        "attenuationDb": 131.8131438765688,
+        "phaseDeg": 8.23860039500919
+      }
+    },
+    {
+      "frequencyHz": 630.957344,
+      "fullTline": {
+        "magnitude": 0.0037706732061087347,
+        "attenuationDb": 48.47162210146932,
+        "phaseDeg": -162.7930050158505
+      },
+      "fullLumped": {
+        "magnitude": 0.003770668885999489,
+        "attenuationDb": 48.47163205301155,
+        "phaseDeg": -162.7930603642725
+      },
+      "fullUnloaded": {
+        "magnitude": 0.1107880973628483,
+        "attenuationDb": 19.110137919824535,
+        "phaseDeg": -140.76033786607502
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.5755124121793975e-06,
+        "attenuationDb": 116.05156342047832,
+        "phaseDeg": -73.54877989700415
+      },
+      "scaledStage": {
+        "magnitude": 1.619846709788339e-07,
+        "attenuationDb": 135.81052163807263,
+        "phaseDeg": 8.053571869600209
+      }
+    },
+    {
+      "frequencyHz": 707.945784,
+      "fullTline": {
+        "magnitude": 0.003060522632866531,
+        "attenuationDb": 50.28408809004837,
+        "phaseDeg": -168.29087099926983
+      },
+      "fullLumped": {
+        "magnitude": 0.0030605188499070526,
+        "attenuationDb": 50.28409882625024,
+        "phaseDeg": -168.29092743793385
+      },
+      "fullUnloaded": {
+        "magnitude": 0.09253222201223534,
+        "attenuationDb": 20.67414017650032,
+        "phaseDeg": -147.15011969761602
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.433802528098102e-06,
+        "attenuationDb": 116.87021316391963,
+        "phaseDeg": -78.99655350217088
+      },
+      "scaledStage": {
+        "magnitude": 1.0223437327684669e-07,
+        "attenuationDb": 139.80806122011057,
+        "phaseDeg": 7.975315167319873
+      }
+    },
+    {
+      "frequencyHz": 794.328235,
+      "fullTline": {
+        "magnitude": 0.0024594430414567187,
+        "attenuationDb": 52.18326461734799,
+        "phaseDeg": -173.82471075180072
+      },
+      "fullLumped": {
+        "magnitude": 0.0024594397707912315,
+        "attenuationDb": 52.183276168198276,
+        "phaseDeg": -173.82476789941444
+      },
+      "fullUnloaded": {
+        "magnitude": 0.07645519365143368,
+        "attenuationDb": 22.331860146813334,
+        "phaseDeg": -153.63205684968517
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.2919333981431307e-06,
+        "attenuationDb": 117.77519749097468,
+        "phaseDeg": -84.48121489544727
+      },
+      "scaledStage": {
+        "magnitude": 6.452357378797102e-08,
+        "attenuationDb": 143.80563172416996,
+        "phaseDeg": 8.002799589723969
+      }
+    },
+    {
+      "frequencyHz": 891.250938,
+      "fullTline": {
+        "magnitude": 0.0019566096529717,
+        "attenuationDb": 54.16991616409717,
+        "phaseDeg": -179.35156188066003
+      },
+      "fullLumped": {
+        "magnitude": 0.001956606882640438,
+        "attenuationDb": 54.169928462313415,
+        "phaseDeg": -179.3516193549999
+      },
+      "fullUnloaded": {
+        "magnitude": 0.062461805793523534,
+        "attenuationDb": 24.08770928625787,
+        "phaseDeg": -160.1621197344218
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1524969525221341e-06,
+        "attenuationDb": 118.76720428630763,
+        "phaseDeg": -89.96002381802477
+      },
+      "scaledStage": {
+        "magnitude": 4.072347304145568e-08,
+        "attenuationDb": 147.80310381852405,
+        "phaseDeg": 8.13638714883536
+      }
+    },
+    {
+      "frequencyHz": 1000.0,
+      "fullTline": {
+        "magnitude": 0.0015409736659933843,
+        "attenuationDb": 56.244095659265376,
+        "phaseDeg": 175.17184250820657
+      },
+      "fullLumped": {
+        "magnitude": 0.0015409713509581095,
+        "attenuationDb": 56.2441087082593,
+        "phaseDeg": 175.17178503487958
+      },
+      "fullUnloaded": {
+        "magnitude": 0.05043824458547771,
+        "attenuationDb": 25.944800733853327,
+        "phaseDeg": -166.68909901672998
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.0178594213788856e-06,
+        "attenuationDb": 119.84624398291787,
+        "phaseDeg": -95.39001806366524
+      },
+      "scaledStage": {
+        "magnitude": 2.5702942533447837e-08,
+        "attenuationDb": 151.80034309533022,
+        "phaseDeg": 8.377837053981823
+      }
+    },
+    {
+      "frequencyHz": 1122.01845,
+      "fullTline": {
+        "magnitude": 0.0012015513062904953,
+        "attenuationDb": 58.40515360143599,
+        "phaseDeg": 169.7893183623641
+      },
+      "fullLumped": {
+        "magnitude": 0.0012015494053270077,
+        "attenuationDb": 58.40516734331453,
+        "phaseDeg": 169.78926136932625
+      },
+      "fullUnloaded": {
+        "magnitude": 0.04024968882351794,
+        "attenuationDb": 27.904749457599998,
+        "phaseDeg": -173.15663772141264
+      },
+      "instrument50Ohm": {
+        "magnitude": 8.900559184893802e-07,
+        "attenuationDb": 121.01165415185471,
+        "phaseDeg": -100.72769378566306
+      },
+      "scaledStage": {
+        "magnitude": 1.6223325121666595e-08,
+        "attenuationDb": 155.7972025660086,
+        "phaseDeg": 8.730327424874957
+      }
+    },
+    {
+      "frequencyHz": 1258.92541,
+      "fullTline": {
+        "magnitude": 0.0009277190373261321,
+        "attenuationDb": 60.65167062679025,
+        "phaseDeg": 164.54534573734045
+      },
+      "fullLumped": {
+        "magnitude": 0.0009277174902106144,
+        "attenuationDb": 60.651685111871736,
+        "phaseDeg": 164.5452892389395
+      },
+      "fullUnloaded": {
+        "magnitude": 0.031741121766506425,
+        "attenuationDb": 29.967554577209462,
+        "phaseDeg": -179.5053944424204
+      },
+      "instrument50Ohm": {
+        "magnitude": 7.707237705959646e-07,
+        "attenuationDb": 122.26202492669061,
+        "phaseDeg": -105.92884084769182
+      },
+      "scaledStage": {
+        "magnitude": 1.0240572072928737e-08,
+        "attenuationDb": 159.79351563053092,
+        "phaseDeg": 9.1984944355475
+      }
+    },
+    {
+      "frequencyHz": 1412.53754,
+      "fullTline": {
+        "magnitude": 0.0007094680914377369,
+        "attenuationDb": 62.981342646107294,
+        "phaseDeg": 159.48473552211573
+      },
+      "fullLumped": {
+        "magnitude": 0.0007094668578478027,
+        "attenuationDb": 62.981357748739065,
+        "phaseDeg": 159.48468008062144
+      },
+      "fullUnloaded": {
+        "magnitude": 0.024741285267536866,
+        "attenuationDb": 32.13155486527749,
+        "phaseDeg": 174.32475718549378
+      },
+      "instrument50Ohm": {
+        "magnitude": 6.610680307078252e-07,
+        "attenuationDb": 123.59507689680171,
+        "phaseDeg": -110.94885247860513
+      },
+      "scaledStage": {
+        "magnitude": 6.464660159457804e-09,
+        "attenuationDb": 163.78908601196403,
+        "phaseDeg": 9.78848876574031
+      }
+    },
+    {
+      "frequencyHz": 1584.89319,
+      "fullTline": {
+        "magnitude": 0.0005375964594761121,
+        "attenuationDb": 65.39087200276956,
+        "phaseDeg": 154.65170534494408
+      },
+      "fullLumped": {
+        "magnitude": 0.0005375954864745675,
+        "attenuationDb": 65.39088772346773,
+        "phaseDeg": 154.65165096371118
+      },
+      "fullUnloaded": {
+        "magnitude": 0.019068973592609756,
+        "attenuationDb": 34.39345365356587,
+        "phaseDeg": 168.3925314887731
+      },
+      "instrument50Ohm": {
+        "magnitude": 5.618530136391996e-07,
+        "attenuationDb": 125.00754570693434,
+        "phaseDeg": -115.74364662524633
+      },
+      "scaledStage": {
+        "magnitude": 4.0814648567032645e-09,
+        "attenuationDb": 167.7836787724891,
+        "phaseDeg": 10.508049987532425
+      }
+    },
+    {
+      "frequencyHz": 1778.27941,
+      "fullTline": {
+        "magnitude": 0.00040383505431980626,
+        "attenuationDb": 67.87591970899194,
+        "phaseDeg": 150.08845198002513
+      },
+      "fullLumped": {
+        "magnitude": 0.0004038342980612775,
+        "attenuationDb": 67.87593597500006,
+        "phaseDeg": 150.08839903207198
+      },
+      "fullUnloaded": {
+        "magnitude": 0.014540490813824622,
+        "attenuationDb": 36.74841867265094,
+        "phaseDeg": 162.75308799686002
+      },
+      "instrument50Ohm": {
+        "magnitude": 4.7341663571662247e-07,
+        "attenuationDb": 126.49512970325526,
+        "phaseDeg": -120.27109993495365
+      },
+      "scaledStage": {
+        "magnitude": 2.5772090943275078e-09,
+        "attenuationDb": 171.77700689612362,
+        "phaseDeg": 11.366598428334921
+      }
+    },
+    {
+      "frequencyHz": 1995.26231,
+      "fullTline": {
+        "magnitude": 0.00030091382964729264,
+        "attenuationDb": 70.43115704270679,
+        "phaseDeg": 145.8335063147743
+      },
+      "fullLumped": {
+        "magnitude": 0.00030091325432272524,
+        "attenuationDb": 70.43117364948914,
+        "phaseDeg": 145.83345509292184
+      },
+      "fullUnloaded": {
+        "magnitude": 0.010977080158263439,
+        "attenuationDb": 39.1902632884092,
+        "phaseDeg": 157.45606462719087
+      },
+      "instrument50Ohm": {
+        "magnitude": 3.9570638966558474e-07,
+        "attenuationDb": 128.0525387382175,
+        "phaseDeg": -124.4927067349122
+      },
+      "scaledStage": {
+        "magnitude": 1.6276617882967396e-09,
+        "attenuationDb": 175.76871664171077,
+        "phaseDeg": 12.37534492569593
+      }
+    },
+    {
+      "frequencyHz": 2238.72114,
+      "fullTline": {
+        "magnitude": 0.0002225762563145187,
+        "attenuationDb": 73.05042333206363,
+        "phaseDeg": 141.9202373525911
+      },
+      "fullLumped": {
+        "magnitude": 0.00022257582212828003,
+        "attenuationDb": 73.05044027590793,
+        "phaseDeg": 141.92018775959187
+      },
+      "fullUnloaded": {
+        "magnitude": 0.008211350333221366,
+        "attenuationDb": 41.71170837029146,
+        "phaseDeg": 152.5439768949837
+      },
+      "instrument50Ohm": {
+        "magnitude": 3.283352277091371e-07,
+        "attenuationDb": 129.673650369847,
+        "phaseDeg": -128.37508458902408
+      },
+      "scaledStage": {
+        "magnitude": 1.0282092886467497e-09,
+        "attenuationDb": 179.7583695423537,
+        "phaseDeg": 13.547418057501075
+      }
+    },
+    {
+      "frequencyHz": 2511.88643,
+      "fullTline": {
+        "magnitude": 0.00016355042411186218,
+        "attenuationDb": 75.72696650687872,
+        "phaseDeg": 138.3758322999212
+      },
+      "fullLumped": {
+        "magnitude": 0.00016355010249571262,
+        "attenuationDb": 75.72698358739162,
+        "phaseDeg": 138.3757843557551
+      },
+      "fullUnloaded": {
+        "magnitude": 0.006092067949714249,
+        "attenuationDb": 44.30470522549413,
+        "phaseDeg": 148.05118678455847
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.7065279519110284e-07,
+        "attenuationDb": 131.35174966668816,
+        "phaseDeg": -131.89100388572913
+      },
+      "scaledStage": {
+        "magnitude": 6.497242500851344e-10,
+        "attenuationDb": 183.74541846947585,
+        "phaseDeg": 14.898007431381465
+      }
+    },
+    {
+      "frequencyHz": 2818.38293,
+      "fullTline": {
+        "magnitude": 0.00011948512654440214,
+        "attenuationDb": 78.4537230427205,
+        "phaseDeg": 135.22093443374683
+      },
+      "fullLumped": {
+        "magnitude": 0.00011948489153481177,
+        "attenuationDb": 78.4537401265989,
+        "phaseDeg": 135.22088828345917
+      },
+      "fullUnloaded": {
+        "magnitude": 0.004487048334552172,
+        "attenuationDb": 46.9607850443007,
+        "phaseDeg": 144.00357579485438
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.2182452947062967e-07,
+        "attenuationDb": 133.07980862048117,
+        "phaseDeg": -135.01975374732982
+      },
+      "scaledStage": {
+        "magnitude": 4.1071538151131094e-10,
+        "attenuationDb": 187.72918064561028,
+        "phaseDeg": 16.44452248029167
+      }
+    },
+    {
+      "frequencyHz": 3162.27766,
+      "fullTline": {
+        "magnitude": 8.686014155398108e-05,
+        "attenuationDb": 81.22358934426907,
+        "phaseDeg": 132.46995497349323
+      },
+      "fullLumped": {
+        "magnitude": 8.685997240015998e-05,
+        "attenuationDb": 81.22360625942517,
+        "phaseDeg": 132.4699103437173
+      },
+      "fullUnloaded": {
+        "magnitude": 0.0032842055528514427,
+        "attenuationDb": 49.67139337894829,
+        "phaseDeg": 140.4189356710468
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.8090982080636894e-07,
+        "attenuationDb": 134.85075713088062,
+        "phaseDeg": -137.74683652266722
+      },
+      "scaledStage": {
+        "magnitude": 2.597526003697405e-10,
+        "attenuationDb": 191.70880192099213,
+        "phaseDeg": 18.206762648257776
+      }
+    },
+    {
+      "frequencyHz": 3548.13389,
+      "fullTline": {
+        "magnitude": 6.288074254783577e-05,
+        "attenuationDb": 84.02964676859577,
+        "phaseDeg": 130.13192924990773
+      },
+      "fullLumped": {
+        "magnitude": 6.288062294693527e-05,
+        "attenuationDb": 84.0296632894123,
+        "phaseDeg": 130.1318859925997
+      },
+      "fullUnloaded": {
+        "magnitude": 0.002391065160863144,
+        "attenuationDb": 52.42817176820984,
+        "phaseDeg": 137.30796377667187
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.4693139863225358e-07,
+        "attenuationDb": 136.65770774714684,
+        "phaseDeg": -140.06311345273474
+      },
+      "scaledStage": {
+        "magnitude": 1.6437634173789627e-10,
+        "attenuationDb": 195.68321378361395,
+        "phaseDeg": 20.207095169282876
+      }
+    },
+    {
+      "frequencyHz": 3981.07171,
+      "fullTline": {
+        "magnitude": 4.536637873998579e-05,
+        "attenuationDb": 86.86531771686535,
+        "phaseDeg": 128.2117238647505
+      },
+      "fullLumped": {
+        "magnitude": 4.536629555926846e-05,
+        "attenuationDb": 86.8653336427385,
+        "phaseDeg": 128.21168163019453
+      },
+      "fullUnloaded": {
+        "magnitude": 0.0017331729058256105,
+        "attenuationDb": 55.223162175610426,
+        "phaseDeg": 134.6756703480526
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.189308264754437e-07,
+        "attenuationDb": 138.49411126204177,
+        "phaseDeg": -141.96360209785706
+      },
+      "scaledStage": {
+        "magnitude": 1.0409886422248762e-10,
+        "attenuationDb": 199.6510801772431,
+        "phaseDeg": 22.47063294939521
+      }
+    },
+    {
+      "frequencyHz": 4466.83592,
+      "fullTline": {
+        "magnitude": 3.264206922004649e-05,
+        "attenuationDb": 89.7244463719149,
+        "phaseDeg": 126.71138460527104
+      },
+      "fullLumped": {
+        "magnitude": 3.264201285064497e-05,
+        "attenuationDb": 89.72446137154068,
+        "phaseDeg": 126.71134317507364
+      },
+      "fullUnloaded": {
+        "magnitude": 0.0012518542066861844,
+        "attenuationDb": 58.04892493878283,
+        "phaseDeg": 132.52297462330148
+      },
+      "instrument50Ohm": {
+        "magnitude": 9.600815620837134e-08,
+        "attenuationDb": 140.3538374129953,
+        "phaseDeg": -143.44613156048027
+      },
+      "scaledStage": {
+        "magnitude": 6.598776617858032e-11,
+        "attenuationDb": 203.6107314629853,
+        "phaseDeg": 25.02540133065641
+      }
+    },
+    {
+      "frequencyHz": 5011.87234,
+      "fullTline": {
+        "magnitude": 2.343875301188129e-05,
+        "attenuationDb": 92.60130994733214,
+        "phaseDeg": 125.63145435248892
+      },
+      "fullLumped": {
+        "magnitude": 2.343871583637446e-05,
+        "attenuationDb": 92.60132372377345,
+        "phaseDeg": 125.6314133412162
+      },
+      "fullUnloaded": {
+        "magnitude": 0.0009017190992577617,
+        "attenuationDb": 60.8985746292473,
+        "phaseDeg": 130.8482939391394
+      },
+      "instrument50Ohm": {
+        "magnitude": 7.734650785601574e-08,
+        "attenuationDb": 142.2311857926469,
+        "phaseDeg": -144.5100293675468
+      },
+      "scaledStage": {
+        "magnitude": 4.1878946768381675e-11,
+        "attenuationDb": 207.56008498228596,
+        "phaseDeg": 27.902478982742835
+      }
+    },
+    {
+      "frequencyHz": 5623.41325,
+      "fullTline": {
+        "magnitude": 1.6806273226377688e-05,
+        "attenuationDb": 95.49057160468882,
+        "phaseDeg": 124.9721383693888
+      },
+      "fullLumped": {
+        "magnitude": 1.6806249798840285e-05,
+        "attenuationDb": 95.49058371261683,
+        "phaseDeg": 124.9720973696812
+      },
+      "fullUnloaded": {
+        "magnitude": 0.0006482055197851465,
+        "attenuationDb": 63.765745501188064,
+        "phaseDeg": 129.648979043412
+      },
+      "instrument50Ohm": {
+        "magnitude": 6.222401753852627e-08,
+        "attenuationDb": 144.1208390357181,
+        "phaseDeg": -145.15495889850257
+      },
+      "scaledStage": {
+        "magnitude": 2.66178298976123e-11,
+        "attenuationDb": 211.49654709286153,
+        "phaseDeg": 31.13608884809278
+      }
+    },
+    {
+      "frequencyHz": 6309.57344,
+      "fullTline": {
+        "magnitude": 1.2040389381816422e-05,
+        "attenuationDb": 98.38718935850778,
+        "phaseDeg": 124.7342447749031
+      },
+      "fullLumped": {
+        "magnitude": 1.2040375571473445e-05,
+        "attenuationDb": 98.3871993212407,
+        "phaseDeg": 124.7342033861384
+      },
+      "fullUnloaded": {
+        "magnitude": 0.0004653448033652496,
+        "attenuationDb": 66.64450263222447,
+        "phaseDeg": 128.92249975137136
+      },
+      "instrument50Ohm": {
+        "magnitude": 5.001628304542954e-08,
+        "attenuationDb": 146.01777171905934,
+        "phaseDeg": -145.37998283082183
+      },
+      "scaledStage": {
+        "magnitude": 1.6949431951896024e-11,
+        "attenuationDb": 215.41689704572647,
+        "phaseDeg": 34.76360962098375
+      }
+    },
+    {
+      "frequencyHz": 7079.45784,
+      "fullTline": {
+        "magnitude": 8.62353545170149e-06,
+        "attenuationDb": 101.28629293785141,
+        "phaseDeg": 124.91986331164001
+      },
+      "fullLumped": {
+        "magnitude": 8.623528289220848e-06,
+        "attenuationDb": 101.2863001521248,
+        "phaseDeg": 124.91982108033827
+      },
+      "fullUnloaded": {
+        "magnitude": 0.00033384073604871765,
+        "attenuationDb": 69.5292134153432,
+        "phaseDeg": 128.667333227217
+      },
+      "instrument50Ohm": {
+        "magnitude": 4.0192371119195994e-08,
+        "attenuationDb": 147.91712744341132,
+        "phaseDeg": -145.18288673467399
+      },
+      "scaledStage": {
+        "magnitude": 1.0817890617387736e-11,
+        "attenuationDb": 219.3171482828099,
+        "phaseDeg": 38.825463517037115
+      }
+    },
+    {
+      "frequencyHz": 7943.28235,
+      "fullTline": {
+        "magnitude": 6.178002011736306e-06,
+        "attenuationDb": 104.18303909231378,
+        "phaseDeg": 125.5327645596649
+      },
+      "fullLumped": {
+        "magnitude": 6.177999366066105e-06,
+        "attenuationDb": 104.18304281196365,
+        "phaseDeg": 125.53272108882551
+      },
+      "fullUnloaded": {
+        "magnitude": 0.0002394861288370737,
+        "attenuationDb": 72.41439272172946,
+        "phaseDeg": 128.88353123961463
+      },
+      "instrument50Ohm": {
+        "magnitude": 3.230697365268201e-08,
+        "attenuationDb": 149.81407444998334,
+        "phaseDeg": -144.55978164247256
+      },
+      "scaledStage": {
+        "magnitude": 6.924375748969475e-12,
+        "attenuationDb": 223.19238746620343,
+        "phaseDeg": 43.36482478445919
+      }
+    },
+    {
+      "frequencyHz": 8912.50938,
+      "fullTline": {
+        "magnitude": 4.429730723569239e-06,
+        "attenuationDb": 107.07245346119267,
+        "phaseDeg": 126.57850938505601
+      },
+      "fullLumped": {
+        "magnitude": 4.429731112200863e-06,
+        "attenuationDb": 107.07245269915734,
+        "phaseDeg": 126.5784642239142
+      },
+      "fullUnloaded": {
+        "magnitude": 0.00017189902759897653,
+        "attenuationDb": 75.29453160059207,
+        "phaseDeg": 129.5729567476685
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.5990677658283286e-08,
+        "attenuationDb": 151.70364793870903,
+        "phaseDeg": -143.50499631446337
+      },
+      "scaledStage": {
+        "magnitude": 4.4480579130924224e-12,
+        "attenuationDb": 227.03659133871452,
+        "phaseDeg": 48.42707576688743
+      }
+    },
+    {
+      "frequencyHz": 10000.0,
+      "fullTline": {
+        "magnitude": 3.180802501843394e-06,
+        "attenuationDb": 109.94926591381235,
+        "phaseDeg": 128.06425341872617
+      },
+      "fullLumped": {
+        "magnitude": 3.180804851734293e-06,
+        "attenuationDb": 109.94925949691427,
+        "phaseDeg": 128.06420622660454
+      },
+      "fullUnloaded": {
+        "magnitude": 0.00012353899340694706,
+        "attenuationDb": 78.16391883211955,
+        "phaseDeg": 130.73918093456842
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.0939713179027883e-08,
+        "attenuationDb": 153.5805854269913,
+        "phaseDeg": -142.01127330116555
+      },
+      "scaledStage": {
+        "magnitude": 2.8699789632294098e-12,
+        "attenuationDb": 230.8424257321276,
+        "phaseDeg": 54.058921281756476
+      }
+    },
+    {
+      "frequencyHz": 11220.1845,
+      "fullTline": {
+        "magnitude": 2.2888254097993676e-06,
+        "attenuationDb": 112.80774667558335,
+        "phaseDeg": 129.99822514294672
+      },
+      "fullLumped": {
+        "magnitude": 2.288829007731596e-06,
+        "attenuationDb": 112.80773302176004,
+        "phaseDeg": 129.99817536364355
+      },
+      "fullUnloaded": {
+        "magnitude": 8.895632432242342e-05,
+        "attenuationDb": 81.01646340900574,
+        "phaseDeg": 132.38702207342894
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.6906037792628456e-08,
+        "attenuationDb": 155.43916329030017,
+        "phaseDeg": -140.0702915052768
+      },
+      "scaledStage": {
+        "magnitude": 1.861865336903924e-12,
+        "attenuationDb": 234.60103466853775,
+        "phaseDeg": 60.30705533102349
+      }
+    },
+    {
+      "frequencyHz": 12589.2541,
+      "fullTline": {
+        "magnitude": 1.6516665273836954e-06,
+        "attenuationDb": 115.64155265043753,
+        "phaseDeg": 132.38884640359947
+      },
+      "fullLumped": {
+        "magnitude": 1.6516708396626322e-06,
+        "attenuationDb": 115.6415299727787,
+        "phaseDeg": 132.38879377274316
+      },
+      "fullUnloaded": {
+        "magnitude": 6.422788224627222e-05,
+        "attenuationDb": 83.84552795047641,
+        "phaseDeg": 134.52170426072826
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.3688247219228696e-08,
+        "attenuationDb": 157.2730431947376,
+        "phaseDeg": -137.6735455888245
+      },
+      "scaledStage": {
+        "magnitude": 1.2159287985412328e-12,
+        "attenuationDb": 238.30183710827214,
+        "phaseDeg": 67.21627000056986
+      }
+    },
+    {
+      "frequencyHz": 14125.3754,
+      "fullTline": {
+        "magnitude": 1.1962450994081976e-06,
+        "attenuationDb": 118.44359656723762,
+        "phaseDeg": 135.24346679234506
+      },
+      "fullLumped": {
+        "magnitude": 1.196249796553366e-06,
+        "attenuationDb": 118.44356246151426,
+        "phaseDeg": 135.24341084475282
+      },
+      "fullUnloaded": {
+        "magnitude": 4.6538315070465805e-05,
+        "attenuationDb": 86.64378688976343,
+        "phaseDeg": 137.14761188441545
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1123537233921754e-08,
+        "attenuationDb": 159.07514174267806,
+        "phaseDeg": -134.81361150750234
+      },
+      "scaledStage": {
+        "magnitude": 8.005386463934447e-13,
+        "attenuationDb": 241.932353949215,
+        "phaseDeg": 74.82689731876344
+      }
+    },
+    {
+      "frequencyHz": 15848.9319,
+      "fullTline": {
+        "magnitude": 8.703663300418427e-07,
+        "attenuationDb": 121.20595835842957,
+        "phaseDeg": 138.56669388624263
+      },
+      "fullLumped": {
+        "magnitude": 8.703711871667086e-07,
+        "attenuationDb": 121.20590988650301,
+        "phaseDeg": 138.5666344709972
+      },
+      "fullUnloaded": {
+        "magnitude": 3.3872217394817795e-05,
+        "attenuationDb": 89.40312743952421,
+        "phaseDeg": 140.26662674226714
+      },
+      "instrument50Ohm": {
+        "magnitude": 9.08077517330295e-09,
+        "attenuationDb": 160.83754153372257,
+        "phaseDeg": -131.48581586645025
+      },
+      "scaledStage": {
+        "magnitude": 5.322242568050467e-13,
+        "attenuationDb": 245.4781067160792,
+        "phaseDeg": 83.17152364856697
+      }
+    },
+    {
+      "frequencyHz": 17782.7941,
+      "fullTline": {
+        "magnitude": 6.368056879732111e-07,
+        "attenuationDb": 123.91986132235667,
+        "phaseDeg": 142.35833923825365
+      },
+      "fullLumped": {
+        "magnitude": 6.368105732953205e-07,
+        "attenuationDb": 123.91979468789229,
+        "phaseDeg": 142.35827616903367
+      },
+      "fullUnloaded": {
+        "magnitude": 2.478957667545722e-05,
+        "attenuationDb": 92.11461778984142,
+        "phaseDeg": 143.87607133035306
+      },
+      "instrument50Ohm": {
+        "magnitude": 7.454638865632332e-09,
+        "attenuationDb": 162.55146781541225,
+        "phaseDeg": -127.69029034436896
+      },
+      "scaledStage": {
+        "magnitude": 3.57987915048433e-13,
+        "attenuationDb": 248.92263268032735,
+        "phaseDeg": 92.27097955376658
+      }
+    },
+    {
+      "frequencyHz": 19952.6231,
+      "fullTline": {
+        "magnitude": 4.690432055351275e-07,
+        "attenuationDb": 126.5757430151544,
+        "phaseDeg": 146.6110625067919
+      },
+      "fullLumped": {
+        "magnitude": 4.6904804733070214e-07,
+        "attenuationDb": 126.57565335372354,
+        "phaseDeg": 146.6109956857583
+      },
+      "fullUnloaded": {
+        "magnitude": 1.8262972695469274e-05,
+        "attenuationDb": 94.76857060376518,
+        "phaseDeg": 147.9663453236178
+      },
+      "instrument50Ohm": {
+        "magnitude": 6.1607279489698895e-09,
+        "attenuationDb": 164.20735937508078,
+        "phaseDeg": -123.43432584125054
+      },
+      "scaledStage": {
+        "magnitude": 2.441271388644841e-13,
+        "attenuationDb": 252.24767877429898,
+        "phaseDeg": 102.12975889005384
+      }
+    },
+    {
+      "frequencyHz": 22387.2114,
+      "fullTline": {
+        "magnitude": 3.4819900087714966e-07,
+        "attenuationDb": 129.16344958764563,
+        "phaseDeg": 151.30789298524846
+      },
+      "fullLumped": {
+        "magnitude": 3.4820375566790726e-07,
+        "attenuationDb": 129.16333097930473,
+        "phaseDeg": 151.30782265115374
+      },
+      "fullUnloaded": {
+        "magnitude": 1.3560116496451202e-05,
+        "attenuationDb": 97.35473158762602,
+        "phaseDeg": 152.51843488890478
+      },
+      "instrument50Ohm": {
+        "magnitude": 5.131529869668316e-09,
+        "attenuationDb": 165.79506277611128,
+        "phaseDeg": -118.73485219069813
+      },
+      "scaledStage": {
+        "magnitude": 1.6916804997053274e-13,
+        "attenuationDb": 255.4336331370197,
+        "phaseDeg": 112.73120747071368
+      }
+    },
+    {
+      "frequencyHz": 25118.8643,
+      "fullTline": {
+        "magnitude": 2.608382012845571e-07,
+        "attenuationDb": 131.6725760661544,
+        "phaseDeg": 156.41992081665822
+      },
+      "fullLumped": {
+        "magnitude": 2.608428638586356e-07,
+        "attenuationDb": 131.6724208042268,
+        "phaseDeg": 156.41984710420172
+      },
+      "fullUnloaded": {
+        "magnitude": 1.0159427824682613e-05,
+        "attenuationDb": 99.86261501344435,
+        "phaseDeg": 157.50158931932623
+      },
+      "instrument50Ohm": {
+        "magnitude": 4.313118135747574e-09,
+        "attenuationDb": 167.3041729284297,
+        "phaseDeg": -113.62074519572249
+      },
+      "scaledStage": {
+        "magnitude": 1.193955187435703e-13,
+        "attenuationDb": 258.4602394643779,
+        "phaseDeg": 124.03305480945339
+      }
+    },
+    {
+      "frequencyHz": 28183.8293,
+      "fullTline": {
+        "magnitude": 1.9740225417649184e-07,
+        "attenuationDb": 134.09295784682084,
+        "phaseDeg": 161.90456430813174
+      },
+      "fullLumped": {
+        "magnitude": 1.974068343839331e-07,
+        "attenuationDb": 134.09275631561243,
+        "phaseDeg": 161.90448771451176
+      },
+      "fullUnloaded": {
+        "magnitude": 7.689541639052305e-06,
+        "attenuationDb": 102.28199094015633,
+        "phaseDeg": 162.8715737522422
+      },
+      "instrument50Ohm": {
+        "magnitude": 3.6624675313028864e-09,
+        "attenuationDb": 168.72452433501468,
+        "phaseDeg": -108.13456007535271
+      },
+      "scaledStage": {
+        "magnitude": 8.602398657219105e-14,
+        "attenuationDb": 261.30760869990587,
+        "phaseDeg": 135.9641012560458
+      }
+    },
+    {
+      "frequencyHz": 31622.7766,
+      "fullTline": {
+        "magnitude": 1.5108994178060585e-07,
+        "attenuationDb": 136.41528892295824,
+        "phaseDeg": 167.70487495160367
+      },
+      "fullLumped": {
+        "magnitude": 1.5109446338117317e-07,
+        "attenuationDb": 136.41502898814463,
+        "phaseDeg": 167.70479609640097
+      },
+      "fullUnloaded": {
+        "magnitude": 5.886063970892727e-06,
+        "attenuationDb": 104.60350044427031,
+        "phaseDeg": 168.56995851862524
+      },
+      "instrument50Ohm": {
+        "magnitude": 3.145281599781334e-09,
+        "attenuationDb": 170.04680931435016,
+        "phaseDeg": -102.33322532866336
+      },
+      "scaledStage": {
+        "magnitude": 6.340538181539958e-14,
+        "attenuationDb": 263.95747755733896,
+        "phaseDeg": 148.4229716787147
+      }
+    },
+    {
+      "frequencyHz": 35481.3389,
+      "fullTline": {
+        "magnitude": 1.1706030848720283e-07,
+        "attenuationDb": 138.63180671461728,
+        "phaseDeg": 173.75029850843808
+      },
+      "fullLumped": {
+        "magnitude": 1.1706480685831689e-07,
+        "attenuationDb": 138.63147294132693,
+        "phaseDeg": 173.7502182010493
+      },
+      "fullUnloaded": {
+        "magnitude": 4.560717027414295e-06,
+        "attenuationDb": 106.8193374600044,
+        "phaseDeg": 174.5248656081644
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.734241413392219e-09,
+        "attenuationDb": 171.263262861381,
+        "phaseDeg": -96.28728217985926
+      },
+      "scaledStage": {
+        "magnitude": 4.789279729785633e-14,
+        "attenuationDb": 266.3945959233599,
+        "phaseDeg": 161.27977598303212
+      }
+    },
+    {
+      "frequencyHz": 39810.7171,
+      "fullTline": {
+        "magnitude": 9.186553348130437e-08,
+        "attenuationDb": 140.7369479717392,
+        "phaseDeg": 179.95912142892678
+      },
+      "fullLumped": {
+        "magnitude": 9.187004923149337e-08,
+        "attenuationDb": 140.73652101788298,
+        "phaseDeg": 179.95904072604918
+      },
+      "fullUnloaded": {
+        "magnitude": 3.5793557069606735e-06,
+        "attenuationDb": 108.92390280842817,
+        "phaseDeg": -179.34659934870535
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.4075986160920943e-09,
+        "attenuationDb": 172.36831829966582,
+        "phaseDeg": -90.07843755243158
+      },
+      "scaledStage": {
+        "magnitude": 3.7119090245050575e-14,
+        "attenuationDb": 268.6080535296649,
+        "phaseDeg": 174.38113053532027
+      }
+    },
+    {
+      "frequencyHz": 44668.3592,
+      "fullTline": {
+        "magnitude": 7.304773763202673e-08,
+        "attenuationDb": 142.7278646018878,
+        "phaseDeg": -173.7574881638273
+      },
+      "fullLumped": {
+        "magnitude": 7.305231838708519e-08,
+        "attenuationDb": 142.72731993497945,
+        "phaseDeg": -173.75756842261242
+      },
+      "fullUnloaded": {
+        "magnitude": 2.8463225165823158e-06,
+        "attenuationDb": 110.91431783179348,
+        "phaseDeg": -173.1343191858201
+      },
+      "instrument50Ohm": {
+        "magnitude": 2.1480473389463824e-09,
+        "attenuationDb": 173.3591230365758,
+        "phaseDeg": -83.79552324562479
+      },
+      "scaledStage": {
+        "magnitude": 2.9538190792695865e-14,
+        "attenuationDb": 270.592322172906,
+        "phaseDeg": -172.44164214725868
+      }
+    },
+    {
+      "frequencyHz": 50118.7234,
+      "fullTline": {
+        "magnitude": 5.8852524287155165e-08,
+        "attenuationDb": 144.60469809550315,
+        "phaseDeg": -167.49030521503525
+      },
+      "fullLumped": {
+        "magnitude": 5.8857221326131034e-08,
+        "attenuationDb": 144.60400489950686,
+        "phaseDeg": -167.49038383429564
+      },
+      "fullUnloaded": {
+        "magnitude": 2.2933224873070864e-06,
+        "attenuationDb": 112.79069740858263,
+        "phaseDeg": -166.93000218621478
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.94182182626613e-09,
+        "attenuationDb": 174.2358124341768,
+        "phaseDeg": -77.52932067419533
+      },
+      "scaledStage": {
+        "magnitude": 2.4132888357969543e-14,
+        "attenuationDb": 272.34781392414646,
+        "phaseDeg": -159.3620516761066
+      }
+    },
+    {
+      "frequencyHz": 56234.1325,
+      "fullTline": {
+        "magnitude": 4.80255392433425e-08,
+        "attenuationDb": 146.37055500133235,
+        "phaseDeg": -161.32649521619908
+      },
+      "fullLumped": {
+        "magnitude": 4.803040860907588e-08,
+        "attenuationDb": 146.369674373441,
+        "phaseDeg": -161.32657141543012
+      },
+      "fullUnloaded": {
+        "magnitude": 1.8715171015716313e-06,
+        "attenuationDb": 114.55612400060105,
+        "phaseDeg": -160.82164082336863
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.7779753117624418e-09,
+        "attenuationDb": 175.00148547518762,
+        "phaseDeg": -71.36700851174662
+      },
+      "scaledStage": {
+        "magnitude": 2.0228238971696552e-14,
+        "attenuationDb": 273.8808384871097,
+        "phaseDeg": -146.54723813986269
+      }
+    },
+    {
+      "frequencyHz": 63095.7344,
+      "fullTline": {
+        "magnitude": 3.9668028314988204e-08,
+        "attenuationDb": 148.03118770879334,
+        "phaseDeg": -155.34454460315214
+      },
+      "fullLumped": {
+        "magnitude": 3.967312997533161e-08,
+        "attenuationDb": 148.03007069815902,
+        "phaseDeg": -155.34461747086357
+      },
+      "fullUnloaded": {
+        "magnitude": 1.545908007363083e-06,
+        "attenuationDb": 116.21632706583483,
+        "phaseDeg": -154.88845220412801
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.6478047976357103e-09,
+        "attenuationDb": 175.66188474028775,
+        "phaseDeg": -65.387093078558
+      },
+      "scaledStage": {
+        "magnitude": 1.7372067029767527e-14,
+        "attenuationDb": 275.2029700718029,
+        "phaseDeg": -134.14773990236947
+      }
+    },
+    {
+      "frequencyHz": 70794.5784,
+      "fullTline": {
+        "magnitude": 3.3134294699450015e-08,
+        "attenuationDb": 149.594445388373,
+        "phaseDeg": -149.61039866912992
+      },
+      "fullLumped": {
+        "magnitude": 3.313969307059308e-08,
+        "attenuationDb": 149.59303036393717,
+        "phaseDeg": -149.6104676045462
+      },
+      "fullUnloaded": {
+        "magnitude": 1.2913481741430072e-06,
+        "attenuationDb": 117.77913294363314,
+        "phaseDeg": -149.19702500953827
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.5443923903950587e-09,
+        "attenuationDb": 176.22484693839021,
+        "phaseDeg": -59.65554695904991
+      },
+      "scaledStage": {
+        "magnitude": 1.525816678623045e-14,
+        "attenuationDb": 276.3299528432845,
+        "phaseDeg": -122.28968973093471
+      }
+    },
+    {
+      "frequencyHz": 79432.8235,
+      "fullTline": {
+        "magnitude": 2.7958898367551746e-08,
+        "attenuationDb": 151.06959889194545,
+        "phaseDeg": -144.1752208880126
+      },
+      "fullLumped": {
+        "magnitude": 2.7964662778950508e-08,
+        "attenuationDb": 151.0678082677295,
+        "phaseDeg": -144.17528523849387
+      },
+      "fullUnloaded": {
+        "magnitude": 1.0897091066205435e-06,
+        "attenuationDb": 119.25378839440056,
+        "phaseDeg": -143.79908697999642
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.4622399350561502e-09,
+        "attenuationDb": 176.69962718612294,
+        "phaseDeg": -54.22356773074848
+      },
+      "scaledStage": {
+        "magnitude": 1.3676732173828146e-14,
+        "attenuationDb": 277.28035315232927,
+        "phaseDeg": -111.07025800025804
+      }
+    },
+    {
+      "frequencyHz": 89125.0938,
+      "fullTline": {
+        "magnitude": 2.3804961519925752e-08,
+        "attenuationDb": 152.46665032428294,
+        "phaseDeg": -139.07481252113564
+      },
+      "fullLumped": {
+        "magnitude": 2.381116686655355e-08,
+        "attenuationDb": 152.46438642933362,
+        "phaseDeg": -139.07487223190776
+      },
+      "fullUnloaded": {
+        "magnitude": 9.278687486174628e-07,
+        "attenuationDb": 120.65026904852297,
+        "phaseDeg": -138.73093185299496
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.3969781525584778e-09,
+        "attenuationDb": 177.0962077159052,
+        "phaseDeg": -49.1269995974742
+      },
+      "scaledStage": {
+        "magnitude": 1.2482196063789188e-14,
+        "attenuationDb": 278.0741800006323,
+        "phaseDeg": -100.55642734947821
+      }
+    },
+    {
+      "frequencyHz": 100000.0,
+      "fullTline": {
+        "magnitude": 2.042744812691902e-08,
+        "attenuationDb": 153.79571767334122,
+        "phaseDeg": -134.3304338473954
+      },
+      "fullLumped": {
+        "magnitude": 2.0434175567815692e-08,
+        "attenuationDb": 153.79285759072974,
+        "phaseDeg": -134.3304885346913
+      },
+      "fullUnloaded": {
+        "magnitude": 7.96281961562816e-07,
+        "attenuationDb": 121.97866244756113,
+        "phaseDeg": -134.01424631597726
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.345135174545813e-09,
+        "attenuationDb": 177.42468141197438,
+        "phaseDeg": -44.38715346143021
+      },
+      "scaledStage": {
+        "magnitude": 1.1572235796581793e-14,
+        "attenuationDb": 278.73165451446135,
+        "phaseDeg": -90.7865719543975
+      }
+    },
+    {
+      "frequencyHz": 112201.845,
+      "fullTline": {
+        "magnitude": 1.7647066625897398e-08,
+        "attenuationDb": 155.06654949284433,
+        "phaseDeg": -129.95059253574095
+      },
+      "fullLumped": {
+        "magnitude": 1.765440485018906e-08,
+        "attenuationDb": 155.06293836817503,
+        "phaseDeg": -129.95064200352118
+      },
+      "fullUnloaded": {
+        "magnitude": 6.879643617223945e-07,
+        "attenuationDb": 123.2486811744813,
+        "phaseDeg": -129.65790432783254
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.3039524214915945e-09,
+        "attenuationDb": 177.69476509632477,
+        "phaseDeg": -40.012596885804456
+      },
+      "scaledStage": {
+        "magnitude": 1.087396882419357e-14,
+        "attenuationDb": 279.2722383292061,
+        "phaseDeg": -81.77398309803665
+      }
+    },
+    {
+      "frequencyHz": 125892.541,
+      "fullTline": {
+        "magnitude": 1.5331709632820434e-08,
+        "attenuationDb": 156.28818828882063,
+        "phaseDeg": -125.93334414377074
+      },
+      "fullLumped": {
+        "magnitude": 1.5339755275847607e-08,
+        "attenuationDb": 156.28363137774957,
+        "phaseDeg": -125.93338858316449
+      },
+      "fullUnloaded": {
+        "magnitude": 5.977695345928724e-07,
+        "attenuationDb": 124.46932445222308,
+        "phaseDeg": -125.66027343768583
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.2712381772113208e-09,
+        "attenuationDb": 177.9154614616516,
+        "phaseDeg": -36.001456360820164
+      },
+      "scaledStage": {
+        "magnitude": 1.0334799403165867e-14,
+        "attenuationDb": 279.7139589708521,
+        "phaseDeg": -73.51142071730999
+      }
+    },
+    {
+      "frequencyHz": 141253.754,
+      "fullTline": {
+        "magnitude": 1.3383240051013787e-08,
+        "attenuationDb": 157.46877464327656,
+        "phaseDeg": -122.26871954580156
+      },
+      "fullLumped": {
+        "magnitude": 1.3392099674506843e-08,
+        "attenuationDb": 157.46302653957423,
+        "phaseDeg": -122.26875895950008
+      },
+      "fullUnloaded": {
+        "magnitude": 5.218744265517021e-07,
+        "attenuationDb": 125.64867968770776,
+        "phaseDeg": -122.011643850004
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.2452511818029492e-09,
+        "attenuationDb": 178.09486074858285,
+        "phaseDeg": -32.343843104851665
+      },
+      "scaledStage": {
+        "magnitude": 9.916291530485002e-15,
+        "attenuationDb": 280.0730142766083,
+        "phaseDeg": -65.9759227684933
+      }
+    },
+    {
+      "frequencyHz": 158489.319,
+      "fullTline": {
+        "magnitude": 1.1728073444459416e-08,
+        "attenuationDb": 158.61546646043075,
+        "phaseDeg": -118.9410002728469
+      },
+      "fullLumped": {
+        "magnitude": 1.1737864437148711e-08,
+        "attenuationDb": 158.60821821087765,
+        "phaseDeg": -118.94103452237825
+      },
+      "fullUnloaded": {
+        "magnitude": 4.574125207541129e-07,
+        "attenuationDb": 126.79383903245174,
+        "phaseDeg": -118.69650869791273
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.2246080999887466e-09,
+        "attenuationDb": 178.24005744628624,
+        "phaseDeg": -29.02413178447981
+      },
+      "scaledStage": {
+        "magnitude": 9.590023105002624e-15,
+        "attenuationDb": 280.363606929865,
+        "phaseDeg": -59.13331728242745
+      }
+    },
+    {
+      "frequencyHz": 177827.941,
+      "fullTline": {
+        "magnitude": 1.0310454627288345e-08,
+        "attenuationDb": 159.73444369186683,
+        "phaseDeg": -115.93069235672267
+      },
+      "fullLumped": {
+        "magnitude": 1.0321306821666542e-08,
+        "attenuationDb": 159.7253062295492,
+        "phaseDeg": -115.93072174166954
+      },
+      "fullUnloaded": {
+        "magnitude": 4.0221194803031957e-07,
+        "attenuationDb": 127.91090064959582,
+        "phaseDeg": -115.69554142683543
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.2082099672557578e-09,
+        "attenuationDb": 178.35715171667135,
+        "phaseDeg": -26.0229350250178
+      },
+      "scaledStage": {
+        "magnitude": 9.334748234076587e-15,
+        "attenuationDb": 280.59794781680637,
+        "phaseDeg": -52.94213511737327
+      }
+    },
+    {
+      "frequencyHz": 199526.231,
+      "fullTline": {
+        "magnitude": 9.087648070976866e-09,
+        "attenuationDb": 160.83096999664042,
+        "phaseDeg": -113.21613452431016
+      },
+      "fullLumped": {
+        "magnitude": 9.099705683621625e-09,
+        "attenuationDb": 160.819453081152,
+        "phaseDeg": -113.21615891008243
+      },
+      "fullUnloaded": {
+        "magnitude": 3.5460815288289843e-07,
+        "attenuationDb": 129.00502567299017,
+        "phaseDeg": -112.98720391534212
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1951837476375175e-09,
+        "attenuationDb": 178.45130642234284,
+        "phaseDeg": -23.3187117734464
+      },
+      "scaledStage": {
+        "magnitude": 9.134430217376607e-15,
+        "attenuationDb": 280.7863707531294,
+        "phaseDeg": -47.35679065014257
+      }
+    },
+    {
+      "frequencyHz": 223872.114,
+      "fullTline": {
+        "magnitude": 8.026489898721444e-09,
+        "attenuationDb": 161.9094867305227,
+        "phaseDeg": -110.7747390964208
+      },
+      "fullLumped": {
+        "magnitude": 8.039913144363175e-09,
+        "attenuationDb": 161.89497285868157,
+        "phaseDeg": -110.77475823899786
+      },
+      "fullUnloaded": {
+        "magnitude": 3.1330956435456195e-07,
+        "attenuationDb": 130.08052694545506,
+        "phaseDeg": -110.54899094511448
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1848358891194324e-09,
+        "attenuationDb": 178.5268359869269,
+        "phaseDeg": -20.88901173349879
+      },
+      "scaledStage": {
+        "magnitude": 8.97686033137112e-15,
+        "attenuationDb": 280.93751063677155,
+        "phaseDeg": -42.330036050765855
+      }
+    },
+    {
+      "frequencyHz": 251188.643,
+      "fullTline": {
+        "magnitude": 7.100907475972895e-09,
+        "attenuationDb": 162.9737229224545,
+        "phaseDeg": -108.5839082275606
+      },
+      "fullLumped": {
+        "magnitude": 7.115874975655502e-09,
+        "attenuationDb": 162.9554338195754,
+        "phaseDeg": -108.5839218749443
+      },
+      "fullUnloaded": {
+        "magnitude": 2.773009826619993e-07,
+        "attenuationDb": 131.14097182849846,
+        "phaseDeg": -108.35834666982939
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1766154221812855e-09,
+        "attenuationDb": 178.5873092701811,
+        "phaseDeg": -18.711391899118805
+      },
+      "scaledStage": {
+        "magnitude": 8.852675087586596e-15,
+        "attenuationDb": 281.0585095007825,
+        "phaseDeg": -37.81476594408998
+      }
+    },
+    {
+      "frequencyHz": 281838.293,
+      "fullTline": {
+        "magnitude": 6.290129049063037e-09,
+        "attenuationDb": 164.02680888848397,
+        "phaseDeg": -106.62167535260944
+      },
+      "fullLumped": {
+        "magnitude": 6.306840116680156e-09,
+        "attenuationDb": 164.0037635714248,
+        "phaseDeg": -106.6216828830322
+      },
+      "fullUnloaded": {
+        "magnitude": 2.457738359503539e-07,
+        "attenuationDb": 132.18928704308303,
+        "phaseDeg": -106.39330685969145
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1700846298308063e-09,
+        "attenuationDb": 178.63565450970395,
+        "phaseDeg": -16.764060925217795
+      },
+      "scaledStage": {
+        "magnitude": 8.754647661274889e-15,
+        "attenuationDb": 281.15522655607265,
+        "phaseDeg": -33.765274050293186
+      }
+    },
+    {
+      "frequencyHz": 316227.766,
+      "fullTline": {
+        "magnitude": 5.577385462127674e-09,
+        "attenuationDb": 165.07138679354654,
+        "phaseDeg": -104.8671297460362
+      },
+      "fullLumped": {
+        "magnitude": 5.5960628778459164e-09,
+        "attenuationDb": 165.0423482876496,
+        "phaseDeg": -104.86713020251011
+      },
+      "fullUnloaded": {
+        "magnitude": 2.1807561304472157e-07,
+        "attenuationDb": 133.22785795961147,
+        "phaseDeg": -104.63292309119511
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1648957633780994e-09,
+        "attenuationDb": 178.6742586844336,
+        "phaseDeg": -15.026305409955606
+      },
+      "scaledStage": {
+        "magnitude": 8.67717064368251e-15,
+        "attenuationDb": 281.23243723413555,
+        "phaseDeg": -30.138079648104263
+      }
+    },
+    {
+      "frequencyHz": 354813.389,
+      "fullTline": {
+        "magnitude": 4.948963533086004e-09,
+        "attenuationDb": 166.10971492635463,
+        "phaseDeg": -103.30067547709913
+      },
+      "fullLumped": {
+        "magnitude": 4.969856642725508e-09,
+        "attenuationDb": 166.0731227692818,
+        "phaseDeg": -103.30066732807558
+      },
+      "fullUnloaded": {
+        "magnitude": 1.9367299393621807e-07,
+        "attenuationDb": 134.25861867515485,
+        "phaseDeg": -103.0575214707159
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1607725170651398e-09,
+        "attenuationDb": 178.70505765972226,
+        "phaseDeg": -13.478751480635886
+      },
+      "scaledStage": {
+        "magnitude": 8.615873863000428e-15,
+        "attenuationDb": 281.2940133553061,
+        "phaseDeg": -26.892422951079723
+      }
+    },
+    {
+      "frequencyHz": 398107.171,
+      "fullTline": {
+        "magnitude": 4.3935114766974976e-09,
+        "attenuationDb": 167.14376469600947,
+        "phaseDeg": -101.90416802118358
+      },
+      "fullLumped": {
+        "magnitude": 4.4168996370721996e-09,
+        "attenuationDb": 167.0976493775713,
+        "phaseDeg": -101.9041492629717
+      },
+      "fullUnloaded": {
+        "magnitude": 1.7212480511648023e-07,
+        "attenuationDb": 135.2831307690516,
+        "phaseDeg": -101.64883841927518
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.157495325436328e-09,
+        "attenuationDb": 178.72961508423572,
+        "phaseDeg": -12.103505229069919
+      },
+      "scaledStage": {
+        "magnitude": 8.567338936276739e-15,
+        "attenuationDb": 281.34308102887235,
+        "phaseDeg": -23.99051824257393
+      }
+    },
+    {
+      "frequencyHz": 446683.592,
+      "fullTline": {
+        "magnitude": 3.9015252466402835e-09,
+        "attenuationDb": 168.17531156868372,
+        "phaseDeg": -100.66096563464417
+      },
+      "fullLumped": {
+        "magnitude": 3.927721857747875e-09,
+        "attenuationDb": 168.11718548858906,
+        "phaseDeg": -100.66093313668719
+      },
+      "fullUnloaded": {
+        "magnitude": 1.5306202429160833e-07,
+        "attenuationDb": 136.30265094585172,
+        "phaseDeg": -100.39006957229405
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1548896790152737e-09,
+        "attenuationDb": 178.7491899965315,
+        "phaseDeg": -10.884205651237455
+      },
+      "scaledStage": {
+        "magnitude": 8.528883970772217e-15,
+        "attenuationDb": 281.3821558761692,
+        "phaseDeg": -21.397635295098592
+      }
+    },
+    {
+      "frequencyHz": 501187.234,
+      "fullTline": {
+        "magnitude": 3.4649654446500333e-09,
+        "attenuationDb": 169.2060218431078,
+        "phaseDeg": -99.5559198096257
+      },
+      "fullLumped": {
+        "magnitude": 3.4943223905033238e-09,
+        "attenuationDb": 169.1327405791765,
+        "phaseDeg": -99.55586916529154
+      },
+      "fullUnloaded": {
+        "magnitude": 1.3617287691426781e-07,
+        "attenuationDb": 137.31818774266532,
+        "phaseDeg": -99.26585888654472
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1528168194534872e-09,
+        "attenuationDb": 178.76479391691134,
+        "phaseDeg": -9.806020140203623
+      },
+      "scaledStage": {
+        "magnitude": 8.49839974726588e-15,
+        "attenuationDb": 281.41325688891556,
+        "phaseDeg": -19.082062119671964
+      }
+    },
+    {
+      "frequencyHz": 562341.325,
+      "fullTline": {
+        "magnitude": 3.0769685181529884e-09,
+        "attenuationDb": 170.23753894383458,
+        "phaseDeg": -98.57532847466912
+      },
+      "fullLumped": {
+        "magnitude": 3.1098814439145196e-09,
+        "attenuationDb": 170.14512333994645,
+        "phaseDeg": -98.57525336076742
+      },
+      "fullUnloaded": {
+        "magnitude": 1.2119160934915344e-07,
+        "attenuationDb": 138.33054894654734,
+        "phaseDeg": -98.26224825314169
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.151166365993201e-09,
+        "attenuationDb": 178.7772381562196,
+        "phaseDeg": -8.855601054912395
+      },
+      "scaledStage": {
+        "magnitude": 8.474224161780663e-15,
+        "attenuationDb": 281.4380010428658,
+        "phaseDeg": -17.01499167747514
+      }
+    },
+    {
+      "frequencyHz": 630957.344,
+      "fullTline": {
+        "magnitude": 2.7316267533137565e-09,
+        "attenuationDb": 171.27157284981183,
+        "phaseDeg": -97.70686468666165
+      },
+      "fullLumped": {
+        "magnitude": 2.768541009288204e-09,
+        "attenuationDb": 171.15498078148659,
+        "phaseDeg": -97.70675610836128
+      },
+      "fullUnloaded": {
+        "magnitude": 1.0788994736156777e-07,
+        "attenuationDb": 139.34038037581078,
+        "phaseDeg": -97.36660297533943
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1498504264875845e-09,
+        "attenuationDb": 178.78717298729046,
+        "phaseDeg": -8.021019027311198
+      },
+      "scaledStage": {
+        "magnitude": 8.455045351640335e-15,
+        "attenuationDb": 281.4576811713441,
+        "phaseDeg": -15.17036046846608
+      }
+    },
+    {
+      "frequencyHz": 707945.784,
+      "fullTline": {
+        "magnitude": 2.4238183907438675e-09,
+        "attenuationDb": 172.30999847272673,
+        "phaseDeg": -96.93949282594802
+      },
+      "fullLumped": {
+        "magnitude": 2.4652360019057237e-09,
+        "attenuationDb": 172.16282997058104,
+        "phaseDeg": -96.93933806649143
+      },
+      "fullUnloaded": {
+        "magnitude": 9.607051428337402e-08,
+        "attenuationDb": 140.3481976886557,
+        "phaseDeg": -96.56752361690155
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1487989253529198e-09,
+        "attenuationDb": 178.7951195872708,
+        "phaseDeg": -7.2916841060287725
+      },
+      "scaledStage": {
+        "magnitude": 8.439826564931557e-15,
+        "attenuationDb": 281.47332955721936,
+        "phaseDeg": -13.524661724839245
+      }
+    },
+    {
+      "frequencyHz": 794328.235,
+      "fullTline": {
+        "magnitude": 2.1490746550607995e-09,
+        "attenuationDb": 173.35496995245313,
+        "phaseDeg": -96.26337943654558
+      },
+      "fullLumped": {
+        "magnitude": 2.1955624974656784e-09,
+        "attenuationDb": 173.1690839207417,
+        "phaseDeg": -96.26316049201633
+      },
+      "fullUnloaded": {
+        "magnitude": 8.556169667348043e-08,
+        "attenuationDb": 141.35441224063004,
+        "phaseDeg": -95.85475137823809
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1479558659333008e-09,
+        "attenuationDb": 178.80149616820472,
+        "phaseDeg": -6.658261983858318
+      },
+      "scaledStage": {
+        "magnitude": 8.427747622499454e-15,
+        "attenuationDb": 281.4857695652108,
+        "phaseDeg": -12.056747131859844
+      }
+    },
+    {
+      "frequencyHz": 891250.938,
+      "fullTline": {
+        "magnitude": 1.9034741232358106e-09,
+        "attenuationDb": 174.4090604564489,
+        "phaseDeg": -95.66980399277087
+      },
+      "fullLumped": {
+        "magnitude": 1.955673606612288e-09,
+        "attenuationDb": 174.17407250707626,
+        "phaseDeg": -95.66949528675595
+      },
+      "fullUnloaded": {
+        "magnitude": 7.621358831613756e-08,
+        "attenuationDb": 142.3593518055954,
+        "phaseDeg": -95.2190727409191
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1472763567322727e-09,
+        "attenuationDb": 178.80663912676232,
+        "phaseDeg": -6.112590608698194
+      },
+      "scaledStage": {
+        "magnitude": 8.418159141804665e-15,
+        "attenuationDb": 281.4956573670692,
+        "phaseDeg": -10.747627436554247
+      }
+    },
+    {
+      "frequencyHz": 1000000.0,
+      "fullTline": {
+        "magnitude": 1.6835574538506529e-09,
+        "attenuationDb": 175.47544116182274,
+        "phaseDeg": -95.15107273046432
+      },
+      "fullLumped": {
+        "magnitude": 1.7421960679775812e-09,
+        "attenuationDb": 175.1780594153952,
+        "phaseDeg": -95.1506380766898
+      },
+      "fullUnloaded": {
+        "magnitude": 6.789473971090142e-08,
+        "attenuationDb": 143.36327744606163,
+        "phaseDeg": -94.65222608126004
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1467242115903375e-09,
+        "attenuationDb": 178.81082035664156,
+        "phaseDeg": -5.647600656325313
+      },
+      "scaledStage": {
+        "magnitude": 8.410546630165312e-15,
+        "attenuationDb": 281.5035155400475,
+        "phaseDeg": -9.580278298468686
+      }
+    },
+    {
+      "frequencyHz": 1122018.45,
+      "fullTline": {
+        "magnitude": 1.4862572301961972e-09,
+        "attenuationDb": 176.55812039311115,
+        "phaseDeg": -94.70043848620789
+      },
+      "fullLumped": {
+        "magnitude": 1.5521626075530734e-09,
+        "attenuationDb": 176.18125566331219,
+        "phaseDeg": -94.69982661179725
+      },
+      "fullUnloaded": {
+        "magnitude": 6.048952190678678e-08,
+        "attenuationDb": 144.3663969605605,
+        "phaseDeg": -94.14681267525856
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.146270028285918e-09,
+        "attenuationDb": 178.81426126027807,
+        "phaseDeg": -5.257242101753092
+      },
+      "scaledStage": {
+        "magnitude": 8.40450225143493e-15,
+        "attenuationDb": 281.5097600427205,
+        "phaseDeg": -8.539455721166485
+      }
+    },
+    {
+      "frequencyHz": 1258925.41,
+      "fullTline": {
+        "magnitude": 1.308839106703191e-09,
+        "attenuationDb": 177.6622747445481,
+        "phaseDeg": -94.3120275917878
+      },
+      "fullLumped": {
+        "magnitude": 1.3829563161093164e-09,
+        "attenuationDb": 177.18383075749998,
+        "phaseDeg": -94.31116556384585
+      },
+      "fullUnloaded": {
+        "magnitude": 5.3895960500021755e-08,
+        "attenuationDb": 145.36887567893393,
+        "phaseDeg": -93.69621316268243
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1458896250729387e-09,
+        "attenuationDb": 178.81714425348616,
+        "phaseDeg": -4.936418239662899
+      },
+      "scaledStage": {
+        "magnitude": 8.39970257885795e-15,
+        "attenuationDb": 281.5147218279233,
+        "phaseDeg": -7.611522885896194
+      }
+    },
+    {
+      "frequencyHz": 1412537.54,
+      "fullTline": {
+        "magnitude": 1.1488512577646685e-09,
+        "attenuationDb": 178.79472391907345,
+        "phaseDeg": -93.9807745708786
+      },
+      "fullLumped": {
+        "magnitude": 1.2322645030470927e-09,
+        "attenuationDb": 178.18592123491928,
+        "phaseDeg": -93.97955878544668
+      },
+      "fullUnloaded": {
+        "magnitude": 4.8023935233055586e-08,
+        "attenuationDb": 146.3708451071639,
+        "phaseDeg": -93.29451014942353
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1455627465706334e-09,
+        "attenuationDb": 178.8196223592068,
+        "phaseDeg": -4.680927955140297
+      },
+      "scaledStage": {
+        "magnitude": 8.395891040516962e-15,
+        "attenuationDb": 281.51866412406355,
+        "phaseDeg": -6.784290330733117
+      }
+    },
+    {
+      "frequencyHz": 1584893.19,
+      "fullTline": {
+        "magnitude": 1.0040795516890478e-09,
+        "attenuationDb": 179.9646375467898,
+        "phaseDeg": -93.70236605642071
+      },
+      "fullLumped": {
+        "magnitude": 1.0980398238983396e-09,
+        "attenuationDb": 179.18763817065738,
+        "phaseDeg": -93.700648862362
+      },
+      "fullUnloaded": {
+        "magnitude": 4.279366774037837e-08,
+        "attenuationDb": 147.3724097921047,
+        "phaseDeg": -92.93641703568622
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1452719965072147e-09,
+        "attenuationDb": 178.821827165105,
+        "phaseDeg": -4.487416712244513
+      },
+      "scaledStage": {
+        "magnitude": 8.39286404432086e-15,
+        "attenuationDb": 281.52179623898763,
+        "phaseDeg": -6.04686866354695
+      }
+    },
+    {
+      "frequencyHz": 1778279.41,
+      "fullTline": {
+        "magnitude": 8.725062470416808e-10,
+        "attenuationDb": 181.18462909720904,
+        "phaseDeg": -93.47319399628144
+      },
+      "fullLumped": {
+        "magnitude": 9.784674029580182e-10,
+        "attenuationDb": 180.1890727603908,
+        "phaseDeg": -93.47076451949393
+      },
+      "fullUnloaded": {
+        "magnitude": 3.8134438566832685e-08,
+        "attenuationDb": 148.37365286232264,
+        "phaseDeg": -92.61721314354199
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1450019021194198e-09,
+        "attenuationDb": 178.82387583714944,
+        "phaseDeg": -4.3533362779381415
+      },
+      "scaledStage": {
+        "magnitude": 8.390460004722709e-15,
+        "attenuationDb": 281.52428456879846,
+        "phaseDeg": -5.3895347860571805
+      }
+    },
+    {
+      "frequencyHz": 1995262.31,
+      "fullTline": {
+        "magnitude": 7.522697765057851e-10,
+        "attenuationDb": 182.4725277244147,
+        "phaseDeg": -93.29031947768955
+      },
+      "fullLumped": {
+        "magnitude": 8.719366611515902e-10,
+        "attenuationDb": 181.19030123509708,
+        "phaseDeg": -93.2868754239176
+      },
+      "fullUnloaded": {
+        "magnitude": 3.3983490190963616e-08,
+        "attenuationDb": 149.3746404005479,
+        "phaseDeg": -92.33268480004376
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1447381028800443e-09,
+        "attenuationDb": 178.82587722690107,
+        "phaseDeg": -4.276913270499707
+      },
+      "scaledStage": {
+        "magnitude": 8.388550653658745e-15,
+        "attenuationDb": 281.5262613733945,
+        "phaseDeg": -4.803610217187811
+      }
+    },
+    {
+      "frequencyHz": 2238721.14,
+      "fullTline": {
+        "magnitude": 6.416228809326166e-10,
+        "attenuationDb": 183.85440314118637,
+        "phaseDeg": -93.15144807499594
+      },
+      "fullLumped": {
+        "magnitude": 7.770170515595742e-10,
+        "attenuationDb": 182.19138901093217,
+        "phaseDeg": -93.14655437220661
+      },
+      "fullUnloaded": {
+        "magnitude": 3.0285082016467746e-08,
+        "attenuationDb": 150.37542491731185,
+        "phaseDeg": -92.07907204894639
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.144466585186937e-09,
+        "attenuationDb": 178.82793765665684,
+        "phaseDeg": -4.257126340017231
+      },
+      "scaledStage": {
+        "magnitude": 8.387034156963406e-15,
+        "attenuationDb": 281.5278317654991,
+        "phaseDeg": -4.281351153008657
+      }
+    },
+    {
+      "frequencyHz": 2511886.43,
+      "fullTline": {
+        "magnitude": 5.388849196915902e-10,
+        "attenuationDb": 185.37007939307728,
+        "phaseDeg": -93.05491961628063
+      },
+      "fullLumped": {
+        "magnitude": 6.924370649882919e-10,
+        "attenuationDb": 183.1923938624651,
+        "phaseDeg": -93.04794668027594
+      },
+      "fullUnloaded": {
+        "magnitude": 2.6989671232813054e-08,
+        "attenuationDb": 151.37604811297842,
+        "phaseDeg": -91.85302058910656
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1441729376329394e-09,
+        "attenuationDb": 178.83016657059028,
+        "phaseDeg": -4.293691736125561
+      },
+      "scaledStage": {
+        "magnitude": 8.385829658564684e-15,
+        "attenuationDb": 281.5290792734135,
+        "phaseDeg": -3.8158496083935223
+      }
+    },
+    {
+      "frequencyHz": 2818382.93,
+      "fullTline": {
+        "magnitude": 4.423820806084241e-10,
+        "attenuationDb": 187.0840494627514,
+        "phaseDeg": -92.9997162402662
+      },
+      "fullLumped": {
+        "magnitude": 6.170658827409224e-10,
+        "attenuationDb": 184.1933692968608,
+        "phaseDeg": -92.98974640068417
+      },
+      "fullUnloaded": {
+        "magnitude": 2.4053198829420105e-08,
+        "attenuationDb": 152.37654317450597,
+        "phaseDeg": -91.65153868299024
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1438416081473131e-09,
+        "attenuationDb": 178.83268219390342,
+        "phaseDeg": -4.387056973710089
+      },
+      "scaledStage": {
+        "magnitude": 8.384872953107297e-15,
+        "attenuationDb": 281.53007026803317,
+        "phaseDeg": -3.400944234207873
+      }
+    },
+    {
+      "frequencyHz": 3162277.66,
+      "fullTline": {
+        "magnitude": 3.5036438573640313e-10,
+        "attenuationDb": 189.10960091904255,
+        "phaseDeg": -92.98549631306201
+      },
+      "fullLumped": {
+        "magnitude": 5.498973672505269e-10,
+        "attenuationDb": 185.19436719178907,
+        "phaseDeg": -92.97117932473506
+      },
+      "fullUnloaded": {
+        "magnitude": 2.143646537407656e-08,
+        "attenuationDb": 153.37693646455247,
+        "phaseDeg": -91.47195830364642
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1434550853517677e-09,
+        "attenuationDb": 178.83561779415697,
+        "phaseDeg": -4.538402355143565
+      },
+      "scaledStage": {
+        "magnitude": 8.384113053842489e-15,
+        "attenuationDb": 281.53085748333075,
+        "phaseDeg": -3.0311405389447907
+      }
+    },
+    {
+      "frequencyHz": 3548133.89,
+      "fullTline": {
+        "magnitude": 2.6087871249867003e-10,
+        "attenuationDb": 191.67122715096187,
+        "phaseDeg": -93.01266880450544
+      },
+      "fullLumped": {
+        "magnitude": 4.900359814042132e-10,
+        "attenuationDb": 186.19544060548725,
+        "phaseDeg": -92.9919924687774
+      },
+      "fullUnloaded": {
+        "magnitude": 1.910458277805518e-08,
+        "attenuationDb": 154.37724884720254,
+        "phaseDeg": -91.31190043123516
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1429929897863017e-09,
+        "attenuationDb": 178.8391286642984,
+        "phaseDeg": -4.749649622002744
+      },
+      "scaledStage": {
+        "magnitude": 8.383509468946174e-15,
+        "attenuationDb": 281.5314828160864,
+        "phaseDeg": -2.701539276695331
+      }
+    },
+    {
+      "frequencyHz": 3981071.71,
+      "fullTline": {
+        "magnitude": 1.715558229885882e-10,
+        "attenuationDb": 195.3118907286186,
+        "phaseDeg": -93.08253685155277
+      },
+      "fullLumped": {
+        "magnitude": 4.3668439095673757e-10,
+        "attenuationDb": 187.19664662837008,
+        "phaseDeg": -93.05244992784498
+      },
+      "fullUnloaded": {
+        "magnitude": 1.7026490835542244e-08,
+        "attenuationDb": 155.37749702054694,
+        "phaseDeg": -91.16924397049914
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1424310434939355e-09,
+        "attenuationDb": 178.843400084836,
+        "phaseDeg": -5.023477148148022
+      },
+      "scaledStage": {
+        "magnitude": 8.383030039895348e-15,
+        "attenuationDb": 281.5319795516022,
+        "phaseDeg": -2.4077723672930635
+      }
+    },
+    {
+      "frequencyHz": 4466835.92,
+      "fullTline": {
+        "magnitude": 7.921927052992078e-11,
+        "attenuationDb": 202.02338322002527,
+        "phaseDeg": -93.19757368563313
+      },
+      "fullLumped": {
+        "magnitude": 3.891325284392745e-10,
+        "attenuationDb": 188.19804928106134,
+        "phaseDeg": -93.15333492518404
+      },
+      "fullUnloaded": {
+        "magnitude": 1.5174531634647464e-08,
+        "attenuationDb": 156.3776940928659,
+        "phaseDeg": -91.04209790748733
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1417398411878942e-09,
+        "attenuationDb": 178.84865687816205,
+        "phaseDeg": -5.363340782765004
+      },
+      "scaledStage": {
+        "magnitude": 8.382649225644234e-15,
+        "attenuationDb": 281.53237413275883,
+        "phaseDeg": -2.145945636977388
+      }
+    },
+    {
+      "frequencyHz": 5011872.34,
+      "fullTline": {
+        "magnitude": 2.0906368840229602e-11,
+        "attenuationDb": 213.59442783680262,
+        "phaseDeg": 86.63802038636862
+      },
+      "fullLumped": {
+        "magnitude": 3.467479055278808e-10,
+        "attenuationDb": 189.19972307058345,
+        "phaseDeg": -93.2959579414163
+      },
+      "fullUnloaded": {
+        "magnitude": 1.3524071726914413e-08,
+        "attenuationDb": 157.377850691103,
+        "phaseDeg": -90.92877649196953
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1408833946108978e-09,
+        "attenuationDb": 178.85517481829436,
+        "phaseDeg": -5.773498777178684
+      },
+      "scaledStage": {
+        "magnitude": 8.382346740289758e-15,
+        "attenuationDb": 281.53268756610674,
+        "phaseDeg": -1.9125875663713288
+      }
+    },
+    {
+      "frequencyHz": 5623413.25,
+      "fullTline": {
+        "magnitude": 1.3699554970001863e-10,
+        "attenuationDb": 197.26587081338528,
+        "phaseDeg": 86.41707676633665
+      },
+      "fullLumped": {
+        "magnitude": 3.08967048623179e-10,
+        "attenuationDb": 190.201756713394,
+        "phaseDeg": -93.48217071084692
+      },
+      "fullUnloaded": {
+        "magnitude": 1.2053168997157241e-08,
+        "attenuationDb": 158.37797508329518,
+        "phaseDeg": -90.82777699423102
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1398173869542511e-09,
+        "attenuationDb": 178.86329445030228,
+        "phaseDeg": -6.259038815765996
+      },
+      "scaledStage": {
+        "magnitude": 8.382106471526e-15,
+        "attenuationDb": 281.53293653909014,
+        "phaseDeg": -1.704603610630706
+      }
+    },
+    {
+      "frequencyHz": 6309573.44,
+      "fullTline": {
+        "magnitude": 2.853839324576594e-10,
+        "attenuationDb": 190.8914096392424,
+        "phaseDeg": 86.12625044642743
+      },
+      "fullLumped": {
+        "magnitude": 2.752878874964315e-10,
+        "attenuationDb": 191.20425793771182,
+        "phaseDeg": -93.71438594195101
+      },
+      "fullUnloaded": {
+        "magnitude": 1.0742276023006204e-08,
+        "attenuationDb": 159.37807385222777,
+        "phaseDeg": -90.73775990450963
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1384870935464032e-09,
+        "attenuationDb": 178.87343776796575,
+        "phaseDeg": -6.825904301845809
+      },
+      "scaledStage": {
+        "magnitude": 8.381915621715662e-15,
+        "attenuationDb": 281.53313430790496,
+        "phaseDeg": -1.5192353347743457
+      }
+    },
+    {
+      "frequencyHz": 7079457.84,
+      "fullTline": {
+        "magnitude": 5.062513975970032e-10,
+        "attenuationDb": 185.91267529656957,
+        "phaseDeg": 85.73565352567867
+      },
+      "fullLumped": {
+        "magnitude": 2.452630077889625e-10,
+        "attenuationDb": 192.2073590011899,
+        "phaseDeg": -93.995602380912
+      },
+      "fullUnloaded": {
+        "magnitude": 9.573977062017171e-09,
+        "attenuationDb": 160.3781523472993,
+        "phaseDeg": -90.65753124856609
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1368248822575263e-09,
+        "attenuationDb": 178.88612858709945,
+        "phaseDeg": -7.480915724507069
+      },
+      "scaledStage": {
+        "magnitude": 8.3817640258702e-15,
+        "attenuationDb": 281.53329140286394,
+        "phaseDeg": -1.3540239998493995
+      }
+    },
+    {
+      "frequencyHz": 7943282.35,
+      "fullTline": {
+        "magnitude": 9.379947015506142e-10,
+        "attenuationDb": 180.55599229625304,
+        "phaseDeg": 85.1502699896576
+      },
+      "fullLumped": {
+        "magnitude": 2.1849365118848715e-10,
+        "attenuationDb": 193.211223557749,
+        "phaseDeg": -94.32943478790926
+      },
+      "fullUnloaded": {
+        "magnitude": 8.532754798773803e-09,
+        "attenuationDb": 161.3782146855414,
+        "phaseDeg": -90.58602678726102
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1347472763360824e-09,
+        "attenuationDb": 178.90201701988258,
+        "phaseDeg": -8.231781421051231
+      },
+      "scaledStage": {
+        "magnitude": 8.38164360998629e-15,
+        "attenuationDb": 281.5334161888383,
+        "phaseDeg": -1.2067780494638738
+      }
+    },
+    {
+      "frequencyHz": 8912509.38,
+      "fullTline": {
+        "magnitude": 2.6369947531696327e-09,
+        "attenuationDb": 171.57781468643503,
+        "phaseDeg": 83.67712959237483
+      },
+      "fullLumped": {
+        "magnitude": 1.9462438274077762e-10,
+        "attenuationDb": 194.21605503608848,
+        "phaseDeg": -94.72014805989703
+      },
+      "fullUnloaded": {
+        "magnitude": 7.604782359497379e-09,
+        "attenuationDb": 162.37826420926592,
+        "phaseDeg": -90.52229794711201
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1321515411273919e-09,
+        "attenuationDb": 178.921908758528,
+        "phaseDeg": -9.08708954362052
+      },
+      "scaledStage": {
+        "magnitude": 8.381547960867406e-15,
+        "attenuationDb": 281.5335153104987,
+        "phaseDeg": -1.0755441155123704
+      }
+    },
+    {
+      "frequencyHz": 10000000.0,
+      "fullTline": {
+        "magnitude": 3.816610746566821e-09,
+        "attenuationDb": 168.36644262359323,
+        "phaseDeg": -92.57813662118923
+      },
+      "fullLumped": {
+        "magnitude": 1.73338346190978e-10,
+        "attenuationDb": 195.22210702651262,
+        "phaseDeg": -95.1726944045767
+      },
+      "fullUnloaded": {
+        "magnitude": 6.777738719275145e-09,
+        "attenuationDb": 163.37830354315128,
+        "phaseDeg": -90.46549925940448
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1289118017629712e-09,
+        "attenuationDb": 178.946799735529,
+        "phaseDeg": -10.056270835587718
+      },
+      "scaledStage": {
+        "magnitude": 8.381471984460109e-15,
+        "attenuationDb": 281.5335940460357,
+        "phaseDeg": -0.9585811504705629
+      }
+    },
+    {
+      "frequencyHz": 11220184.5,
+      "fullTline": {
+        "magnitude": 9.73762984882128e-10,
+        "attenuationDb": 180.23093476148267,
+        "phaseDeg": -94.95912141497416
+      },
+      "fullLumped": {
+        "magnitude": 1.5435304624512143e-10,
+        "attenuationDb": 196.22969590097597,
+        "phaseDeg": -95.69275176895049
+      },
+      "fullUnloaded": {
+        "magnitude": 6.040644269880672e-09,
+        "attenuationDb": 164.37833477747074,
+        "phaseDeg": -90.41487716464259
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1248747703593386e-09,
+        "attenuationDb": 178.97791647672634,
+        "phaseDeg": -11.149517662484037
+      },
+      "scaledStage": {
+        "magnitude": 8.38141163450192e-15,
+        "attenuationDb": 281.53365658814823,
+        "phaseDeg": -0.8543373784874124
+      }
+    },
+    {
+      "frequencyHz": 12589254.1,
+      "fullTline": {
+        "magnitude": 4.20345038946167e-10,
+        "attenuationDb": 187.52788147812865,
+        "phaseDeg": -95.96826384305186
+      },
+      "fullLumped": {
+        "magnitude": 1.3741659069810796e-10,
+        "attenuationDb": 197.23921660991562,
+        "phaseDeg": -96.28676119690576
+      },
+      "fullUnloaded": {
+        "magnitude": 5.383714490210038e-09,
+        "attenuationDb": 165.37835959460477,
+        "phaseDeg": -90.3697600244602
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.119855291967192e-09,
+        "attenuationDb": 179.0167618673186,
+        "phaseDeg": -12.377641399245904
+      },
+      "scaledStage": {
+        "magnitude": 8.381363696978302e-15,
+        "attenuationDb": 281.5337062672773,
+        "phaseDeg": -0.7614297142815354
+      }
+    },
+    {
+      "frequencyHz": 14125375.4,
+      "fullTline": {
+        "magnitude": 1.0267371402487153e-10,
+        "attenuationDb": 199.77081455846104,
+        "phaseDeg": -96.98972976997567
+      },
+      "fullLumped": {
+        "magnitude": 1.2230435665918407e-10,
+        "attenuationDb": 198.25116144973322,
+        "phaseDeg": -96.96195905259599
+      },
+      "fullUnloaded": {
+        "magnitude": 4.798229697951302e-09,
+        "attenuationDb": 166.37837931175318,
+        "phaseDeg": -90.32954922660042
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.113632059748503e-09,
+        "attenuationDb": 179.0651654977118,
+        "phaseDeg": -13.751845399957968
+      },
+      "scaledStage": {
+        "magnitude": 8.381325618948945e-15,
+        "attenuationDb": 281.5337457289119,
+        "phaseDeg": -0.6786254624400544
+      }
+    },
+    {
+      "frequencyHz": 15848931.9,
+      "fullTline": {
+        "magnitude": 2.3205417814608843e-10,
+        "attenuationDb": 192.68821215365102,
+        "phaseDeg": 81.66752147036667
+      },
+      "fullLumped": {
+        "magnitude": 1.0881601595605032e-10,
+        "attenuationDb": 199.26614357631723,
+        "phaseDeg": -97.72639954235332
+      },
+      "fullUnloaded": {
+        "magnitude": 4.276419008206683e-09,
+        "attenuationDb": 167.37839497461232,
+        "phaseDeg": -90.29371123929276
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.1059441234337708e-09,
+        "attenuationDb": 179.1253362942141,
+        "phaseDeg": -15.283387008184832
+      },
+      "scaledStage": {
+        "magnitude": 8.381295372555796e-15,
+        "attenuationDb": 281.53377707446737,
+        "phaseDeg": -0.6048259428930539
+      }
+    },
+    {
+      "frequencyHz": 17782794.1,
+      "fullTline": {
+        "magnitude": 1.1114101066296394e-09,
+        "attenuationDb": 179.0825131653456,
+        "phaseDeg": 78.71210816072238
+      },
+      "fullLumped": {
+        "magnitude": 9.677290281434362e-11,
+        "attenuationDb": 200.28492463185714,
+        "phaseDeg": -98.58895954704873
+      },
+      "fullUnloaded": {
+        "magnitude": 3.81135699820424e-09,
+        "attenuationDb": 168.37840740561805,
+        "phaseDeg": -90.26177054654639
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.096489088081274e-09,
+        "attenuationDb": 179.19991371857404,
+        "phaseDeg": -16.983102033076804
+      },
+      "scaledStage": {
+        "magnitude": 8.381271347030713e-15,
+        "attenuationDb": 281.5338019731673,
+        "phaseDeg": -0.5390519458021586
+      }
+    },
+    {
+      "frequencyHz": 19952623.1,
+      "fullTline": {
+        "magnitude": 2.0077320833472267e-09,
+        "attenuationDb": 173.94588481945362,
+        "phaseDeg": -94.16290235507213
+      },
+      "fullLumped": {
+        "magnitude": 8.601567455213072e-11,
+        "attenuationDb": 201.3084480097313,
+        "phaseDeg": -99.55931643183344
+      },
+      "fullUnloaded": {
+        "magnitude": 3.396871630811963e-09,
+        "attenuationDb": 169.37841729976992,
+        "phaseDeg": -90.23330333616812
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.084924352236657e-09,
+        "attenuationDb": 179.2920108501622,
+        "phaseDeg": -18.860762355039235
+      },
+      "scaledStage": {
+        "magnitude": 8.38125226290299e-15,
+        "attenuationDb": 281.53382175093236,
+        "phaseDeg": -0.4804307359636124
+      }
+    },
+    {
+      "frequencyHz": 22387211.4,
+      "fullTline": {
+        "magnitude": 3.924696791676203e-10,
+        "attenuationDb": 188.12387779385685,
+        "phaseDeg": -99.53625918075046
+      },
+      "fullLumped": {
+        "magnitude": 7.640224344972864e-11,
+        "attenuationDb": 202.3378777752054,
+        "phaseDeg": -100.64788547836484
+      },
+      "fullUnloaded": {
+        "magnitude": 3.0274622963283075e-09,
+        "attenuationDb": 170.37842513610795,
+        "phaseDeg": -90.20793188249162
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.0708730216219093e-09,
+        "attenuationDb": 179.40524044850304,
+        "phaseDeg": -20.924253164711665
+      },
+      "scaledStage": {
+        "magnitude": 8.381237103856245e-15,
+        "attenuationDb": 281.53383746098643,
+        "phaseDeg": -0.42818447191010217
+      }
+    },
+    {
+      "frequencyHz": 25118864.3,
+      "fullTline": {
+        "magnitude": 1.1921826182046884e-10,
+        "attenuationDb": 198.4731442878228,
+        "phaseDeg": 77.3100145350116
+      },
+      "fullLumped": {
+        "magnitude": 6.780595877440037e-11,
+        "attenuationDb": 203.3746427748336,
+        "phaseDeg": -101.86569931492413
+      },
+      "fullUnloaded": {
+        "magnitude": 2.698226673839487e-09,
+        "attenuationDb": 171.37843137450886,
+        "phaseDeg": -90.18531953034972
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.053936450902434e-09,
+        "attenuationDb": 179.5437114988727,
+        "phaseDeg": -23.178568693752464
+      },
+      "scaledStage": {
+        "magnitude": 8.381225062607674e-15,
+        "attenuationDb": 281.5338499399355,
+        "phaseDeg": -0.38161990416364705
+      }
+    },
+    {
+      "frequencyHz": 28183829.3,
+      "fullTline": {
+        "magnitude": 2.93739018751974e-09,
+        "attenuationDb": 170.64076720484266,
+        "phaseDeg": 60.011861451729374
+      },
+      "fullLumped": {
+        "magnitude": 6.011400848061174e-11,
+        "attenuationDb": 204.42048623484902,
+        "phaseDeg": -103.22420901308455
+      },
+      "fullUnloaded": {
+        "magnitude": 2.404795681833173e-09,
+        "attenuationDb": 172.37843633193066,
+        "phaseDeg": -90.16516623766019
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.0337152418841006e-09,
+        "attenuationDb": 179.71198160221903,
+        "phaseDeg": -25.624665500693105
+      },
+      "scaledStage": {
+        "magnitude": 8.38121549790997e-15,
+        "attenuationDb": 281.5338598523237,
+        "phaseDeg": -0.340119162255148
+      }
+    },
+    {
+      "frequencyHz": 31622776.6,
+      "fullTline": {
+        "magnitude": 4.931360904203339e-10,
+        "attenuationDb": 186.14066424478037,
+        "phaseDeg": -101.69817873423621
+      },
+      "fullLumped": {
+        "magnitude": 5.322603377091264e-11,
+        "attenuationDb": 205.47751789637692,
+        "phaseDeg": -104.73498032389654
+      },
+      "fullUnloaded": {
+        "magnitude": 2.143275433676186e-09,
+        "attenuationDb": 173.37844027828436,
+        "phaseDeg": -90.14720458736019
+      },
+      "instrument50Ohm": {
+        "magnitude": 1.0098398226016043e-09,
+        "attenuationDb": 179.91495014171295,
+        "phaseDeg": -28.258255731317483
+      },
+      "scaledStage": {
+        "magnitude": 8.381207900404416e-15,
+        "attenuationDb": 281.53386772601755,
+        "phaseDeg": -0.3031315681289294
+      }
+    },
+    {
+      "frequencyHz": 35481338.9,
+      "fullTline": {
+        "magnitude": 2.4797067293547944e-10,
+        "attenuationDb": 192.11199358794573,
+        "phaseDeg": 71.04984519218456
+      },
+      "fullLumped": {
+        "magnitude": 4.705293294865359e-11,
+        "attenuationDb": 206.5482660106361,
+        "phaseDeg": -106.40925791356867
+      },
+      "fullUnloaded": {
+        "magnitude": 1.910195557779234e-09,
+        "attenuationDb": 174.3784433847115,
+        "phaseDeg": -90.13119624258688
+      },
+      "instrument50Ohm": {
+        "magnitude": 9.820101310239908e-10,
+        "attenuationDb": 180.1576806347881,
+        "phaseDeg": -31.068685769985024
+      },
+      "scaledStage": {
+        "magnitude": 8.381201865493745e-15,
+        "attenuationDb": 281.53387398031737,
+        "phaseDeg": -0.27016632706848914
+      }
+    },
+    {
+      "frequencyHz": 39810717.1,
+      "fullTline": {
+        "magnitude": 1.0536798933369175e-09,
+        "attenuationDb": 179.54582614437447,
+        "phaseDeg": -97.32573883998664
+      },
+      "fullLumped": {
+        "magnitude": 4.1515840911475524e-11,
+        "attenuationDb": 207.63572321863975,
+        "phaseDeg": -108.2573701467258
+      },
+      "fullUnloaded": {
+        "magnitude": 1.702463095236202e-09,
+        "attenuationDb": 175.37844587269694,
+        "phaseDeg": -90.11692878585154
+      },
+      "instrument50Ohm": {
+        "magnitude": 9.500414422058787e-10,
+        "attenuationDb": 180.44514899466992,
+        "phaseDeg": -34.03809861394732
+      },
+      "scaledStage": {
+        "magnitude": 8.381197071795258e-15,
+        "attenuationDb": 281.533878948286,
+        "phaseDeg": -0.24078601498359253
+      }
+    },
+    {
+      "frequencyHz": 44668359.2,
+      "fullTline": {
+        "magnitude": 1.0792754309868038e-10,
+        "attenuationDb": 199.33735418524552,
+        "phaseDeg": 67.78613512571297
+      },
+      "fullLumped": {
+        "magnitude": 3.65452651282124e-11,
+        "attenuationDb": 208.74337766106905,
+        "phaseDeg": -110.28795383937694
+      },
+      "fullUnloaded": {
+        "magnitude": 1.5173214898350173e-09,
+        "attenuationDb": 176.37844782435997,
+        "phaseDeg": -90.10421289793418
+      },
+      "instrument50Ohm": {
+        "magnitude": 9.139101884349413e-10,
+        "attenuationDb": 180.78192962106914,
+        "phaseDeg": -37.141111298134504
+      },
+      "scaledStage": {
+        "magnitude": 8.381193264026295e-15,
+        "attenuationDb": 281.53388289448463,
+        "phaseDeg": -0.21460077831142507
+      }
+    },
+    {
+      "frequencyHz": 50118723.4,
+      "fullTline": {
+        "magnitude": 6.983565369396095e-10,
+        "attenuationDb": 183.11845594603426,
+        "phaseDeg": -101.422988688967
+      },
+      "fullLumped": {
+        "magnitude": 3.20803492520159e-11,
+        "attenuationDb": 209.8752182457889,
+        "phaseDeg": -112.50699624708315
+      },
+      "fullUnloaded": {
+        "magnitude": 1.3523139568271183e-09,
+        "attenuationDb": 177.3784493943863,
+        "phaseDeg": -90.09287984876845
+      },
+      "instrument50Ohm": {
+        "magnitude": 8.737910013303964e-10,
+        "attenuationDb": 181.17184864303658,
+        "phaseDeg": -40.345216456552606
+      },
+      "scaledStage": {
+        "magnitude": 8.381190239408433e-15,
+        "attenuationDb": 281.53388602906233,
+        "phaseDeg": -0.191263156294785
+      }
+    },
+    {
+      "frequencyHz": 56234132.5,
+      "fullTline": {
+        "magnitude": 7.353579770212526e-10,
+        "attenuationDb": 182.67002384151183,
+        "phaseDeg": 49.33587640690391
+      },
+      "fullLumped": {
+        "magnitude": 2.8068231103143063e-11,
+        "attenuationDb": 211.03569912625719,
+        "phaseDeg": -114.91671943620662
+      },
+      "fullUnloaded": {
+        "magnitude": 1.2052509078972751e-09,
+        "attenuationDb": 178.37845065394737,
+        "phaseDeg": -90.08277925671956
+      },
+      "instrument50Ohm": {
+        "magnitude": 8.300751433998595e-10,
+        "attenuationDb": 181.6176518178584,
+        "phaseDeg": -43.612022998039485
+      },
+      "scaledStage": {
+        "magnitude": 8.381187836869494e-15,
+        "attenuationDb": 281.5338885189463,
+        "phaseDeg": -0.17046347580922075
+      }
+    },
+    {
+      "frequencyHz": 63095734.4,
+      "fullTline": {
+        "magnitude": 8.922424549113188e-11,
+        "attenuationDb": 200.99034231780712,
+        "phaseDeg": -115.88922555028904
+      },
+      "fullLumped": {
+        "magnitude": 2.4463441495694197e-11,
+        "attenuationDb": 212.22964893662962,
+        "phaseDeg": -117.51437997501475
+      },
+      "fullUnloaded": {
+        "magnitude": 1.074180880523071e-09,
+        "attenuationDb": 179.37845163904697,
+        "phaseDeg": -90.07377709298544
+      },
+      "instrument50Ohm": {
+        "magnitude": 7.833626967112094e-10,
+        "attenuationDb": 182.1207422630698,
+        "phaseDeg": -46.8992947890405
+      },
+      "scaledStage": {
+        "magnitude": 8.381185928465236e-15,
+        "attenuationDb": 281.53389049673166,
+        "phaseDeg": -0.15192573856405675
+      }
+    },
+    {
+      "frequencyHz": 70794578.4,
+      "fullTline": {
+        "magnitude": 3.7104613758761366e-10,
+        "attenuationDb": 188.61144169697712,
+        "phaseDeg": -109.47033180468719
+      },
+      "fullLumped": {
+        "magnitude": 2.122728460416087e-11,
+        "attenuationDb": 213.46211114527426,
+        "phaseDeg": -120.29111144225126
+      },
+      "fullUnloaded": {
+        "magnitude": 9.573646314420538e-10,
+        "attenuationDb": 180.3784524197486,
+        "phaseDeg": -90.0657539053416
+      },
+      "instrument50Ohm": {
+        "magnitude": 7.344260005311746e-10,
+        "attenuationDb": 182.68103912831128,
+        "phaseDeg": -50.16355752044465
+      },
+      "scaledStage": {
+        "magnitude": 8.381184412565968e-15,
+        "attenuationDb": 281.5338920677426,
+        "phaseDeg": -0.13540396107527228
+      }
+    },
+    {
+      "frequencyHz": 79432823.5,
+      "fullTline": {
+        "magnitude": 5.469859804352318e-10,
+        "attenuationDb": 185.24047609481744,
+        "phaseDeg": -102.99085205172338
+      },
+      "fullLumped": {
+        "magnitude": 1.832713116649513e-11,
+        "attenuationDb": 214.7381102382029,
+        "phaseDeg": -123.23099785467492
+      },
+      "fullUnloaded": {
+        "magnitude": 8.532520643187948e-10,
+        "attenuationDb": 181.3784530467192,
+        "phaseDeg": -90.05860323131166
+      },
+      "instrument50Ohm": {
+        "magnitude": 6.84149016780802e-10,
+        "attenuationDb": 183.29698585691432,
+        "phaseDeg": -53.36289991285103
+      },
+      "scaledStage": {
+        "magnitude": 8.381183208444483e-15,
+        "attenuationDb": 281.5338933156411,
+        "phaseDeg": -0.12067891011851511
+      }
+    },
+    {
+      "frequencyHz": 89125093.8,
+      "fullTline": {
+        "magnitude": 5.261483732653267e-10,
+        "attenuationDb": 185.57783536012442,
+        "phaseDeg": -102.43451168014843
+      },
+      "fullLumped": {
+        "magnitude": 1.573556895608323e-11,
+        "attenuationDb": 216.0623509908014,
+        "phaseDeg": -126.3106044196929
+      },
+      "fullUnloaded": {
+        "magnitude": 7.604616599695096e-10,
+        "attenuationDb": 182.37845353579394,
+        "phaseDeg": -90.05223018591525
+      },
+      "instrument50Ohm": {
+        "magnitude": 6.33453410354893e-10,
+        "attenuationDb": 183.9657064276027,
+        "phaseDeg": -56.459536083863355
+      },
+      "scaledStage": {
+        "magnitude": 8.381182251976865e-15,
+        "attenuationDb": 281.53389430688213,
+        "phaseDeg": -0.10755519395589246
+      }
+    },
+    {
+      "frequencyHz": 100000000.0,
+      "fullTline": {
+        "magnitude": 3.335573590886347e-10,
+        "attenuationDb": 189.5365894662103,
+        "phaseDeg": -111.71620194293828
+      },
+      "fullLumped": {
+        "magnitude": 1.3429387102632657e-11,
+        "attenuationDb": 217.43887614873813,
+        "phaseDeg": -129.49918633148553
+      },
+      "fullUnloaded": {
+        "magnitude": 6.777621366892818e-10,
+        "attenuationDb": 183.37845393529653,
+        "phaseDeg": -90.04655020288098
+      },
+      "instrument50Ohm": {
+        "magnitude": 5.832249703059364e-10,
+        "attenuationDb": 184.68327780649273,
+        "phaseDeg": -59.42176632368049
+      },
+      "scaledStage": {
+        "magnitude": 8.381181492227667e-15,
+        "attenuationDb": 281.5338950942529,
+        "phaseDeg": -0.09585866894865491
+      }
+    }
+  ],
+  "summary": {
+    "at50Hz": {
+      "frequencyHz": 50.0,
+      "fullTlineAttenuationDb": 21.672050645164237,
+      "fullLumpedAttenuationDb": 21.672050644453826,
+      "fullUnloadedAttenuationDb": 1.0139460605780588,
+      "instrument50OhmAttenuationDb": 111.17508664114447,
+      "scaledStageAttenuationDb": 48.804393957414746
+    },
+    "atRfCompare": {
+      "frequencyHz": 1000000.0,
+      "fullTlineAttenuationDb": 175.47548669232117,
+      "fullLumpedAttenuationDb": 175.1780594153952,
+      "fullUnloadedAttenuationDb": 143.36332975294923,
+      "instrument50OhmAttenuationDb": 178.81086309319068,
+      "scaledStageAttenuationDb": 281.5035155400475
+    },
+    "notes": [
+      "Uses ngspice batch AC analysis when available; otherwise falls back to the same AC MNA equations that a small-signal SPICE deck would solve.",
+      "The coax is represented as a lossless transmission-line input admittance terminated by detector capacitance and DC-load conductance.",
+      "The unloaded full-ladder curve removes the load conductance, cable, and detector capacitance, but retains the physical output terminal and its configured end resistance, then measures that terminal with infinite input impedance.",
+      "When an exact FEniCSx Maxwell matrix is available, both physical end terminals retain their direct capacitance to ground and every mutual capacitance to the bias plates and opposite terminal.",
+      "The 50-ohm instrument curve adds an external 50-ohm tracking-generator source and a 50-ohm analyzer load without changing the filter's configured input resistance; 2*Vload/Vsource normalization makes a matched through read 0 dB."
+    ]
+  },
+  "netlist": "* Discoidal Capacitor Bias Filter ladder, generated by backend\nV1 src 0 AC 1\nRin src n0 1.2e+07\nCg0 n0 0 2.65717e-11\nCg1 n1 0 2.65717e-11\nCg2 n2 0 2.65717e-11\nR1 n0 n1 1.2e+07\nR2 n1 n2 1.2e+07\nCpar1 n0 n1 3.17e-13\nCpar2 n1 n2 3.17e-13\nRout n2 out 50\nTload out 0 det 0 Z0=50 TD=5.054e-08\nCdet det 0 1e-11\nRload det 0 6e+12\n.ac dec 50 1 100000000\n.end",
+  "instrumentNetlist": "* Discoidal Capacitor Bias Filter ladder, generated by backend\nV1 gen 0 AC 1\nRsource50 gen src 50\nRin src n0 1.2e+07\nCg0 n0 0 2.65717e-11\nCg1 n1 0 2.65717e-11\nCg2 n2 0 2.65717e-11\nR1 n0 n1 1.2e+07\nR2 n1 n2 1.2e+07\nCpar1 n0 n1 3.17e-13\nCpar2 n1 n2 3.17e-13\nRout n2 out 50\nRmeasure50 out 0 50\n.ac dec 50 1 100000000\n.end"
+}

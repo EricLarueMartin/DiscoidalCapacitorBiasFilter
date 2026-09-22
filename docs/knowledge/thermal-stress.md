@@ -1,6 +1,51 @@
 # Default-build thermal mismatch analysis
 
-## Result
+## Current CAT 23LV reference
+
+The current default is a continuous Stycast 2850FT/CAT 23LV dielectric with no
+separate alumina washer region. The selected process is `16-24 h at 25 C`
+followed by a `2-4 h at 45 C` post-cure. The bake is intended to advance cure
+and polymer-network development and stabilize properties without imposing the
+former CAT 11 design's `80 C` cooldown. The model uses the published CAT 23LV
+pre-Tg CTE of `39.4 ppm/C` and conservatively treats `45 C` as stress-free.
+The default evaluation is `20 C`, so the modeled temperature change is `-25 C`.
+Actual stress lock-in depends on gelation, cross-link development, and
+viscoelastic relaxation; the TDS does not establish a stress-free temperature.
+Cure shrinkage, relaxation, and interface separation are excluded.
+
+Henkel publishes `0.3%` linear shrinkage, Shore D92 hardness, and approximately
+`40 C` Tg after room-temperature cure for the CAT 23LV system. It does not
+publish Young's modulus, tensile strength, or copper/alumina interface fracture
+data in the cited TDS. The default FEA therefore keeps the assumed `3 GPa`
+epoxy modulus (`2-4 GPa` sensitivity) and displays `20 MPa` only as a
+provisional bulk tensile comparison proxy. It is not a published CAT 23LV
+failure limit.
+
+Source: [Henkel LOCTITE STYCAST 2850FT TDS](https://datasheets.tdx.henkel.com/LOCTITE-STYCAST-2850FT-en_GL.pdf).
+
+The default `0.30 mm` FEniCSx solve used 15,640 cells. At `20 C` it reports
+`5.298 MPa` P99 maximum-principal tensile stress, `4.314 MPa` P99 axial
+tension, and `2.577 MPa` P99 absolute r-z shear. The raw maximum-principal
+corner value is `13.159 MPa` and remains a mesh-sensitive diagnostic. The
+separate closed-form radial-plus-hoop baseline is controlled by the MELF's
+alumina ceramic body and gives `3.600 MPa` at the same temperature. Thus the
+FEA P99 is `1.47x` the simple baseline while remaining below the provisional
+`20 MPa` comparison line. The result is stored in
+`simulations/thermal/outputs/default-23lv-thermal-fea.json` and bundled for the
+static slide viewer.
+
+Vishay describes the MELF construction as a metal-alloy film deposited on a
+high-grade `Al2O3` ceramic body, with nickel-plated steel caps, protective
+coating, and tin-over-nickel terminations. The thermal FEA assigns the complete
+axisymmetric MELF surrogate the alumina-body properties because that ceramic
+dominates its cross-section. The thin helical film, end caps, plating, and
+coating are omitted; resolving them requires a three-dimensional package model.
+
+The sections below retain the earlier MG 9510/alumina calculations as a
+comparison and as documentation of the analytical method. They are not the
+current startup design.
+
+## Previous MG 9510/alumina result
 
 The default MG Chemicals 9510 / alumina / copper stack cannot yet be assigned
 an interface-separation temperature from datasheets alone. Two bulk-stress
@@ -248,19 +293,24 @@ linear elasticity. Cylindrical symmetry and the axial center-plane mirror
 symmetry are exact for the idealized uniform stack. Exposed surfaces are
 traction-free and all material interfaces are perfectly bonded.
 
-The verified current default at 20 C gives 31.741 MPa P99 on a 0.30 mm,
-9,276-cell mesh. Refining to 0.20 mm gives 31.800 MPa P99 on 21,538 cells;
-the 0.10 mm, 79,254-cell reference gives 31.928 MPa. P95 and P99 remain stable
-over the six-mesh campaign, while the raw material-corner peak rises from
-40.612 MPa at 0.60 mm to 78.884 MPa at 0.10 mm and has not converged. Use P99
-for design comparison and retain the raw value only as a mesh-sensitive
-diagnostic.
+For the CAT 23LV reference process, the current 0.30 mm, 15,640-cell solve at
+20 C gives 5.298 MPa P99 maximum-principal tensile stress, 4.314 MPa P99 axial
+tension, and 2.577 MPa P99 absolute r-z shear. The raw maximum-principal value
+at a material corner is 13.159 MPa and remains a mesh-sensitive diagnostic;
+use P99 for design comparison until a dedicated mesh-convergence campaign is
+completed for this geometry.
 
-The solve uses 70 C as the stress-free reference and applies a uniform
-temperature change. The Designer's thermal mesh control sets the Gmsh target
-element size; **Solve thermal FEA** calls `POST /api/thermal-solve` on the Pi
-backend. Because this is a linear thermoelastic model, the presentation curve
-scales the solved P99 result linearly with temperature difference.
+The reference process cures 16-24 h near 25 C and then post-cures 2-4 h at
+45 C. The post-cure advances the cure network and stabilizes properties while
+limiting the temperature excursion. As a conservative reproducible baseline,
+the solve treats 45 C as the stress-free reference and applies a uniform
+cooldown to 20 C. This does not establish the actual stress-lock-in
+temperature: gelation, continued cure, viscoelastic relaxation, and chemical
+shrinkage can change residual stress. The Designer's thermal mesh control sets
+the Gmsh target element size; **Solve thermal FEA** calls
+`POST /api/thermal-solve` on the Pi backend. Because this is a linear
+thermoelastic model, the presentation curve scales the solved P99 result
+linearly with temperature difference.
 
 The Designer viewer includes a **Thermal FEA** tab. The backend returns the
 cell-center epoxy maximum-principal tensile stress from the solved half-stack;

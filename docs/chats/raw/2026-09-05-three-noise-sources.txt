@@ -1,0 +1,30 @@
+Reconstructed collaboration record, 2026-09-05
+
+Later update: user suggested searching online for LEGEND's supply, possibly
+N1470, while awaiting CAEN's reply about output impedance. CAEN's 2021
+LEGEND-200 announcement identifies A1560HDPE boards in SY4527/SY5527 crates
+and earlier GERDA N1471H units. The reference now uses A1560H maximum ripple:
+10 mV p-p at 20--1000 Hz and 5 mV p-p at 1 kHz--20 MHz. The output resistance
+remains 1 Mohm, explicitly provisional. See caen-hv-supply.md for citations.
+Two-band supply scenario: 231.03 eV RMS; all-low-band-at-50-Hz alternative:
+109.74 eV RMS. The following text preserves the earlier investigation.
+
+User requested that supply noise (including 50 Hz), external cable pickup,
+and cryostat pickup all enter the complete SPICE noise model, and requested
+model-slide coverage. Input cable capacitance must participate in the
+low-frequency T network with source resistance and filter input resistance.
+
+User correction: the supply is CAEN, not ORTEC. Use 1 Mohm provisionally until
+CAEN provides information about the output circuit. Exact CAEN model was
+not found in project notes and was requested; its ripple specification is
+pending. Do not treat the old 10 mV p-p assumption as a CAEN rating.
+
+Implemented three full-circuit source transfers and a model slide. Main noise
+budget now uses R30 transfer and known-charge calibration for all three
+sources. Separate 50 Hz and worst-frequency supply scenarios avoid counting
+the same supply input twice. Coherent mains sum is shown separately.
+
+Source-model issue found and corrected: I=V/Z0 produces enormous low-frequency
+voltages in the high-impedance circuit. Main voltage-valued pickup inputs now
+mean localized series EMFs; historical current-source studies retain their
+different convention. See noise-budget.md for values and validation evidence.

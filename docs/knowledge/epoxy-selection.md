@@ -7,8 +7,12 @@ For this DC detector-bias application, a datasheet dielectric-strength number is
 not enough: small voids or a weak interface can become partial-discharge sites
 even when the bulk material is well below its coupon breakdown field.
 
-MG Chemicals 9510 remains the mechanically modeled baseline, but its rigid
-cure and large CTE mismatch make lower-modulus materials worth testing. No
+The current reference design uses **LOCTITE STYCAST 2850FT with CAT 23LV** as
+both the washer-region dielectric and surrounding potting fill. The proposed
+process uses the lower-viscosity, room-temperature-curing formulation for
+vacuum filling, followed by a `2-4 h at 45 C` post-cure. The bake is intended
+to advance cure and polymer-network development and stabilize the material
+without imposing the former CAT 11 reference's `80 C` cooldown. No
 one-part, low-viscosity, genuinely low-stress heat-cure epoxy with a complete
 public property set was found. Parker CoolTherm ES-21 is one-part, but its
 35,000 cP viscosity, Shore D88 hardness, 115 C Tg, and 125 C cure make it a
@@ -22,6 +26,8 @@ partial-discharge inception fields or long-duration DC ratings.
 
 | Material | Working time | Mixed viscosity | Hardness | Tg | Linear CTE below/above Tg | Shrinkage | Dielectric strength | Volume resistivity | Relative permittivity | Practical note |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Stycast 2850FT BL + CAT 11 | 4 h | 64,000 cP | Shore D96 | 115 C | 31.2 / 97.9 ppm/C | 0.2% linear | 15.0 kV/mm | 1e15 ohm-cm | 5.36 at 1 MHz | Heat-cure comparison. Mix 100:4.5 by weight and heat cure 8-16 h at 80 C. High viscosity makes open flow paths and in-mold vacuum especially important. |
+| Stycast 2850FT + CAT 23LV | 1 h | 5,600 cP | Shore D92 | 40 C after room-temperature cure | 39.4 / 111.5 ppm/C | 0.3% linear | 14.8 kV/mm | 1e15 ohm-cm | 5.36 at 1 MHz | Current default: mix 100:7.5 by weight, cure 16-24 h at 25 C, then post-cure 2-4 h at 45 C when 45 C is the maximum expected service temperature. |
 | MG 9510 | Unlimited before heat cure | 4,800 cP | Shore D84 | 70 C | 74 / 217 ppm/C | 3.9%, calculated and undefined basis | 15.75 kV/mm | 2.6e13 ohm-cm | 3.7 at 1 MHz | One-part and easy to degas at leisure, but rigid. Minimum cure is 3 h at 80 C. |
 | MG 832FX | 2 h | 700 cP | Shore A88 | 8.8 C | 114 / 218 ppm/C | 2.6%, calculated | 12.99 kV/mm | 5.8e12 ohm-cm | 3.1 at 1 MHz | Best-flowing published MG flexible option; 1:1 mix and 2 min vacuum de-airing at 25 inHg. |
 | MG 832FXT | 170 min | 1,920 cP | Shore A80 | 20 C | 124 / 295 ppm/C | 2.4%, calculated | 13.78 kV/mm | 1.5e13 ohm-cm | Lower tensile strength and apparently more compliant; available in 25 mL trial size. |
@@ -33,6 +39,29 @@ model provisionally uses 3.1, inherited from the closely related 832FX. That
 assumption must be replaced by a supplier value or a cured-coupon measurement
 before capacitance predictions are frozen.
 
+## Additional electrical presets (2026-09-22)
+
+The selector and comparison slide now include these candidates. The Stycast
+CAT 23LV default remains unchanged. "Not published" below means absent from
+these public sources, not necessarily unavailable from the supplier.
+
+| Material | Relative permittivity | Dielectric strength | Process and data limits |
+| --- | --- | --- | --- |
+| [3M DP270 clear/black](https://multimedia.3m.com/mws/media/1235390O/dp270-technical-data-sheets.pdf) | 3.5 at 1 kHz, 23 C | 850 V/mil = 33.46 kV/mm | 60-70 min work life; 1:1 by volume; 48 h at 23 C. D83; Tg 43 C onset / 49 C midpoint; resistivity 4.1e14 ohm-cm. Mixed viscosity is not tabulated. |
+| [Master Bond EP30](https://www.masterbond.com/tds/ep30) | **3.2 provisional generic assumption** | 440 V/mil = 17.32 kV/mm | Base EP30, not EP30FL or EP30-2. 4:1 by weight; 24-48 h at 75 F. D80-90; component viscosities A 400-900 and B 280-500 cP, not a mixed value. Public page omits permittivity, resistivity, Tg and work life. |
+| [MG Chemicals 832C](https://www.mgchemicals.com/downloads/tds/tds-832c-2parts.pdf) | 2.8 at 1 MHz | 483 V/mil = 19.02 kV/mm, tested at 3.175 mm | TDS v4.2, 20 February 2026: 3 h 15 min working time (100 g); mixed viscosity 2,700 cP; D84; Tg 53 C; resistivity 6.7e12 ohm-cm. Mix 2:1 by volume; 24 h room cure. |
+
+EP30's assumed permittivity is identified in the selector, comparison row,
+and selected-material note. Replace it using the epoxy permittivity control
+once supplier data or a cured-coupon measurement is available. Do not borrow
+properties from a different EP30 suffix without identifying that substitution.
+The differing electrical test frequencies are not a broadband material model.
+
+The new materials have a cure-schedule comparison and closed-form cooldown screen,
+but no thermal FEA presets. DP270 and 832C use published piecewise CTE; EP30
+thermal stress remains unavailable because its base-product CTE was not found.
+See [the cure study](epoxy-cure-study.md) for sources, assumptions and results.
+
 ## Interpretation
 
 - **Best small prototype:** MG 832FXT because a 25 mL package is available and
@@ -43,9 +72,10 @@ before capacitance predictions are frozen.
   also make evacuation and narrow-gap filling easiest.
 - **Best published electrical properties:** 20-3241, but its 30-45 minute pot
   life and gallon-scale packaging are significant prototype disadvantages.
-- **Current baseline:** 9510 remains useful for comparison and has unlimited
-  pre-cure working time, but it should not be assumed mechanically safer merely
-  because it has a convenient process.
+- **Current baseline:** Stycast 2850FT/CAT 23LV provides a one-hour working
+  window and `5,600 cP` mixed viscosity. The lower viscosity should improve
+  vacuum filling of the 1 mm gaps. The selected room cure plus 45 C post-cure
+  is meant to increase cure completion while limiting thermal mismatch.
 
 MG recommends only two minutes at 25 inHg for vacuum de-airing the 832FX
 family. A two- to nearly three-hour pot life therefore permits several
@@ -114,17 +144,20 @@ need a separate design assessment.
 
 ## Thermal-model boundary
 
-The current closed-form calculation and FEniCSx thermal model contain MG 9510
-properties only. Selecting another epoxy changes electrical permittivity and
-dielectric-strength screening, but it does not make the 9510 mechanical model
-valid for that material. The thermal backend therefore remains restricted to
-9510 until a candidate has credible modulus, Poisson-ratio, CTE, cure-reference,
-and strength/interface data. A flexible candidate should first be compared by
-coupon testing; a later FEA can add measured temperature-dependent or
-viscoelastic properties.
+The closed-form calculation and FEniCSx thermal model contain presets for MG
+9510 and Stycast 2850FT with CAT 11 or CAT 23LV. The CAT 23LV default uses the
+published `39.4 ppm/C` pre-Tg CTE and conservatively treats the selected `45 C`
+post-cure as the stress-free reference. This is a modeling assumption, not a
+measured gel or stress-lock temperature. Henkel does not publish Young's
+modulus or tensile strength for this system in the cited TDS, so the model retains an assumed
+`3 GPa` modulus with a `2-4 GPa` sensitivity and a provisional `20 MPa` bulk
+tensile comparison line. The published `117 MPa` flexural and `193 MPa`
+compressive strengths for CAT 11 are not substituted for CAT 23LV tensile or interface strength.
 
 ## Primary sources
 
+- [Henkel LOCTITE STYCAST 2850FT TDS, including CAT 11 and CAT 23LV](https://datasheets.tdx.henkel.com/LOCTITE-STYCAST-2850FT-en_GL.pdf)
+- [Henkel LOCTITE STYCAST 2850FT BL product page](https://next.henkel-adhesives.com/us/en/products/compounds-for-electronics/central-pdp.html/loctite-stycast-2850ft-bl/stycast2850ft_1.html)
 - [MG Chemicals 9510 TDS](https://mgchemicals.com/downloads/tds/tds-9510.pdf)
 - [MG Chemicals 832FX TDS](https://mgchemicals.com/downloads/tds/tds-832fx-2parts.pdf)
 - [MG Chemicals 832FXT TDS](https://mgchemicals.com/downloads/tds/tds-832fxt-2parts.pdf)
@@ -133,3 +166,20 @@ viscoelastic properties.
 - [Parker CoolTherm ES-21 TDS](https://www.parker.com/content/dam/Parker-com/Literature/Assembly---Protection-Solutions-Division/Technical-Datasheets-%28TDS%29/Datasheet---CoolThermES-21_DS3623.pdf)
 - [NuSil R-2188 product page](https://www.nusil.com/us/en/product/27944394/r-2188silicone-potting-and-encapsulating-elastomer)
 - [Wacker ELASTOSIL RT 601 TDS](https://www.wacker.com/h/en-us/medias/ELASTOSIL-RT-601-AB-en-2020.02.10.pdf)
+
+## Current web default: DP270, 2026-09-22
+
+The user's planned potting material is now 3M DP270, including the entire
+washer/gap region (relative permittivity 3.5). Copper plates and tube and
+installation geometry are retained. The web built-in and installation defaults
+use a 40 C provisional stress-free thermal reference. This is not a published
+40 C full-cure schedule; cure duration and achieved Tg remain unverified.
+The TDS lists Tg onset 43 C and midpoint 49 C; Tg is not a maximum cure
+temperature. At 20 C, E=3 GPa, nu=0.35 and k=1, the 40 C reference gives
+5.82 MPa for copper and 6.63 MPa for the ceramic-body proxy.
+
+The MELF outer encapsulation is not characterized, so its actual interface
+with potting epoxy is unknown. Bare-alumina adhesion must not be assumed.
+Historical Stycast simulation bundles and hardware simulation reference files
+remain identified by their original material and are not DP270 results.
+DP270 thermal FEA remains unsupported.

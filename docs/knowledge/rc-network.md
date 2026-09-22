@@ -4,7 +4,7 @@
 
 The plate stack is an RC ladder. Each bias plate node sees capacitance to ground through the high-permittivity washer overlap, resistance to neighboring bias plates through the central resistive element, and unwanted parasitic capacitance to neighboring bias plates through the core material plus epoxy around the core.
 
-The input and inter-stage bias resistances are high-value controls expressed in Mohm. The output series resistance is a separate ohm-valued control because the normal readout-side value is 50 ohms; the web app defaults it to 50 ohms and passes that value to both the browser and backend SPICE models without a megaohm conversion.
+The input and inter-stage bias resistances are high-value controls expressed in Mohm. The output series resistance is a separate ohm-valued control because it terminates the detector-side cable. The web app defaults it to the stocked `47 ohm` standard value, close to the `47.97 ohm` characteristic impedance calculated from the present cable model. It is passed to both the browser and backend SPICE models without a megaohm conversion. Final selection requires a fast-step transient and in-situ pulse-shape test.
 
 Manual numeric entries accept case-sensitive engineering prefixes with or without a space or trailing unit text: `T`, `G`, `M`, `k`, `m`, `u`/`µ`, `n`, `p`, and `f`. Thus `100M`, `100 M`, and `100 MOhm` all enter 100 Mohm in a resistance control, while `100f` enters 100 fF in a capacitance control. A value without a prefix remains in the control's displayed unit.
 
@@ -193,6 +193,16 @@ the corresponding bias nodes. The displayed analytical `Cg` sanity check is
 `2 C_washer`, directly comparable to one FEA bias node's `Cg,i`; the axial
 parallel-plate `Cpar` remains a separate sanity comparison.
 
+The Designer's **SPICE** tab provides an explicit circuit-run control and shows
+the backend, frequency-point count, and two 50 Hz results. Plate geometry must
+first have a matching electrostatic FEA capacitance network. Circuit-only
+changes, including resistance, cable, detector-load, and added-capacitance
+values, retain that network and need only a new SPICE run. When the backend run
+completes, the web app redraws both the complete-filter SPICE slide and the
+detector-noise slide. The latter interpolates the backend's loaded and
+regulator-plus-input-cable responses over its integration frequencies; it is
+labelled as a browser-MNA fallback until a matching SPICE result is available.
+
 The exact-reference Maxwell matrix also includes the exposed input and output
 faces of the resistive core as electrical terminals. Its node order is:
 
@@ -238,11 +248,55 @@ adapter loss are not included. A prototype comparison should first normalize
 the tracking-generator/analyzer setup with a through connection at the DUT
 reference planes.
 
-The source drives the physical input terminal and the analyzer terminates the
+The complete-filter slide now compares five deliberately different circuit
+boundaries:
+
+1. `Filter unloaded` drives the physical filter input and measures its bare
+   physical output with infinite external load impedance.
+2. `50 ohm test ports` adds a 50 ohm tracking-generator source and a 50 ohm
+   analyzer termination, with matched-through normalization.
+3. `HV regulator + input T-line` starts at the regulator's ideal internal
+   source, then includes the Designer regulator Thevenin resistance, source
+   coax, and complete filter, but leaves the filter output unloaded.
+4. `Filter + output T-line + detector/LMFE` drives the physical filter input
+   and terminates the physical output in the cryostat cable and reduced
+   detector/front-end model.
+5. `Everything` starts at the ideal regulator source and includes the
+   regulator resistance, input line, filter, output line, detector, and reduced
+   amplifier.
+
+The reference design defaults the editable regulator output resistance to
+`1 Mohm` and the input RG-58 line to `10 m`, `50 ohm`, velocity factor `0.66`.
+These are design assumptions, not properties of the filter. The cable is
+presently lossless, and the regulator is a frequency-independent Thevenin
+resistance; measured source impedance and cable attenuation should replace
+those assumptions when available. The installed supply is CAEN, not ORTEC.
+Keep `1 Mohm` pending CAEN's output-network information. The earlier ORTEC
+`2 Mohm` comparison is withdrawn as a basis for the installed equipment.
+
+The last two paths are solved as ordinary AC voltage transfers through the
+reduced LMFE model. The browser then applies the selected trapezoidal response
+and the separate known-charge transient calibration. Let `Gout(f)` be the
+differential R30 output per source volt, `Htrap(f)` the selected trapezoidal
+response, `Qref` the calibration pulse charge, `Vshape,ref` its shaped output,
+and `Cdet` the selected detector capacitance. The plotted detector-equivalent
+dimensionless magnitude is
+
+```text
+Hdet,eq(f) = Gout(f) Htrap(f) / [Vshape,ref / (Qref / Cdet)].
+```
+
+This asks what detector-voltage-equivalent disturbance the upstream source
+produces after energy shaping. It does not treat the sinusoidal source as a
+detector event, and changing the trapezoid settings only recomputes this
+normalization in the browser; it does not require another SPICE solve.
+
+Each source drives the physical input terminal and each load terminates the
 physical output terminal. Consequently, an exact FEniCSx result makes the
 50-ohm curve include port-to-ground capacitance, port-to-bias mutual
 capacitance, and the usually tiny direct input-to-output capacitance. The same
-port network is also present in the loaded-detector and unloaded-filter curves.
+port network is also present in the detector/front-end and unloaded-filter
+curves.
 
 A 2026-07-30 Pi campaign checked `Cg` with one, two, three, four, and five bias
 plates. Raw full-matrix values, exact reflection averaging, and
@@ -372,6 +426,56 @@ question from the loaded detector curve: how much source voltage noise the
 filter itself removes before an external load is connected. Re-run the backend
 for current numerical values when geometry or the FEA matrix changes.
 
+The dedicated pickup-response slide shows the reduced LMFE detector-pickup
+transimpedance. It is not a `Vout/Vin` filter attenuation curve: ngspice
+injects a one-ampere AC current at the detector cathode and calculates
+differential front-end transimpedance. The complete selected filter, including
+its output resistor and Maxwell capacitance network, terminates the other end
+of the Designer-configured cryostat HV cable. The unnormalized V/A result and
+generated combined netlist remain in the backend payload. The complete-filter
+slide instead uses source-driven LMFE sweeps normalized by the known-charge
+signal calibration and selected trapezoid.
+
+### Output-stage capacitance sensitivity
+
+The LMFE study varies only the final bias node's FEA-derived capacitance to
+ground from `0.1x` through `100x`; the complete Maxwell network, selected
+output resistor, 10 m cable, detector capacitance, and amplifier remain in the
+netlist. This is a circuit sensitivity study, not seven new electrostatic
+geometries. For each capacitance the backend runs two ngspice excitations:
+
+```text
+Z_pickup(f) = V_R30(f) / I_cathode(f)
+G_gate(f)   = V_R30(f) / V_J2_gate(f)
+```
+
+The first line represents cable pickup as a Norton source
+`I_cathode = V_pickup/Z0`. The browser applies the selected trapezoidal response
+to the resulting differential R30 pickup and reports output RMS. The AC gate
+response is retained as a diagnostic only. Dividing the two responses at every
+frequency is not a valid detector-energy calibration because the detector
+signal is a fast step and the trapezoid reports one shaped pulse amplitude.
+The backend therefore also injects a known `1 fC` charge over `100 ns` from the
+detector cathode to the J2 gate, saves the differential R30 transient, and
+resamples it onto the selected ADC time grid. The browser applies the selected
+trapezoid. Shaped pickup RMS divided by shaped signal volts per coulomb gives
+equivalent charge noise; converting that charge to electron-hole pairs and
+multiplying by `2.96 eV/pair` gives the detector-energy contribution.
+
+### Output-termination sensitivity
+
+A second LMFE matrix sweeps the output resistor with `0.1x`, `1x`, and `10x`
+the design final-node capacitance. The browser applies the selected cryostat
+pickup amplitudes and trapezoidal estimator and reports differential R30 RMS.
+The previous per-frequency signal normalization and its apparent resistance
+optimum have been withdrawn. The selected `47 ohm` reference instead follows
+the present cable model's `47.97 ohm` characteristic impedance. With a less
+than `100 ns` detector rise and approximately `95 ns` cable round trip, the
+energy-noise calculation is nearly flat from `22 ohm` through `51 ohm` at the
+approximately `44.8 pF` design capacitance. The remaining selection question
+is a transient step-response comparison of reflection and rise-time distortion
+for pulse-shape discrimination, followed by in-situ testing.
+
 At 50 Hz with the default loaded design, the multiplied and full-ladder results
 diverge with stage count: 36.75 versus 18.16 dB for two bias stages, 73.51
 versus 26.76 dB for five, and 134.76 versus 37.22 dB for ten. The apparent
@@ -393,20 +497,18 @@ C_gain_vs_FR4 ~= epsr_washer / 4.4
 
 This is only valid for the simple parallel-plate washer-overlap estimate, but it is useful for estimating how much capacitance a better dielectric buys before sourcing or machining ceramic washers.
 
-With the current browser defaults (`epsr_washer = 10` alumina-like, MELF 0207 direct-stage resistance, `epsr_core = 19.6` effective MELF core, 2.2 mm core OD, two bias plates and three ground plates, 6.6 mm washer ID, 20 mm washer OD, 1.5 mm washer thickness, and 26 mm tube ID), the estimate is roughly:
+With the current browser defaults (continuous Stycast 2850FT/CAT 23LV at `epsr = 5.36`, MELF 0207 direct-stage resistance, `epsr_core = 19.6` effective MELF core, 2.2 mm core OD, three bias plates, 4.0 mm ground-plate ID, 23.0 mm bias-plate OD, 1.0 mm gap, 2.0 mm plates, and 26 mm tube ID), the matched calculation is regenerated from the matching FEA result bundled with the page.
 
-- `C_washer`: about 16.5 pF for one washer between one bias plate and one ground plate.
-- `C_g_stage`: about 33.1 pF per bias plate.
-- `C_parasitic`: about 0.26 pF between adjacent bias plates in the analytic/SPICE estimate.
-- `FEA Cpar`: about 0.128 pF from the validated node-resolved Maxwell matrix.
-- `R_stage`: 12 Mohm for the default 0207 direct stage.
+- `C_gap`: about 19.1 pF for one axial epoxy gap in the parallel-plate screen.
+- `FEA C_g`: 44.826, 44.863, and 44.826 pF for the three bias plates.
+- `FEA C_par`: 0.0980 pF for either adjacent plate pair.
+- `R_stage`: 10 Mohm for the default 0207 direct stage.
 
 The default capacitance estimates correspond to:
 
 ```text
-C_washer ~= epsilon0 * 10 * pi * (10^2 - 3.3^2) / 1.5
-C_g_stage ~= 2 C_washer
-C_parasitic ~= epsilon0 * (19.6 * pi * 1.1^2 + 3.4 * pi * (2.55^2 - 1.1^2)) / 4.5
+C_gap ~= epsilon0 * 5.36 * pi * (11.5^2 - 2.0^2) / 1.0
+C_g_screen ~= 2 C_gap
 ```
 
 ## Assumptions And Gaps

@@ -1,0 +1,10 @@
+Reconstructed conversation; routine tool logs omitted.
+
+USER: changing number of bias plates when symmetry is used shouldn't require a rerun of the FEA for changing the spice model. implement allowing changing bais plates and resistor values for determining filter performance without having to do another FEA to find values of Cg and Cpar if it doesn't work that way already.
+The default of 3 is good for determining Cg and Cpar but only has 2 series resistors, upping it to 5 i expect to approximately double the low frequency performance.
+
+ASSISTANT: Existing code already supported repeated Cg/Cpar classes and resistor-independent electrostatic cache keys. Fixed terminal-column reuse when expanding the network, separated physical CAD count from capacitance reuse keys, corrected stale display paths, and added explicit topology/capacitance-source status in SPICE. Kept three as default and the exact/full-wave invalidation boundaries. Tests exercise3→4/5/8 and resistor changes without FEAreruns.
+
+Same-FEA ngspice comparison:3plates/10MΩ gives20.1468dB attenuation at50Hz;5plates/10MΩ gives24.9285dB (1.734× less transmitted voltage);5plates/20MΩ with matching20MΩ input gives31.6528dB. These are complete supply-to-detector voltages, not LMFE output. Interplate resistor counts are2 and4, plus configured input/output resistors.
+
+Verification: deployed app/index hashes match local; installation default remains3. Live browser3→5 retains7.613kV/mm reference field and reports reused3plate classes, then SPICE24.9dB at50Hz. Changing stageR to20MΩ retains the same capacitance source. New reuse regression and66 backend regression tests pass. Deployment backup: /home/agent/deployment-backups/reuse-fea-20260922.

@@ -1,0 +1,1025 @@
+{
+  "solver": "axisymmetric-electroquasistatic-multiport-fenicsx",
+  "status": "completed",
+  "scope": "distributed electric field and resistive core; no magnetic induction, radiation, or 3D MELF helix",
+  "ports": [
+    "bias_plate_1",
+    "bias_plate_2",
+    "bias_plate_3"
+  ],
+  "excitation": "input bias plate fixed at 1 V; internal plates floating; output terminated",
+  "intrinsic_excitation": "first bias plate fixed at 1 V; internal plates floating; final plate open-circuit; no external network",
+  "mesh": {
+    "type": "gmsh-dolfinx-axisymmetric-solid",
+    "target_size_mm": 0.3,
+    "cells": 34162,
+    "vertices": 17312,
+    "solved_z_min_mm": 0.0,
+    "solved_z_max_mm": 20.0,
+    "full_stack_length_mm": 20.0,
+    "solve_strategy": "full_stack",
+    "symmetry": "full stack with one axial rigid-body anchor",
+    "material_surface_counts": {
+      "epoxy": 13,
+      "alumina": 0,
+      "plate": 7,
+      "core": 4,
+      "tube": 1
+    },
+    "material_layout": "bulk_epoxy"
+  },
+  "materials": {
+    "core_conductivity_s_per_m": 8.768867387983214e-05,
+    "core_conductivity_basis": "homogeneous cylinder calibrated to entered interstage resistance",
+    "epoxy_conductivity_s_per_m": 3.846153846153846e-12,
+    "relative_permittivity": {
+      "epoxy": 5.36,
+      "alumina": 5.36,
+      "plate": 1.0,
+      "core": 19.6,
+      "tube": 1.0
+    }
+  },
+  "parameters": {
+    "units": "mm",
+    "bias_voltage_v": 6000,
+    "core_volume_resistivity_log10_ohm_cm": 8.0,
+    "core_volume_resistivity_ohm_cm": 100000000.0,
+    "use_direct_stage_circuit": true,
+    "use_direct_stage_capacitance": false,
+    "melf_stage_resistance_mohm": 12.0,
+    "melf_stage_resistance_log10_ohm": 7.079181246047625,
+    "melf_stage_parasitic_pf": 0.3,
+    "melf_substrate_epsr": 9.8,
+    "melf_metal_fill_factor": 0.5,
+    "ferrite_conductor_fill_factor": 0.0,
+    "input_series_resistance_mohm": 12.0,
+    "output_series_resistance_ohm": 50.0,
+    "input_series_matches_stage": true,
+    "output_series_matches_stage": false,
+    "load_current_na": 1.0,
+    "load_cable_length_m": 10.0,
+    "load_cable_impedance_ohm": 50.0,
+    "load_cable_velocity_factor": 0.66,
+    "detector_capacitance_pf": 10.0,
+    "additional_ground_capacitance_pf": 0.0,
+    "noise_sample_rate_msps": 62.5,
+    "noise_waveform_samples": 8192,
+    "noise_trap_rise_us": 10.0,
+    "noise_trap_flat_us": 4.0,
+    "noise_supply_noise_pp_mv": 10.0,
+    "noise_lab_broadband_rms_mv": 0.05,
+    "noise_mains_rms_mv": 0.2,
+    "noise_mains_frequency_hz": 50.0,
+    "noise_fano_factor": 0.114545454545455,
+    "core_resistance_gohm": 0.03600005,
+    "core_od_mm": 2.2,
+    "use_package_core_od": true,
+    "core_material": "mmb0207_melf",
+    "ferrite_epsr": 6.0,
+    "core_to_ground_gap_mm": 1.1999999999999997,
+    "hv_to_tube_gap_mm": 2.0,
+    "hv_plate_od_mm": 22.0,
+    "ground_plate_inner_diameter_mm": 4.6,
+    "washer_id_mm": 6.6,
+    "washer_od_mm": 20.0,
+    "washer_id_mode": "ground_flat_id",
+    "washer_od_mode": "bias_flat_od",
+    "ground_plate_od_mm": 26.0,
+    "tube_id_mm": 26.0,
+    "plate_gap_mm": 1.0,
+    "plate_thickness_mm": 2.0,
+    "bias_plate_thickness_mm": 2.0,
+    "ground_plate_thickness_mm": 2.0,
+    "ground_matches_bias_thickness": true,
+    "edge_diameter_percent": 100.0,
+    "edge_radius_mm": 1.0,
+    "washer_material": "epoxy",
+    "washer_epsr": 5.36,
+    "epoxy_material": "stycast_2850ft_cat11",
+    "epoxy_epsr": 5.36,
+    "plate_material": "copper",
+    "plate_conductivity_log10_s_per_m": 7.763427993562937,
+    "plate_relative_permeability": 1.0,
+    "tube_material": "copper",
+    "tube_conductivity_log10_s_per_m": 7.763427993562937,
+    "tube_relative_permeability": 1.0,
+    "rf_compare_frequency_log10_mhz": 0.0,
+    "plate_pairs": 3,
+    "include_ground_tube": true,
+    "field_solver": "backend_auto",
+    "mesh_edge_radius_ratio": 0.2,
+    "tube_wall_thickness_mm": 1.0,
+    "domain_margin_mm": 4.0,
+    "grid_r_count": 90,
+    "grid_z_count": 150,
+    "solver_iterations": 700,
+    "solver_tolerance_v": 0.01,
+    "solve_strategy": "end_repeat_approx",
+    "use_repeating_cell_approximation": true,
+    "thermal_min_temperature_c": 20.0,
+    "thermal_epoxy_modulus_gpa": 3.0,
+    "thermal_restraint_factor": 1.0,
+    "thermal_mesh_size_mm": 0.3,
+    "full_wave_resolution_per_mm": 2.0,
+    "full_wave_timeout_hours": 2.0,
+    "full_wave_verify_resonances": false,
+    "full_wave_eqs_frequencies_hz": [
+      50.0,
+      1000.0,
+      1000000.0,
+      31250000.0,
+      100000000.0,
+      300000000.0,
+      1000000000.0
+    ],
+    "full_wave_frequencies_hz": [
+      300000000.0,
+      1000000000.0,
+      3000000000.0,
+      10000000000.0,
+      30000000000.0
+    ],
+    "washer_id_matches_ground": false,
+    "washer_od_matches_bias": false,
+    "admittance_mesh_size_mm": 0.3,
+    "_thermal_validation_solve_strategy": "full_stack",
+    "_thermal_material_layout": "bulk_epoxy"
+  },
+  "samples": [
+    {
+      "frequency_hz": 1.0,
+      "y_real_s": [
+        [
+          8.333665343457217e-08,
+          -8.333332497995302e-08,
+          -5.608399389574276e-42
+        ],
+        [
+          -8.333332497995302e-08,
+          1.6666994760112826e-07,
+          -8.333332498004313e-08
+        ],
+        [
+          -5.608399389574276e-42,
+          -8.333332498004313e-08,
+          8.33366534565996e-08
+        ]
+      ],
+      "y_imag_s": [
+        [
+          2.584322202024809e-10,
+          -3.894965497439167e-13,
+          -4.339601954613244e-40
+        ],
+        [
+          -3.894965497439167e-13,
+          2.5643973414961677e-10,
+          -3.8950356308836426e-13
+        ],
+        [
+          -4.339601954613244e-40,
+          -3.8950356308836426e-13,
+          2.5843392606987154e-10
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 6.413877374137498e-09
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": 0.9741696897534301,
+          "imag": -0.159001232345646
+        },
+        "magnitude": 0.987060269852722,
+        "magnitude_db": -0.11312657041014207,
+        "phase_deg": -9.269916082406668,
+        "input_impedance_ohm": {
+          "real": 21692337.286872745,
+          "imag": -139292956.68304208
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.9869410393586469,
+            "imag": -0.08101294516657774
+          },
+          {
+            "real": 0.9741696897534301,
+            "imag": -0.159001232345646
+          }
+        ]
+      },
+      "intrinsic_transfer": {
+        "vout_over_vin": {
+          "real": 0.999804277106816,
+          "imag": -0.009258409418207058
+        },
+        "magnitude": 0.9998471436504872,
+        "magnitude_db": -0.0013277948658691418,
+        "phase_deg": -0.530556464654123,
+        "input_impedance_ohm": {
+          "real": 23369064.381498158,
+          "imag": -1295563691.41054
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.9998728944545695,
+            "imag": -0.006162852217744726
+          },
+          {
+            "real": 0.999804277106816,
+            "imag": -0.009258409418207058
+          }
+        ]
+      },
+      "solve_seconds": 2.385854358319193,
+      "reciprocity_max_abs_s": 0.0
+    },
+    {
+      "frequency_hz": 10.0,
+      "y_real_s": [
+        [
+          8.333666576922567e-08,
+          -8.333332384290382e-08,
+          -6.701218194282439e-42
+        ],
+        [
+          -8.333332384290382e-08,
+          1.666699499086191e-07,
+          -8.33333238429579e-08
+        ],
+        [
+          -6.701218194282439e-42,
+          -8.33333238429579e-08,
+          8.333666579372358e-08
+        ]
+      ],
+      "y_imag_s": [
+        [
+          2.584322196985717e-09,
+          -3.8949658138669765e-12,
+          -4.339601576926694e-39
+        ],
+        [
+          -3.8949658138669765e-12,
+          2.564397340856915e-09,
+          -3.895035947326237e-12
+        ],
+        [
+          -4.339601576926694e-39,
+          -3.895035947326237e-12,
+          2.5843392556582334e-09
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 6.413877374137498e-08
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": 0.26986987745659696,
+          "imag": -0.4514189352188355
+        },
+        "magnitude": 0.5259361233387053,
+        "magnitude_db": -5.581339982555984,
+        "phase_deg": -59.127929555929484,
+        "input_impedance_ohm": {
+          "real": 21384617.925524585,
+          "imag": -15448785.879888223
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.6313111983737901,
+            "imag": -0.23538872471384176
+          },
+          {
+            "real": 0.26986987745659696,
+            "imag": -0.4514189352188355
+          }
+        ]
+      },
+      "intrinsic_transfer": {
+        "vout_over_vin": {
+          "real": 0.9923013946806155,
+          "imag": -0.09197546935909325
+        },
+        "magnitude": 0.9965548378533517,
+        "magnitude_db": -0.02997596391939436,
+        "phase_deg": -5.295560538220215,
+        "input_impedance_ohm": {
+          "real": 6820067.95806311,
+          "imag": -129768439.10431695
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.9951906765095977,
+            "imag": -0.061252348658991866
+          },
+          {
+            "real": 0.9923013946806155,
+            "imag": -0.09197546935909325
+          }
+        ]
+      },
+      "solve_seconds": 2.3810632596723735,
+      "reciprocity_max_abs_s": 0.0
+    },
+    {
+      "frequency_hz": 100.0,
+      "y_real_s": [
+        [
+          8.333789921383703e-08,
+          -8.333321013885233e-08,
+          -1.1598184197539379e-40
+        ],
+        [
+          -8.333321013885233e-08,
+          1.6667018065589275e-07,
+          -8.333321013529243e-08
+        ],
+        [
+          -1.1598184197539379e-40,
+          -8.333321013529243e-08,
+          8.33378994853054e-08
+        ]
+      ],
+      "y_imag_s": [
+        [
+          2.5843216930853053e-08,
+          -3.89499745640362e-11,
+          -4.3395638086793195e-38
+        ],
+        [
+          -3.89499745640362e-11,
+          2.5643972769310493e-08,
+          -3.8950675913410205e-11
+        ],
+        [
+          -4.3395638086793195e-38,
+          -3.8950675913410205e-11,
+          2.5843387516185143e-08
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 6.413877374137498e-07
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": -0.0053945783953973075,
+          "imag": -0.060787884952469055
+        },
+        "magnitude": 0.061026784554478214,
+        "magnitude_db": -24.28959024040121,
+        "phase_deg": -95.0713884560235,
+        "input_impedance_ohm": {
+          "real": 14129099.374269601,
+          "imag": -11279180.52995491
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.48127194461781564,
+            "imag": -0.1042096091358206
+          },
+          {
+            "real": -0.0053945783953973075,
+            "imag": -0.060787884952469055
+          }
+        ]
+      },
+      "intrinsic_transfer": {
+        "vout_over_vin": {
+          "real": 0.5396913529306044,
+          "imag": -0.5519856324158678
+        },
+        "magnitude": 0.7719811492657135,
+        "magnitude_db": -2.247866088358711,
+        "phase_deg": -45.64522799192791,
+        "input_impedance_ohm": {
+          "real": 6127099.757480192,
+          "imag": -14722010.665178895
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.7107241762178126,
+            "imag": -0.3849792119330743
+          },
+          {
+            "real": 0.5396913529306044,
+            "imag": -0.5519856324158678
+          }
+        ]
+      },
+      "solve_seconds": 2.393369731027633,
+      "reciprocity_max_abs_s": 0.0
+    },
+    {
+      "frequency_hz": 1000.0,
+      "y_real_s": [
+        [
+          8.346103593088776e-08,
+          -8.332184852559881e-08,
+          -1.1031490237423486e-38
+        ],
+        [
+          -8.332184852559881e-08,
+          1.6669323767649814e-07,
+          -8.332184816116761e-08
+        ],
+        [
+          -1.1031490237423486e-38,
+          -8.332184816116761e-08,
+          8.346106082608725e-08
+        ]
+      ],
+      "y_imag_s": [
+        [
+          2.5842713894889545e-07,
+          -3.898159266301595e-10,
+          -4.335791051006985e-37
+        ],
+        [
+          -3.898159266301595e-10,
+          2.5643908892565874e-07,
+          -3.8982295488637887e-10
+        ],
+        [
+          -4.335791051006985e-37,
+          -3.8982295488637887e-10,
+          2.584288434127371e-07
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 6.413877374137497e-06
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": -0.0028066716813932835,
+          "imag": -0.001905149803242341
+        },
+        "magnitude": 0.003392197178810414,
+        "magnitude_db": -49.39037822747841,
+        "phase_deg": -145.83160384502506,
+        "input_impedance_ohm": {
+          "real": 866273.832874245,
+          "imag": -3384292.8787687365
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.14868687237833786,
+            "imag": -0.22735862232459425
+          },
+          {
+            "real": -0.0028066716813932835,
+            "imag": -0.001905149803242341
+          }
+        ]
+      },
+      "intrinsic_transfer": {
+        "vout_over_vin": {
+          "real": -0.053157271041832585,
+          "imag": -0.058837601257018576
+        },
+        "magnitude": 0.07929412832167819,
+        "magnitude_db": -22.01517941428012,
+        "phase_deg": -132.09647153749577,
+        "input_impedance_ohm": {
+          "real": 885898.9039375862,
+          "imag": -3376708.32246885
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.12819317268302208,
+            "imag": -0.2244068482121965
+          },
+          {
+            "real": -0.053157271041832585,
+            "imag": -0.058837601257018576
+          }
+        ]
+      },
+      "solve_seconds": 2.3831184622831643,
+      "reciprocity_max_abs_s": 0.0
+    },
+    {
+      "frequency_hz": 10000.0,
+      "y_real_s": [
+        [
+          9.400460067522778e-08,
+          -8.226730202151916e-08,
+          -9.888160823891036e-37
+        ],
+        [
+          -8.226730202151916e-08,
+          1.6883452385375506e-07,
+          -8.226727044681164e-08
+        ],
+        [
+          -9.888160823891036e-37,
+          -8.226727044681164e-08,
+          9.400650308092218e-08
+        ]
+      ],
+      "y_imag_s": [
+        [
+          2.5799765960429637e-06,
+          -4.19165385822544e-09,
+          -3.99549748922488e-36
+        ],
+        [
+          -4.19165385822544e-09,
+          2.563797722746869e-06,
+          -4.191737195078138e-09
+        ],
+        [
+          -3.99549748922488e-36,
+          -4.191737195078138e-09,
+          2.579992550610703e-06
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 6.413877374137498e-05
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": -3.9017692508118486e-05,
+          "imag": -6.656567020570313e-06
+        },
+        "magnitude": 3.958143773484523e-05,
+        "magnitude_db": -88.05016869528097,
+        "phase_deg": -170.31833398139406,
+        "input_impedance_ohm": {
+          "real": 14009.806100709606,
+          "imag": -386702.06381780317
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.0037315026232290433,
+            "imag": -0.031841089822375594
+          },
+          {
+            "real": -3.9017692508118486e-05,
+            "imag": -6.656567020570313e-06
+          }
+        ]
+      },
+      "intrinsic_transfer": {
+        "vout_over_vin": {
+          "real": -0.0010007702670634297,
+          "imag": -0.00020681613476849196
+        },
+        "magnitude": 0.0010219168464404467,
+        "magnitude_db": -59.8116888276913,
+        "phase_deg": -168.32379588515317,
+        "input_impedance_ohm": {
+          "real": 14009.973385344758,
+          "imag": -386702.4144175069
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.0037215399271268474,
+            "imag": -0.031811212388942973
+          },
+          {
+            "real": -0.0010007702670634297,
+            "imag": -0.00020681613476849196
+          }
+        ]
+      },
+      "solve_seconds": 2.3875803342089057,
+      "reciprocity_max_abs_s": 0.0
+    },
+    {
+      "frequency_hz": 100000.0,
+      "y_real_s": [
+        [
+          1.5694281983855172e-07,
+          -7.022952968782925e-08,
+          -7.277306857294777e-36
+        ],
+        [
+          -7.022952968782925e-08,
+          1.935985745424257e-07,
+          -7.02294433486791e-08
+        ],
+        [
+          -7.277306857294777e-36,
+          -7.02294433486791e-08,
+          1.5694748839236563e-07
+        ]
+      ],
+      "y_imag_s": [
+        [
+          2.5552559949429718e-05,
+          -7.548836901682669e-08,
+          -1.4797903596744471e-35
+        ],
+        [
+          -7.548836901682669e-08,
+          2.5569513476831897e-05,
+          -7.548981745901657e-08
+        ],
+        [
+          -1.4797903596744471e-35,
+          -7.548981745901657e-08,
+          2.5552691522132795e-05
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 0.0006413877374137497
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": 4.9793293532655086e-08,
+          "imag": -6.213744583508437e-07
+        },
+        "magnitude": 6.23366336572351e-07,
+        "magnitude_db": -124.10513308948701,
+        "phase_deg": -85.41844335174993,
+        "input_impedance_ohm": {
+          "real": 239.7226842246891,
+          "imag": -39133.604389218024
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.002972904118000151,
+            "imag": -0.0027241046317070202
+          },
+          {
+            "real": 4.9793293532655086e-08,
+            "imag": -6.213744583508437e-07
+          }
+        ]
+      },
+      "intrinsic_transfer": {
+        "vout_over_vin": {
+          "real": 1.3951306661811844e-06,
+          "imag": -1.6210021316163907e-05
+        },
+        "magnitude": 1.6269947161752166e-05,
+        "magnitude_db": -95.77227714949481,
+        "phase_deg": -85.08090698364848,
+        "input_impedance_ohm": {
+          "real": 239.72268246004634,
+          "imag": -39133.604379413104
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.0029728656526225397,
+            "imag": -0.002724154640998122
+          },
+          {
+            "real": 1.3951306661811844e-06,
+            "imag": -1.6210021316163907e-05
+          }
+        ]
+      },
+      "solve_seconds": 2.387619035784155,
+      "reciprocity_max_abs_s": 0.0
+    },
+    {
+      "frequency_hz": 1000000.0,
+      "y_real_s": [
+        [
+          1.6208358161854104e-07,
+          -6.857431663946325e-08,
+          -7.467855612424711e-36
+        ],
+        [
+          -6.857431663946325e-08,
+          1.9710275928674036e-07,
+          -6.857425898466422e-08
+        ],
+        [
+          -7.467855612424711e-36,
+          -6.857425898466422e-08,
+          1.6208797685993266e-07
+        ]
+      ],
+      "y_imag_s": [
+        [
+          0.0002553357765567006,
+          -8.012586032210269e-07,
+          -1.3254334344658986e-34
+        ],
+        [
+          -8.012586032210269e-07,
+          0.00025559867125647163,
+          -8.012728018069685e-07
+        ],
+        [
+          -1.3254334344658986e-34,
+          -8.012728018069685e-07,
+          0.000255337092346707
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 0.006413877374137497
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": 3.7392684994547466e-07,
+          "imag": -6.416918323591256e-08
+        },
+        "magnitude": 3.7939290081300895e-07,
+        "magnitude_db": -128.4182159974965,
+        "phase_deg": -9.737616514552563,
+        "input_impedance_ohm": {
+          "real": 2.4795657676818865,
+          "imag": -3916.448291215124
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.003135037042865005,
+            "imag": -0.0002658717626056738
+          },
+          {
+            "real": 3.7392684994547466e-07,
+            "imag": -6.416918323591256e-08
+          }
+        ]
+      },
+      "intrinsic_transfer": {
+        "vout_over_vin": {
+          "real": 9.767799024845022e-06,
+          "imag": -1.670119422522831e-06
+        },
+        "magnitude": 9.909550780698959e-06,
+        "magnitude_db": -100.07892064972037,
+        "phase_deg": -9.702729687513848,
+        "input_impedance_ohm": {
+          "real": 2.4795656450216423,
+          "imag": -3916.448291564062
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.003135066066537321,
+            "imag": -0.0002658792949665262
+          },
+          {
+            "real": 9.767799024845022e-06,
+            "imag": -1.670119422522831e-06
+          }
+        ]
+      },
+      "solve_seconds": 2.3928080019541085,
+      "reciprocity_max_abs_s": 0.0
+    },
+    {
+      "frequency_hz": 10000000.0,
+      "y_real_s": [
+        [
+          1.621393729615632e-07,
+          -6.855568678505022e-08,
+          -7.469139647589248e-36
+        ],
+        [
+          -6.855568678505022e-08,
+          1.971424840753444e-07,
+          -6.855562948149786e-08
+        ],
+        [
+          -7.469139647589248e-36,
+          -6.855562948149786e-08,
+          1.6214376498292937e-07
+        ]
+      ],
+      "y_imag_s": [
+        [
+          0.002553337323397989,
+          -8.017811762026877e-06,
+          -1.3239463311859543e-33
+        ],
+        [
+          -8.017811762026877e-06,
+          0.0025559757886485096,
+          -8.017953703980863e-06
+        ],
+        [
+          -1.3239463311859543e-33,
+          -8.017953703980863e-06,
+          0.0025533504814371044
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 0.06413877374137499
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": 3.7710050529013016e-07,
+          "imag": -6.419140915375661e-09
+        },
+        "magnitude": 3.7715513579979647e-07,
+        "magnitude_db": -128.4695994805927,
+        "phase_deg": -0.9752152540034881,
+        "input_impedance_ohm": {
+          "real": 0.024804603604852003,
+          "imag": -391.64815257970025
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.00313689200843735,
+            "imag": -2.6579809450734407e-05
+          },
+          {
+            "real": 3.7710050529013016e-07,
+            "imag": -6.419140915375661e-09
+          }
+        ]
+      },
+      "intrinsic_transfer": {
+        "vout_over_vin": {
+          "real": 9.849763337767797e-06,
+          "imag": -1.670660998078123e-07
+        },
+        "magnitude": 9.851180076099493e-06,
+        "magnitude_db": -100.13023484214786,
+        "phase_deg": -0.9717253407879847,
+        "input_impedance_ohm": {
+          "real": 0.024804602367633842,
+          "imag": -391.6481526162321
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.003136921719402576,
+            "imag": -2.6580565172661634e-05
+          },
+          {
+            "real": 9.849763337767797e-06,
+            "imag": -1.670660998078123e-07
+          }
+        ]
+      },
+      "solve_seconds": 2.3801397499628365,
+      "reciprocity_max_abs_s": 0.0
+    },
+    {
+      "frequency_hz": 100000000.0,
+      "y_real_s": [
+        [
+          1.6213993136094581e-07,
+          -6.855550025366316e-08,
+          -7.469152408858512e-36
+        ],
+        [
+          -6.855550025366316e-08,
+          1.971428818560309e-07,
+          -6.855544295363012e-08
+        ],
+        [
+          -7.469152408858512e-36,
+          -6.855544295363012e-08,
+          1.621443233500581e-07
+        ]
+      ],
+      "y_imag_s": [
+        [
+          0.025533371188163217,
+          -8.017864085418755e-05,
+          -1.3239314693819713e-32
+        ],
+        [
+          -8.017864085418755e-05,
+          0.02555975679264302,
+          -8.018006026931948e-05
+        ],
+        [
+          -1.3239314693819713e-32,
+          -8.018006026931948e-05,
+          0.025533502768568462
+        ]
+      ],
+      "termination_s": {
+        "real": 1.6666666666666667e-13,
+        "imag": 0.6413877374137498
+      },
+      "transfer": {
+        "vout_over_vin": {
+          "real": 3.771322345807993e-07,
+          "imag": -6.419163161468769e-10
+        },
+        "magnitude": 3.7713278088289274e-07,
+        "magnitude_db": -128.47011432999398,
+        "phase_deg": -0.09752298219397423,
+        "input_impedance_ohm": {
+          "real": 0.0002480469314311399,
+          "imag": -39.16481858401248
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.003136910584364699,
+            "imag": -2.6579735689757337e-06
+          },
+          {
+            "real": 3.771322345807993e-07,
+            "imag": -6.419163161468769e-10
+          }
+        ]
+      },
+      "intrinsic_transfer": {
+        "vout_over_vin": {
+          "real": 9.850582791436033e-06,
+          "imag": -1.67066641917017e-08
+        },
+        "magnitude": 9.850596958741339e-06,
+        "magnitude_db": -100.13074899810562,
+        "phase_deg": -0.09717398964083299,
+        "input_impedance_ohm": {
+          "real": 0.0002480469190578966,
+          "imag": -39.16481858766731
+        },
+        "node_voltages": [
+          {
+            "real": 1.0,
+            "imag": 0.0
+          },
+          {
+            "real": 0.003136940302204205,
+            "imag": -2.65804914365382e-06
+          },
+          {
+            "real": 9.850582791436033e-06,
+            "imag": -1.67066641917017e-08
+          }
+        ]
+      },
+      "solve_seconds": 2.387595142237842,
+      "reciprocity_max_abs_s": 0.0
+    }
+  ],
+  "elapsed_seconds": 22.39040754456073
+}

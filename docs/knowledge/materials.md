@@ -2,35 +2,34 @@
 
 ## Current Candidate Stack
 
-Status: two candidate prototype cores sharing one mechanical stack; neither has yet been validated by high-voltage or low-frequency-noise testing.
+Status: the current prototype uses MELF resistors. Ferrite is retained only as
+an archived option after noisy, unstable multimeter resistance readings made it
+unsuitable for the present design.
 
 The concrete first-article geometry, available purpose-sized ferrite options,
 simulated MELF/ferrite comparison, and test sequence are recorded in
 `docs/knowledge/prototype-plan.md`.
 
-- Washer dielectric: both prototype paths use stock alumina washers. Alumina is readily sourced, mechanically robust, and a conservative high-voltage ceramic choice, but its moderate relative permittivity limits the available shunt capacitance compared with high-k ceramics. That limitation is especially important for the lower-resistance MELF option at 50/60 Hz.
-- Continuous epoxy is an alternate washer-material setting for studying a cast, washerless assembly. It removes the alumina washer interface and may reduce thermal-stress concentrations associated with that interface, but it also reduces shunt capacitance in proportion to the lower epoxy permittivity and makes void control, adhesion, cure shrinkage, and polymer partial-discharge endurance more central. The model links this region to the selected potting epoxy electrically and mechanically.
-- Potting and fill: MG Chemicals 9510 One-Part Epoxy Potting Compound, Heat Cure. MG's SDS/TDS database lists 9510 as a one-part epoxy potting compound in liquid format. Pull the dielectric constant, dielectric strength, volume resistivity, cure schedule, shrinkage, and thermal limits from the current TDS before freezing model defaults.
-- Resistive core / conductor path A: Fair-Rite type 61 NiZn ferrite is the first concrete bulk-resistive sample set. Its nominal resistivity is near the compact high-resistance target and it can be machined into discs, but excess 1/f noise from the polycrystalline conduction path is a primary measurement risk.
-- Resistive core / conductor path B: high-value MELF resistors provide a specified, repeatable, low-noise component path. Readily available per-stage resistance is lower than preferred; combined with alumina's modest capacitance, the present simulated ladder gives poor attenuation at power-line frequency.
-- Shared conductors: both prototypes use machined copper bias/ground plates and a copper ground tube because those parts are readily sourced and fabricated.
-- Ferrite-to-plate contact: conductive epoxy between ferrite discs and bias plates. Exact product is TBD; verify contact resistance, cure compatibility, squeeze-out control, HV behavior, outgassing, and long-term stability.
-- Ferrite resistance-tuning option: conductive interleave discs may replace part of each ferrite section if a stock rod is too resistive. The first-order model reduces calculated resistance by `1 - fill` and increases ferrite Cpar by `1 / (1 - fill)`. Treat this as a sensitivity parameter until disc-edge fields and contact behavior are modeled.
+- Washer dielectric: the current reference uses continuous Stycast 2850FT/CAT 23LV in the former washer volume. This removes a distinct alumina interface but makes void control, adhesion, cure shrinkage, and polymer partial-discharge endurance central. Stock alumina washers remain an available comparison and prototype branch.
+- Potting and fill: Stycast 2850FT with CAT 23LV, mixed `100:7.5` by weight, cured `16-24 h at 25 C`, and post-cured `2-4 h at 45 C`. The post-cure is intended to advance polymer-network development while keeping the assumed cooldown smaller than the former 80 C CAT 11 process.
+- Current resistive path: high-value MELF resistors provide a specified, repeatable, low-noise component path. Readily available per-stage resistance is lower than preferred, so stage count and capacitance remain important.
+- Archived ferrite path: Fair-Rite type 61 NiZn offered attractive bulk resistance, but unstable multimeter readings and unknown excess noise removed it from current consideration. Conductive interleave and ferrite-contact models remain sensitivity tools only.
+- Shared conductors: the prototype uses machined copper bias/ground plates and a copper ground tube because those parts are readily sourced and fabricated.
 - Mechanical positioning: temporary or permanent spacers to hold the plate, ferrite-disc, and washer stack aligned during conductive-epoxy cure and final potting.
 
 ## Assembly Process Candidate
 
-- Cut the NiZn ferrite samples into discs with a diamond saw.
-- Lap or polish the disc faces to controlled thickness and parallelism.
-- Clean and inspect ferrite surfaces before bonding; record any chipped edges, cracks, or conductive debris.
-- Assemble bias plates, ground plates, alumina washers, ferrite discs, spacers, and conductive-epoxy joints in the parameterized prototype fixture.
-- Fill with MG Chemicals 9510 epoxy after the conductive joints and mechanical spacers hold the stack position.
+- Inspect MELF bodies and terminations before assembly.
+- Assemble bias plates, ground plates, MELF elements, and temporary spacers in the parameterized prototype fixture while preserving open epoxy flow paths.
+- Fill with Stycast 2850FT/CAT 23LV after the conductive joints and mechanical spacers hold the stack position.
 - Vacuum degas aggressively, using repeated vacuum and nitrogen-pressure cycles if available, to reduce voids that could seed partial discharge.
 - Cure using the vendor TDS schedule; record time, temperature, ramp rate, fixture constraint, and post-cure inspection.
 
 ## Resistive Core
 
-The desired central resistance is approximately 100 Mohm to low Gohm. The first prototype may use NiZn ferrite if its volume resistivity gives the target resistance at reasonable dimensions.
+The desired central resistance is approximately 100 Mohm to low Gohm. The
+present prototype remains MELF-based even though available per-stage values are
+lower; ferrite would require new stability and noise evidence before reuse.
 
 The web model separates the core controls:
 
@@ -52,7 +51,7 @@ Current web presets:
 | --- | --- | --- | --- |
 | Fair-Rite 61 NiZn | `epsr = 12`, `rho = 1e8 ohm-cm` | Conductive core OD from geometry | First physical ferrite sample set. |
 | NiZn ferrite | `epsr = 15`, `rho = 1e8 ohm-cm` | Conductive core OD from geometry | Generic NiZn sensitivity check. |
-| MMB0207 MELF | Defaults to direct `Stage R = 12 Mohm`; Cpar from effective ceramic/film geometry | 2.2 mm axial core surrogate | Single 0207 MELF modeled as a discrete direct stage by default. |
+| MMB0207 MELF | Defaults to direct `Stage R = 10 Mohm`; Cpar from effective ceramic/film geometry | 2.2 mm axial core surrogate | Single 0207 MELF modeled as a discrete direct stage by default. |
 | MELF chain in 9510 | Defaults to direct `Stage R = 240 Mohm`, `Stage Cpar = 0.5 pF` | Conductive core OD from geometry | Epoxy-potted discrete resistor-chain approximation by default. |
 | Conductive epoxy | `epsr = 4`, `rho = 1e-3 ohm-cm` | Conductive core OD from geometry | Placeholder for a conductive-epoxy-dominated core/contact region. |
 
@@ -75,7 +74,14 @@ A second MELF option is to use a single 0207 resistor as the per-stage axial ele
 
 The main benefit is a specified low-noise resistor technology instead of a ferrite body whose bias-noise behavior is uncertain. The main risk is stray capacitance from the spiral-trimmed metal-film structure and end-cap geometry. The current first-draft model uses `eps_eff = eps_substrate / (1 - film_fill_factor)`, defaulting to alumina-like `eps_substrate = 9.8` and `film_fill_factor = 0.50` for 0207. This needs either a geometry-specific measurement or a better package model before final design.
 
-Current MELF-chain candidate: Vishay Beyschlag MMB 0207 professional thin-film MELF, now using 12 Mohm as the default per-stage value because that value was found in stock. Verify the exact orderable code before purchase.
+Current MELF-chain candidate: Vishay Beyschlag MMB 0207 professional thin-film MELF, using the available 10 Mohm value as the default per-stage resistance. Verify the exact orderable code before purchase.
+
+Vishay documents the MELF body as a high-grade alumina (`Al2O3`) ceramic rod
+carrying a deposited metal-alloy film, with nickel-plated steel caps, a
+protective coating, and tin-over-nickel terminations. The thermal FEA therefore
+uses alumina elastic modulus, Poisson ratio, and CTE for the axisymmetric MELF
+core surrogate. This captures the mechanically dominant ceramic body but omits
+the thin helical film, caps, plating, and coating.
 
 Important correction: do not size this resistor option as if the full 6 kV DC detector bias appears across the MELF resistor in normal operation. The detector load is below 1 nA, so the steady resistor drop is approximately `I * R`, not the full supply voltage. Use `docs/knowledge/resistor-voltage-stress.md` before making resistor voltage-rating or resistor-count arguments. Pulse/surge robustness may still matter if a dielectric breakdown dumps stored capacitance, but that is a pF-scale capacitive-energy question rather than a steady 6 kV-per-string requirement.
 
@@ -95,7 +101,7 @@ In code and JSON, the suffix `epsr` means relative permittivity, `epsilon_r`. Th
 
 ## Washer Dielectric Options
 
-Approximate capacitance improvement in the web model scales linearly with washer `epsr`, because the first-pass estimate is a parallel-plate capacitance through the washer overlap region. The app now defaults to alumina (`epsr = 10`) and reports `C vs FR4` using FR4/G10 as `epsr = 4.4`.
+Approximate capacitance improvement in the web model scales linearly with washer `epsr`, because the first-pass estimate is a parallel-plate capacitance through the washer overlap region. The app now defaults to continuous Stycast 2850FT/CAT 23LV (`epsr = 5.36`) and reports `C vs FR4` using FR4/G10 as `epsr = 4.4`. Alumina (`epsr = 10`) remains selectable.
 
 The web interface uses provisional dielectric-strength values to set minimum clearances. It rounds the minimum upward from `bias_voltage / dielectric_strength`. The core-to-ground radial gap uses the epoxy/fill breakdown value for that minimum because epoxy occupies that region; its maximum comes from the available geometry while preserving the minimum radial overlap between the ground and HV plates, with the backend's 50 mm limit as the final ceiling. Washer-controlled axial ranges retain the 10-times-minimum screening range. Custom and generic high-K screening presets use a `0.4 mm` fallback minimum until a real material is selected. After a field solve, the web interface reports the neighborhood-supported electric field in the washer and epoxy/fill regions and displays `E_breakdown / E_max` as a first-pass design margin where a placeholder breakdown strength is available. The raw point maximum remains available as a mesh-artifact diagnostic. The epoxy/fill bucket includes the core-to-ground dielectric gap around the conductive core and the rounded-edge pockets outside the flat washer slabs.
 
@@ -172,14 +178,13 @@ not published values.
 
 ## Thermal mismatch warning
 
-The heat-cured default 9510/alumina/copper assembly has potentially limiting
-thermal-mismatch stress even though the cured epoxy itself is specified to
--65 °C. The radial-and-hoop plane-stress baseline crosses the published bulk
-tensile strength near +4 °C; the assumed 2 to 4 GPa modulus range moves that
-proxy crossing from approximately -29 to +21 °C, while a 50% restraint
-sensitivity moves it to approximately -62 °C. None of these values predicts
-interface separation. The wide range is caused by unpublished 9510 modulus
-and interface-fracture data and uncertain free-edge relief.
+The CAT 23LV/continuous-epoxy/copper default conservatively uses the selected
+`45 C` post-cure bake as its stress-free reference. At `20 C`, the `0.30 mm`
+FEniCSx result gives `5.298 MPa` P99 maximum-principal epoxy tension versus
+`3.600 MPa` for the radial-and-hoop closed form. The raw corner peak is
+`13.159 MPa` and remains a mesh-sensitive diagnostic. CAT 23LV tensile and
+interface strengths are not published, so the displayed `20 MPa` line is only a provisional bulk proxy;
+none of these values predicts separation.
 
 Treat `docs/knowledge/thermal-stress.md` and
 `simulations/thermal/outputs/default-thermal-stress.json` as the calculation of
@@ -188,14 +193,11 @@ the temperature at which an interface opens. That requires a cohesive-interface
 model plus adhesion strength or fracture-energy data for the actual bonded
 surfaces.
 
-The 3.9% shrinkage number currently carried by the thermal calculation comes
-from the MG Chemicals 9510 TDS, version 5.2 (23 January 2026), page 2. In the
-Liquid Properties table the complete entry is `Shrinkage 3.9% Calculated`.
-The TDS does not say whether it is linear, volumetric, mass-based, or tied to a
-specific cure/gel reference state. It also reports a separate 3.9% weight loss
-at 155 °C after 600 hours on page 3; do not confuse that unrelated property
-with shrinkage. Resolving the definition and the post-gel locked-in fraction is
-a priority follow-up before residual cure stress is added to the model.
+The CAT 23LV TDS publishes `0.3%` linear shrinkage. It is recorded but not added
+as elastic strain because the fraction locked in after gel and the amount
+relaxed during the long heat cure are not established. The older MG 9510
+comparison carries its separate, less clearly defined `3.9% calculated`
+shrinkage value.
 
 ## Alumina And Partial Discharge Notes
 

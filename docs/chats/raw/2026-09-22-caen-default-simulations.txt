@@ -1,0 +1,15 @@
+Reconstructed collaboration record — 2026-09-22
+Intermediate tool logs omitted. This continues prior DP270 selection and cure discussion.
+
+USER: run the simulations for the default and update the slides. also update the filter to use 40k to the filtered output and 1nf to ground based on the schematic i got from caen. i expect this circuit to help filter out pickup noise, especially at 50 Hz where the discoidal capacitor isn't great.
+Attachment: CAEN A1560 HV board circuit sketch.pdf
+
+ASSISTANT findings: The sketch shows the final output series resistor followed by 1 nF and a 300 Mohm divider to ground. The sketch gives only a few tens of k; 40 kohm is the user's chosen approximation. The internal HV filter remains unspecified.
+
+Work: updated DP270 continuous-epoxy defaults, circuit Thevenin and ngspice networks, thermal FEA with integrated DP270 CTE and provisional 40 C reference; regenerated FEniCSx field, thermal, EQS, ngspice/LMFE and MEEP data; updated web slide bundles and source-coupling comparison.
+
+Results: 50 Hz input-current pickup is 27.27 dB lower than with the old 1 Mohm source assumption. Ideal input series-voltage pickup is not reduced (+0.27 dB); cryostat series-voltage pickup is essentially unchanged. Adding 1 nF to 40 kohm changes the complete 50 Hz supply path by only -0.0021 dB. RC corner 3.98 kHz. Field peak 7.61 kV/mm at 6 kV; thermal P99 tensile 11.80 MPa for 40 to 20 C; raw corner 25.71 MPa is mesh-sensitive. Lap shear is not a tensile criterion.
+
+Validation: EQS mesh/static/reciprocity/passivity checks pass, but lumped/EQS maximum discrepancy 2.31 dB at100kHz exceeds2dB. MEEP original overlap discrepancy21.82dB improved to2.77dB with solver tolerance1e-8; still fails2dB. These failures remain explicitly flagged; high-frequency curve is diagnostic, not a validated handoff or verified resonance.
+
+Deployment: published to http://pi-05-ioc.fel.duke.edu/filter/ and restarted agent-sites.service. Verified matching live file hashes and loaded field/SPICE/thermal defaults; browser reported no errors. Backend66 tests, thermal11 tests, CAEN3 tests and epoxy JS checks pass. Scientific validation flags remain failed as documented.

@@ -1,0 +1,194 @@
+{
+  "parameters": {
+    "units": "mm",
+    "bias_voltage_v": 6000,
+    "core_volume_resistivity_log10_ohm_cm": 8.0,
+    "core_volume_resistivity_ohm_cm": 100000000.0,
+    "use_direct_stage_circuit": true,
+    "use_direct_stage_capacitance": false,
+    "melf_stage_resistance_mohm": 10.0,
+    "melf_stage_resistance_log10_ohm": 7.0,
+    "melf_stage_parasitic_pf": 0.3,
+    "melf_substrate_epsr": 9.8,
+    "melf_metal_fill_factor": 0.5,
+    "ferrite_conductor_fill_factor": 0.0,
+    "input_series_resistance_mohm": 10.0,
+    "output_series_resistance_ohm": 47.0,
+    "input_series_matches_stage": true,
+    "output_series_matches_stage": false,
+    "bias_source_resistance_mohm": 0.04,
+    "source_cable_length_m": 10.0,
+    "source_cable_impedance_ohm": 50.0,
+    "source_cable_velocity_factor": 0.66,
+    "load_current_na": 1.0,
+    "load_cable_length_m": 10.0,
+    "load_cable_impedance_ohm": 50.0,
+    "load_cable_velocity_factor": 0.66,
+    "detector_capacitance_pf": 10.0,
+    "additional_ground_capacitance_pf": 0.0,
+    "noise_sample_rate_msps": 62.5,
+    "noise_waveform_samples": 8192,
+    "noise_trap_rise_us": 10.0,
+    "noise_trap_flat_us": 4.0,
+    "noise_supply_noise_pp_mv": 10.0,
+    "noise_lab_broadband_rms_mv": 0.05,
+    "noise_mains_rms_mv": 0.2,
+    "noise_cryostat_broadband_rms_mv": 0.05,
+    "noise_cryostat_mains_rms_mv": 0.2,
+    "noise_mains_frequency_hz": 50.0,
+    "noise_fano_factor": 0.114545454545455,
+    "core_resistance_gohm": 0.030000047000000002,
+    "core_od_mm": 2.2,
+    "use_package_core_od": true,
+    "core_material": "mmb0207_melf",
+    "ferrite_epsr": 6.0,
+    "core_to_ground_gap_mm": 0.8999999999999999,
+    "hv_to_tube_gap_mm": 1.5,
+    "hv_plate_od_mm": 23.0,
+    "ground_plate_inner_diameter_mm": 4.0,
+    "washer_id_mm": 4.0,
+    "washer_od_mm": 23.0,
+    "washer_id_mode": "custom",
+    "washer_od_mode": "custom",
+    "ground_plate_od_mm": 26.0,
+    "tube_id_mm": 26.0,
+    "plate_gap_mm": 1.0,
+    "plate_thickness_mm": 2.0,
+    "bias_plate_thickness_mm": 2.0,
+    "ground_plate_thickness_mm": 2.0,
+    "ground_matches_bias_thickness": true,
+    "edge_diameter_percent": 100.0,
+    "edge_radius_mm": 1.0,
+    "washer_material": "epoxy",
+    "washer_epsr": 3.5,
+    "epoxy_material": "three_m_dp270",
+    "epoxy_epsr": 3.5,
+    "plate_material": "copper",
+    "plate_conductivity_log10_s_per_m": 7.763427993562937,
+    "plate_relative_permeability": 1.0,
+    "tube_material": "copper",
+    "tube_conductivity_log10_s_per_m": 7.763427993562937,
+    "tube_relative_permeability": 1.0,
+    "rf_compare_frequency_log10_mhz": 0.0,
+    "plate_pairs": 3,
+    "include_ground_tube": true,
+    "field_solver": "backend_auto",
+    "mesh_edge_radius_ratio": 0.2,
+    "tube_wall_thickness_mm": 1.0,
+    "domain_margin_mm": 4.0,
+    "grid_r_count": 90,
+    "grid_z_count": 150,
+    "solver_iterations": 700,
+    "solver_tolerance_v": 0.01,
+    "solve_strategy": "end_repeat_approx",
+    "use_repeating_cell_approximation": true,
+    "thermal_min_temperature_c": 20.0,
+    "thermal_epoxy_modulus_gpa": 3.0,
+    "thermal_restraint_factor": 1.0,
+    "thermal_mesh_size_mm": 0.3,
+    "full_wave_resolution_per_mm": 2.0,
+    "full_wave_timeout_hours": 2.0,
+    "full_wave_verify_resonances": false,
+    "full_wave_eqs_frequencies_hz": [
+      50.0,
+      1000.0,
+      1000000.0,
+      31250000.0,
+      100000000.0,
+      300000000.0,
+      1000000000.0
+    ],
+    "full_wave_frequencies_hz": [
+      300000000.0,
+      1000000000.0,
+      3000000000.0,
+      10000000000.0,
+      30000000000.0
+    ],
+    "epoxy_cure_schedule": "three_m_dp270:40",
+    "bias_source_capacitance_nf": 1.0,
+    "bias_source_divider_mohm": 300.0,
+    "washer_id_matches_ground": false,
+    "washer_od_matches_bias": false,
+    "full_wave_tolerance": 1e-08,
+    "full_wave_max_iterations": 30000
+  },
+  "samples": [
+    {
+      "frequency_hz": 300000000.0,
+      "resolution_per_mm": 2,
+      "vin": {
+        "real": 0.0025244284569179857,
+        "imag": -2.1846923291555322
+      },
+      "vout": {
+        "real": 1.965639837450039e-07,
+        "imag": -3.8798447892677845e-07
+      },
+      "vout_over_vin": {
+        "real": 1.7769600166235783e-07,
+        "imag": 8.976797340499339e-08
+      },
+      "magnitude": 1.9908329426656642e-07,
+      "magnitude_db": -134.01930363041535,
+      "phase_deg": 26.80186602272961,
+      "outward_flux_meep": {
+        "radial": 5.265927382146711e-07,
+        "input_side": -8.136860626133616e-06,
+        "output_side": -1.0095760723715791e-09,
+        "signed_total": -7.611277463991317e-06,
+        "positive_outward_total": 5.265927382146711e-07
+      },
+      "outward_flux_fraction": {
+        "radial": 1.0,
+        "input_side": 0.0,
+        "output_side": 0.0
+      },
+      "convergence": {
+        "converged": true,
+        "final_residual": 9.14758e-09,
+        "iterations": 3176,
+        "failure_reported": false
+      },
+      "solve_seconds": 122.894518553745
+    },
+    {
+      "frequency_hz": 1000000000.0,
+      "resolution_per_mm": 2,
+      "vin": {
+        "real": 0.00575585614342691,
+        "imag": -0.6534306232985077
+      },
+      "vout": {
+        "real": -9.435225313856753e-09,
+        "imag": -9.404374936669154e-08
+      },
+      "vout_over_vin": {
+        "real": 1.4378473263376804e-07,
+        "imag": -1.5706073735435323e-08
+      },
+      "magnitude": 1.446400016964432e-07,
+      "magnitude_db": -136.7942316354998,
+      "phase_deg": -6.233888593163877,
+      "outward_flux_meep": {
+        "radial": -2.8478631549689523e-08,
+        "input_side": 5.933313365864153e-07,
+        "output_side": 5.850715909143694e-10,
+        "signed_total": 5.654377766276401e-07,
+        "positive_outward_total": 5.939164081773296e-07
+      },
+      "outward_flux_fraction": {
+        "radial": 0.0,
+        "input_side": 0.9990148923605093,
+        "output_side": 0.0009851076394907087
+      },
+      "convergence": {
+        "converged": true,
+        "final_residual": 8.03269e-09,
+        "iterations": 1524,
+        "failure_reported": false
+      },
+      "solve_seconds": 60.01906695496291
+    }
+  ]
+}

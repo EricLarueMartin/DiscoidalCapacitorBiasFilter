@@ -1,19 +1,16 @@
-# Shared-geometry prototype plan
+# MELF prototype plan and archived ferrite trade
 
 ## Objective
 
-Build one discoidal-capacitor mechanical envelope that can compare two
-resistive-core approaches:
+Build the present discoidal-capacitor prototype around commercial 0207 MELF
+resistors. Type 61 NiZn ferrite was considered because its bulk resistance
+could provide much greater 50/60 Hz attenuation, but multimeter resistance
+readings were too noisy and unstable to support a predictable first article.
+Ferrite geometry, sourcing, and simulations remain below as an archived trade,
+not a current prototype plan. Reconsider it only after guarded resistance and
+voltage-noise measurements under representative DC bias overturn that concern.
 
-1. A commercial 0207 MELF resistor at each resistive section.
-2. A Type 61 NiZn ferrite insert with approximately the same outside diameter.
-
-The ferrite path is expected to provide much greater 50/60 Hz attenuation if
-its bulk resistivity is near the current `1e8 ohm-cm` assumption. Its unknown
-excess noise, bias dependence, contact resistance, and sample-to-sample
-variation are the main reasons for prototyping both paths.
-
-## Ferrite geometry criterion
+## Archived ferrite geometry criterion
 
 Use a commercially available rod near the target diameter rather than grinding
 a larger diameter down. The current pre-run reference uses 2.0 mm nominal OD.
@@ -34,50 +31,47 @@ for an ideal sourcing match.
 
 ## Shared first-article geometry
 
-The off-the-shelf washer candidate is the 6.6 mm ID x 20 mm OD x 1.5 mm thick
+The off-the-shelf washer fallback is the 6.6 mm ID x 20 mm OD x 1.5 mm thick
 alumina variant in Amazon listing B0GGR4WP38. Dimensions and alumina grade must
 be checked on receipt because the listing combines multiple variants and is not
-a controlled engineering drawing. This remains the best readily available
-prototype washer geometry found so far; use it as the sourcing baseline rather
-than delaying the first article for a thinner or custom washer.
+a controlled engineering drawing. The promoted reference instead uses a 1.0 mm
+continuous epoxy gap to remove the washer/potting interface.
 
 Use the current parameterized copper envelope:
 
 | Feature | Prototype value |
 | --- | ---: |
-| Washer | 6.6 mm ID x 20.0 mm OD x 1.5 mm thick |
-| Bias plate flat OD | 20.0 mm |
-| Bias plate maximum OD | 21.5 mm with 0.75 mm edge radius |
-| Ground plate flat ID | 6.6 mm |
-| Ground plate minimum ID | 5.1 mm with 0.75 mm edge radius |
-| Bias and ground plate thickness | 1.5 mm |
+| Dielectric gap | 1.0 mm continuous Stycast 2850FT/CAT 23LV |
+| Bias plate maximum OD | 23.0 mm with 1.0 mm edge radius |
+| Ground plate minimum ID | 4.0 mm with 1.0 mm edge radius |
+| Bias and ground plate thickness | 2.0 mm |
 | Ground tube ID | 26.0 mm |
 | MELF core OD | 2.2 mm |
 | Ferrite comparison OD | 2.0 mm |
 | Bias voltage | 6 kV |
-| Bias plates in first simulation | 2 |
+| Bias plates in reference simulation | 3 |
 
-The 2.0 and 2.2 mm inserts both clear the 5.1 mm minimum ground-plate ID. The
-nominal minimum core-to-ground radial gaps are 1.55 mm for the 2.0 mm ferrite
-and 1.45 mm for the 2.2 mm MELF. The same washers and conductor parts can
-therefore test both paths without changing the primary capacitive geometry.
+The 2.0 and 2.2 mm inserts both clear the 4.0 mm minimum ground-plate ID. The
+nominal minimum core-to-ground radial gaps are 1.00 mm for the 2.0 mm ferrite
+and 0.90 mm for the 2.2 mm MELF. The same mold and conductor parts can therefore
+test both paths without changing the primary capacitive geometry.
 
-The purpose-sized 2.0 mm rod is preferred because it closely matches the
+The purpose-sized 2.0 mm rod was preferred because it closely matches the
 2.2 mm MELF package while preserving slightly more core-to-ground clearance.
-The 2.5 mm rod also fits the same washer and plate envelope, with a nominal
-1.30 mm core-to-ground radial gap, and can be retained as an alternate if its
+The 2.5 mm rod also fits the same plate envelope, with a nominal
+0.75 mm core-to-ground radial gap, and can be retained as an alternate if its
 measured resistance is more useful.
 
 ### Reference potting and assembly process
 
-The fixed reference design uses **LOCTITE STYCAST 2850FT with CAT 23LV**. The
-current Henkel TDS identifies CAT 23LV as the low-viscosity, long-pot-life,
-room-temperature catalyst. Published mixed properties are 5,600 cP at 25 C,
-one hour work life for a 100 g mass, and a 16 to 24 hour cure at 25 C. The same
-TDS reports relative permittivity 5.36, dielectric strength 14.8 kV/mm, room-
-temperature-cured Tg 40 C, pre-Tg CTE 39.4 ppm/C, Shore D92 hardness, and
-0.3% linear cure shrinkage. CAT 11 gives a four-hour work life but requires a
-heat cure, so it is not the reference catalyst.
+The fixed reference design uses **LOCTITE STYCAST 2850FT with CAT 23LV** as a
+continuous dielectric rather than a separate alumina washer plus fill. Mix
+`100:7.5` by weight; the published mixed viscosity is `5,600 cP` and work life
+is one hour. The selected process is an initial `16-24 h at 25 C` cure followed
+by a `2-4 h at 45 C` post-cure when 45 C is the maximum expected service
+temperature. The post-cure is intended to advance cross-linking and stabilize
+cured properties while limiting thermal mismatch. Open flow and vent paths
+remain important.
 
 Henkel recommends vacuum deairing at 1 to 5 mm Hg until most bubbling stops,
 typically 3 to 10 minutes. The prior successful process of repeated pump-down
@@ -112,7 +106,7 @@ electrostatic and capacitance geometry. Three radial pins touching the core and
 approaching the grounded plate are not electrically neutral: they create
 interfaces and can move the local peak field.
 
-Primary data: [Henkel STYCAST 2850FT/CAT 23LV TDS](https://datasheets.tdx.henkel.com/LOCTITE-STYCAST-2850FT-CAT-23LV-en_GL.pdf).
+Primary data: [Henkel LOCTITE STYCAST 2850FT TDS](https://datasheets.tdx.henkel.com/LOCTITE-STYCAST-2850FT-en_GL.pdf).
 
 ### Continuous-epoxy construction branch
 
@@ -141,7 +135,7 @@ removed. The epoxy-filled model should therefore be compared with the alumina
 baseline using the thermal FEA and then validated by thermal-cycled, partial-
 discharge-tested coupons.
 
-## Current circuit prediction
+## Archived MELF/ferrite circuit comparison
 
 For alumina `epsr = 10`, the washer overlap estimate gives:
 
@@ -156,20 +150,24 @@ and a 1 nA load at 6 kV.
 
 | Result | MELF 0207 | Type 61, 2.0 mm |
 | --- | ---: | ---: |
-| Assumed stage resistance | 12 Mohm | 1.432 Gohm |
+| Assumed stage resistance in this archived comparison | 12 Mohm | 1.432 Gohm |
 | Calculated adjacent-stage Cpar | 0.268 pF | 0.200 pF |
 | Loaded attenuation at 50 Hz | 18.16 dB | 77.06 dB |
 | Loaded attenuation at 60 Hz | 19.73 dB | 80.19 dB |
 | Unloaded filter attenuation at 50 Hz | 0.45 dB | 47.10 dB |
 | Unloaded filter attenuation at 60 Hz | 0.63 dB | 50.21 dB |
 
-The MELF calculation uses the 12 Mohm value and the existing effective
+This older comparison used the then-proposed 12 Mohm value. The current
+reference uses an available 10 Mohm 0207 MELF and should use a freshly run
+SPICE result rather than rescaling these archived attenuation numbers. The
+MELF calculation uses the existing effective
 alumina/metal-film capacitance model. The ferrite calculation uses
 `rho = 1e8 ohm-cm`, `epsr = 12`, and a 2.0 mm cylinder across the 4.5 mm
 bias-to-bias separation. The ferrite result is an assumption-sensitivity
-prediction, not a Fair-Rite guaranteed resistance.
+prediction, not a Fair-Rite guaranteed resistance, and it is no longer used to
+select the prototype.
 
-### Conductive-interleave sensitivity
+### Archived conductive-interleave sensitivity
 
 If the measured ferrite resistance is too high, thin conductive discs can
 replace part of the axial ferrite path. This sacrifices some of the ferrite's
@@ -243,24 +241,22 @@ interfaces and may concentrate shear in the thin joints. See
 `docs/knowledge/partial-discharge-materials.md` and the checked-in thermal
 study under `simulations/thermal/alumina-insert-study/`.
 
-## Test sequence
+## Current test sequence
 
-1. Cut several nominal 2.0 mm rod sections and measure their dimensions and DC
-   resistance.
-2. Measure resistance versus length, applied voltage, temperature, and time to
-   determine whether a meaningful bulk-resistivity model exists.
-3. Compare ferrite voltage-noise spectra with the 12 Mohm MELF reference under
-   representative DC bias. Record absolute noise and normalized resistance
-   noise; add another available ferrite diameter if diameter scaling needs to
-   be separated from sample variation.
-4. Obtain and inspect the washer candidate for flatness, chips, actual
+1. Obtain and inspect the MELF resistors and verify resistance, dimensions,
+   voltage rating, and termination construction against the selected part.
+2. Measure MELF voltage-noise spectra and resistance stability under
+   representative DC bias.
+3. Obtain and inspect the washer candidate, if that branch is retained, for
+   flatness, chips, actual
    dimensions, alumina grade, and water absorption or porosity data.
-5. Build dry mechanical stacks for both 2.0 and 2.2 mm inserts before potting.
-6. Use the epoxy sample for small copper/alumina/ferrite wetting and
+4. Build a dry mechanical stack around the 2.2 mm MELF path before potting.
+5. Use the epoxy sample for small copper/alumina/MELF wetting and
    thermal-cycle coupons before committing the full assembly.
-7. Pot electrically identical MELF and ferrite stacks, then compare
-   attenuation, leakage, partial-discharge pulses, drift, and low-frequency
-   noise.
+6. Pot the MELF stack, then measure attenuation, leakage, partial-discharge
+   pulses, drift, and low-frequency noise.
+7. Revisit ferrite only if guarded resistance and excess-noise measurements
+   provide a stable, reproducible basis for a model.
 
 ## Sources
 

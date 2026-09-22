@@ -1,0 +1,163 @@
+{
+  "generated": "2026-09-22",
+  "model": "Closed-form plane-stress cooldown sensitivity; no relaxation or cure shrinkage; not FEA or a debonding limit",
+  "settings": {
+    "thermal_epoxy_modulus_gpa": 3,
+    "thermal_restraint_factor": 1,
+    "thermal_min_temperature_c": 20
+  },
+  "poisson_ratio": 0.35,
+  "missing_values": "null means unavailable, not zero",
+  "results": [
+    {
+      "material": "three_m_dp270",
+      "cure": "48 h at 23 C",
+      "reference_temperature_c": 23,
+      "cte_below_tg_ppm_c": 80,
+      "cte_above_tg_ppm_c": 180,
+      "tg_c": 49,
+      "stress_copper_mpa": 0.8736923076923077,
+      "stress_alumina_mpa": 0.9941538461538459,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        0.6627692307692307,
+        1.3255384615384613
+      ],
+      "source": "https://multimedia.3m.com/mws/media/1235390O/dp270-technical-data-sheets.pdf"
+    },
+    {
+      "material": "three_m_dp270",
+      "cure": "4 h at 50 C",
+      "reference_temperature_c": 50,
+      "cte_below_tg_ppm_c": 80,
+      "cte_above_tg_ppm_c": 180,
+      "tg_c": 49,
+      "stress_copper_mpa": 9.198461538461538,
+      "stress_alumina_mpa": 10.403076923076922,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        6.935384615384615,
+        13.87076923076923
+      ],
+      "source": "https://multimedia.3m.com/mws/media/1235390O/dp270-technical-data-sheets.pdf"
+    },
+    {
+      "material": "three_m_dp270",
+      "cure": "1 h at 80 C",
+      "reference_temperature_c": 80,
+      "cte_below_tg_ppm_c": 80,
+      "cte_above_tg_ppm_c": 180,
+      "tg_c": 49,
+      "stress_copper_mpa": 31.781538461538457,
+      "stress_alumina_mpa": 34.19076923076923,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        22.79384615384615,
+        45.5876923076923
+      ],
+      "source": "https://multimedia.3m.com/mws/media/1235390O/dp270-technical-data-sheets.pdf"
+    },
+    {
+      "material": "three_m_dp270",
+      "cure": "30 min at 100 C (confirm with 3M)",
+      "reference_temperature_c": 100,
+      "cte_below_tg_ppm_c": 80,
+      "cte_above_tg_ppm_c": 180,
+      "tg_c": 49,
+      "stress_copper_mpa": 46.83692307692307,
+      "stress_alumina_mpa": 50.04923076923076,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        33.36615384615384,
+        66.73230769230769
+      ],
+      "source": "https://multimedia.3m.com/mws/media/1235390O/dp270-technical-data-sheets.pdf"
+    },
+    {
+      "material": "master_bond_ep30",
+      "cure": "24-48 h at 75 F (23.9 C)",
+      "reference_temperature_c": 23.88888888888889,
+      "cte_below_tg_ppm_c": null,
+      "cte_above_tg_ppm_c": null,
+      "tg_c": null,
+      "stress_copper_mpa": null,
+      "stress_alumina_mpa": null,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        null,
+        null
+      ],
+      "source": "https://www.masterbond.com/tds/ep30"
+    },
+    {
+      "material": "master_bond_ep30",
+      "cure": "2-3 h at 200 F (93.3 C)",
+      "reference_temperature_c": 93.33333333333333,
+      "cte_below_tg_ppm_c": null,
+      "cte_above_tg_ppm_c": null,
+      "tg_c": null,
+      "stress_copper_mpa": null,
+      "stress_alumina_mpa": null,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        null,
+        null
+      ],
+      "source": "https://www.masterbond.com/tds/ep30"
+    },
+    {
+      "material": "mg_832c",
+      "cure": "24 h at room temperature (assumed 25 C)",
+      "reference_temperature_c": 25,
+      "cte_below_tg_ppm_c": 150,
+      "cte_above_tg_ppm_c": 161,
+      "tg_c": 53,
+      "stress_copper_mpa": 3.0715384615384616,
+      "stress_alumina_mpa": 3.2723076923076917,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        2.1815384615384614,
+        4.363076923076923
+      ],
+      "source": "https://www.mgchemicals.com/downloads/tds/tds-832c-2parts.pdf"
+    },
+    {
+      "material": "mg_832c",
+      "cure": "1 h at 65 C",
+      "reference_temperature_c": 65,
+      "cte_below_tg_ppm_c": 150,
+      "cte_above_tg_ppm_c": 161,
+      "tg_c": 53,
+      "stress_copper_mpa": 28.25307692307692,
+      "stress_alumina_mpa": 30.060000000000002,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        20.040000000000003,
+        40.080000000000005
+      ],
+      "source": "https://www.mgchemicals.com/downloads/tds/tds-832c-2parts.pdf"
+    },
+    {
+      "material": "mg_832c",
+      "cure": "30 min at 80 C",
+      "reference_temperature_c": 80,
+      "cte_below_tg_ppm_c": 150,
+      "cte_above_tg_ppm_c": 161,
+      "tg_c": 53,
+      "stress_copper_mpa": 38.22923076923077,
+      "stress_alumina_mpa": 40.63846153846154,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        27.092307692307692,
+        54.184615384615384
+      ],
+      "source": "https://www.mgchemicals.com/downloads/tds/tds-832c-2parts.pdf"
+    },
+    {
+      "material": "mg_832c",
+      "cure": "15 min at 100 C",
+      "reference_temperature_c": 100,
+      "cte_below_tg_ppm_c": 150,
+      "cte_above_tg_ppm_c": 161,
+      "tg_c": 53,
+      "stress_copper_mpa": 51.530769230769224,
+      "stress_alumina_mpa": 54.74307692307692,
+      "alumina_modulus_2_to_4_gpa_mpa": [
+        36.495384615384616,
+        72.99076923076923
+      ],
+      "source": "https://www.mgchemicals.com/downloads/tds/tds-832c-2parts.pdf"
+    }
+  ]
+}
