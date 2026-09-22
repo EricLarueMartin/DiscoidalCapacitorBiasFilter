@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "mesh_cells": 227380,
+  "reflected_dofs_checked": 117900,
+  "initial_missing_dofs": 2225,
+  "near_boundary_probes_checked": 53400,
+  "first_colliding_cells_identical": true,
+  "elapsed_seconds": 13.053435529116541
+}

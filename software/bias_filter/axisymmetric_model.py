@@ -453,7 +453,7 @@ def rounded_inner_profile(r_inner: float, r_outer: float, z0: float, z1: float, 
     return points
 
 
-def component_profiles(p: dict[str, Any]) -> list[dict[str, Any]]:
+def component_profiles(p: dict[str, Any], curve_steps: int = 8) -> list[dict[str, Any]]:
     length = stack_length_mm(p)
     core_r = p["core_od_mm"] / 2.0
     hv_outer = p["hv_plate_od_mm"] / 2.0
@@ -501,10 +501,10 @@ def component_profiles(p: dict[str, Any]) -> list[dict[str, Any]]:
         z0 = zc - thickness / 2.0
         z1 = zc + thickness / 2.0
         if kind == "hv":
-            profile = rounded_outer_profile(0.0, hv_outer, z0, z1, edge_radius_mm(p, kind))
+            profile = rounded_outer_profile(0.0, hv_outer, z0, z1, edge_radius_mm(p, kind), steps=curve_steps)
             material = "hv"
         else:
-            profile = rounded_inner_profile(ground_inner, ground_outer, z0, z1, edge_radius_mm(p, kind))
+            profile = rounded_inner_profile(ground_inner, ground_outer, z0, z1, edge_radius_mm(p, kind), steps=curve_steps)
             material = "ground"
         components.append({"name": f"{kind}_plate_{index:02d}", "material": material, "profile": profile})
     return components

@@ -17,14 +17,14 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="style.css?v=2026-09-03-spice-tab">
-    <script defer src="default-fenicsx-field-dp270.js?v=seven-plates-2026-09-22-caen-dp270"></script>
-    <script defer src="default-thermal-fea.js?v=2026-09-22-caen-dp270"></script>
+    <link rel="stylesheet" href="style.css?v=2026-09-22-28mm-margin">
+    <script defer src="default-fenicsx-field-dp270.js?v=2026-09-22-28mm-margin-final"></script>
+    <script defer src="default-thermal-fea.js?v=2026-09-22-28mm-margin"></script>
     <script defer src="default-eqs-sweep-dp270.js?v=2026-09-22-seven-plates"></script>
-    <script defer src="default-full-wave-dp270.js?v=2026-09-22-caen-dp270"></script>
+    <script defer src="default-full-wave-dp270.js?v=2026-09-22-28mm-margin"></script>
     <script defer src="noise-cables.js?v=2026-09-22-caen-dp270"></script>
     <script defer src="epoxy-cure.js?v=2026-09-22-dp270-default"></script>
-    <script defer src="app.js?v=2026-09-22-seven-plates"></script>
+    <script defer src="app.js?v=2026-09-22-pickup-label-spacing"></script>
   </head>
   <body>
     <header class="topbar">
@@ -225,7 +225,7 @@
               <strong>Calculation sequence</strong>
               <p>The electrical FEA supplies every bias-node capacitance to ground and the mutual-capacitance matrix. SPICE combines that network with the selected input, stage, and output resistances, source cable, regulator impedance, output cable, and detector load.</p>
               <p>With Repeat interior FEA cell enabled, a solved stack of at least three bias plates supplies end/interior Cg and Cpar classes for any plate count of three or more. Changing plate count or resistor values then needs only SPICE. Three bias plates have two interplate resistors; five have four, in addition to the configured input/output resistors. Changing local dimensions, permittivity, or disabling repeat mode requires matching FEA. Exact full-stack and RF results still depend on plate count.</p>
-              <p>A completed run refreshes the complete-filter SPICE plot and the detector-noise budget in the slide deck.</p>
+              <p>Changing settings never starts a simulation. Finish your edits, then press Run SPICE simulation. Slides list any missing simulations in place of their graphics.</p>
             </div>
           </div>
 
@@ -282,7 +282,7 @@
               <output id="mesh_edge_radius_ratio_out"></output>
               <input id="mesh_edge_radius_ratio" type="range" min="0.05" max="0.5" step="0.01">
             </label>
-            <label class="check" title="Default: for the reflection-symmetric all-bias excitation only, solve one physical end region and one representative interior half-cell, then reconstruct the field and total capacitance. The fast SPICE network allocates that total to end/interior nodes and uses an analytical adjacent-Cpar screen; it is not a Maxwell-matrix extraction. Clear this option for exact node-resolved capacitances."><input id="use_repeating_cell_approximation" type="checkbox"> Repeat interior FEA cell</label>
+            <label class="check" title="Reconstruct the all-bias field from an end region and repeated interior half-cell. Separately extract the Maxwell capacitance network using reflected and repeated excitation classes. Compatible plate-count changes reuse Cg/Cpar and require only an explicit SPICE run."><input id="use_repeating_cell_approximation" type="checkbox"> Repeat interior FEA cell</label>
             <div class="actions solver-actions">
               <button id="solve" type="button">Solve field</button>
             </div>
@@ -339,13 +339,13 @@
             </div>
             <div class="solver-explainer">
               <strong>What the repeating-cell approximation solves</strong>
-              <p>FEniCSx meshes and solves only two unique axial regions:</p>
+              <p>For the all-bias field map, FEniCSx solves two unique axial regions:</p>
               <ol>
                 <li><b>End region:</b> the physical end cap through the axial center of the first bias plate.</li>
                 <li><b>Interior half-cell:</b> the center of that first bias plate through the center of the next interior ground plate—the second ground plate when the end cap is counted.</li>
               </ol>
               <p>The far end is an exact mirror of the solved end region. Between the two ends, the interior half-cell is copied and alternately mirrored about successive bias-plate and ground-plate center planes until the reconstructed stack reaches the far-end region.</p>
-              <p>The two-region FEA is valid for the equal-voltage all-bias field and total-capacitance screen. Its fast SPICE network allocates regional energy to end/interior nodes and uses an analytical adjacent C<sub>par</sub>; those entries are not Maxwell row sums or differential FEA extractions.</p>
+              <p>The two-region FEA provides the equal-voltage field map. A separate node-basis FEA extracts C<sub>g</sub> and C<sub>par</sub> from Maxwell coefficients, reusing reflected and repeated excitation classes.</p>
               <p>This reduction is never applied to asymmetric single-node basis fields. When unchecked, those capacitance fields use the full stack; only an exactly reflected partner excitation may be reused. The validation CLI can also disable reflection averaging for an independent full-model reference.</p>
             </div>
           </div>
@@ -450,7 +450,7 @@
               <strong id="washerGain">--</strong>
             </div>
             <div>
-              <span title="Capacitance used at each bias node. Exact mode reports Maxwell row sums from full-stack basis fields. Repeated screening mode reports an end/interior allocation of the symmetric all-bias FEA total; it is not a node-basis extraction.">Model C<sub>g</sub> by bias node</span>
+              <span title="Capacitance used at each bias node. Values are Maxwell row sums from node-basis FEA. Repeating mode reuses end/interior excitation classes for a compatible stack.">Model C<sub>g</sub> by bias node</span>
               <strong id="shuntCapacitance">--</strong>
               <small>axial node order</small>
             </div>
@@ -465,7 +465,7 @@
               <small id="cgMethodComparisonDifference">one bias vs corrected three bias</small>
             </div>
             <div>
-              <span title="Total two-terminal capacitance from all HV plates/core to grounded plates/tube. Uses FEniCSx energy extraction after a FEniCS solve; otherwise uses 2N x the washer-gap estimate.">Total C<sub>g</sub></span>
+              <span title="Sum of bias-node Cg from the solved Maxwell network, plus added discrete ground capacitance. Before a matching solve, shows the labeled analytical estimate. Separate input/output port capacitances are listed below.">Total C<sub>g</sub></span>
               <strong id="totalGroundCapacitance">--</strong>
               <small id="totalGroundCapSource">estimate</small>
             </div>
@@ -840,7 +840,7 @@
               <li>A 2039 keV event creates about 689,000 electron-hole pairs, or 110 fC. The three-measurement weighted default F = 0.1145 gives about 831 eV &sigma; of irreducible Fano fluctuation.</li>
               <li>CAEN supply ripple passes through the 40 k&Omega; / 1 nF CAEN output network, RG-58 input cable, filter, cryostat cable, detector, amplifier, and trapezoidal energy estimator.</li>
               <li>Outside and inside cryostat pickup are separate localized series voltage excitations, with all passive components retained. Entered pickup voltages describe induced EMFs, not clamped node voltages.</li>
-              <li>Each R30 noise response uses the shaped known-charge signal calibration. Missing complete SPICE results are labeled as a legacy approximation.</li>
+              <li>Each R30 noise response uses the shaped known-charge signal calibration. If complete SPICE results are missing, the graphic lists the simulations to run.</li>
               <li>With the sinusoidal conversion used in this model, the A1560H ripple limits are 3.54 mV &sigma; at 20&ndash;1000 Hz and 1.77 mV &sigma; at 1 kHz&ndash;20 MHz. Band powers are added; the low-band scenario at the Designer power-line frequency is an alternative, never counted twice.</li>
               <li>The public LEGEND reference estimator uses a 10 &micro;s rise and 4 &micro;s flat top; current production settings remain an input to confirm.</li>
               <li>The design criterion is predicted bias-path noise below 0.10 times the calculated Fano &sigma;; observed detector resolution is deliberately excluded.</li>
@@ -860,7 +860,7 @@
             <p>Reuse Cg/Cpar for circuit sweeps: with Repeat interior enabled, three solved bias plates supply end/interior classes for larger stacks. Five plates use four interplate resistors. Adjusting plate count or resistance requires only SPICE; local geometry or dielectric changes require new FEA.</p>
             <ul>
               <li>Electrostatic FEniCSx basis fields extract each bias node's C<sub>g</sub> and every mutual C<sub>par</sub> directly from the complete geometry.</li>
-              <li>A distributed electroquasistatic field solve agrees with the matched RC network within 1.79 dB through the saved 1 Hz&ndash;1 GHz sweep.</li>
+              <li>A separate electroquasistatic field solve checks the matched RC network; it must be rerun when its geometry or electrical parameters change.</li>
               <li>Shared 300 MHz and 1 GHz points test the EQS-to-MEEP handoff; a full-wave mode is reported only when solved points bracket its local maximum.</li>
               <li>The extracted capacitances and specified or geometry-derived resistances are used for the complete loaded SPICE ladder.</li>
             </ul>
@@ -908,11 +908,12 @@
         </article>
 
         <article class="slide slide-visual">
-          <div class="slide-copy">
+          <div class="slide-copy slide-copy-compact">
             <h2>Peak Electric Field from FEA</h2>
             <ul>
-              <li>Washer and epoxy fields are compared separately with provisional material limits.</li>
-              <li>The peak field must converge as the mesh is refined before it is used as a breakdown limit.</li>
+              <li>The rotation axis is r = 0 along the core centreline, at the bottom of the field map. The solve uses cylindrical r weighting.</li>
+              <li>Refinement resolves the core-to-ground and bias-to-shell gaps. The 28 mm default study changes less than 0.91% under further refinement.</li>
+              <li>The finest default study gives 4.25&times; nominal margin, or 4.12&times; with a 3% upward allowance on peak field. This is mesh convergence, not a measured breakdown qualification.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -945,19 +946,19 @@
           <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Default geometry · matched open-circuit ports</p>
             <h2>Electroquasistatic FEA Checks the Distributed RC Model</h2>
-            <p>DP270: mesh change at 1 kHz is 0.0053 dB; EQS/lumped disagreement peaks at 2.31 dB near 100 kHz (exceeds the 2 dB comparison criterion). At 50 Hz the difference is 0.0083 dB.</p>
+            <p>Only EQS results matching the current stack are plotted. Run Solve full-wave EM to generate its electroquasistatic sweep; field FEA supplies the capacitance matrix for the lumped comparison.</p>
             <ul>
               <li>The input bias plate is fixed at 1 V, all interior plates float, and the output plate is measured open-circuit.</li>
               <li>No input resistor, output resistor, cable, detector capacitance, or load conductance appears in either curve.</li>
               <li>The complete complex admittance matrix comes from the distributed electric field and continuous resistive-core surrogate—not from inserted capacitances.</li>
-              <li>At 1 kHz, the three-plate FEniCSx result is -22.76 dB and the matched lumped model is -22.65 dB; their worst saved difference is 1.79 dB near the deep 100 kHz transition.</li>
-              <li>Reciprocity is exact numerically; the real admittance is passive; loaded 1 kHz transfer changes by only 0.00354 dB from 0.60 to 0.30 mm mesh.</li>
-              <li>This validates the electroquasistatic RC limit; it does not include magnetic induction, cavity modes, or radiation.</li>
+              <li>The graphic compares the solved EQS curve with an independent lumped RC calculation using the current FEA capacitance matrix.</li>
+              <li>Mesh convergence and reciprocity must be checked for the solved geometry; missing validation metrics are shown as unavailable.</li>
+              <li>This checks the electroquasistatic RC limit; it does not include magnetic induction, cavity modes, or radiation.</li>
             </ul>
           </div>
           <figure class="slide-figure">
             <canvas id="slideEqsCanvas" width="1100" height="620"></canvas>
-            <figcaption>Open-circuit RC-limit comparison from full-stack electroquasistatic FEniCSx and matched-port SPICE</figcaption>
+            <figcaption>Open-circuit RC-limit comparison from full-stack electroquasistatic FEniCSx and a matched-port lumped RC model</figcaption>
           </figure>
         </article>
 
@@ -965,7 +966,7 @@
           <div class="slide-copy slide-copy-compact">
             <p class="eyebrow">Low-frequency field limit through first mode</p>
             <h2>Full-Field Noise Transmission to First Resonance</h2>
-            <p style="color:#b73e3e;font-weight:bold">DP270 default: RF handoff is not validated (2.77 dB residual, 2 dB criterion). MEEP is diagnostic; no first resonance has been verified in this sweep.</p>
+            <p style="color:#b73e3e;font-weight:bold">Full-wave results must match the current settings. The graphic reports the solved handoff check; a completed solve alone does not establish RF validation.</p>
             <ul>
               <li>The displayed full-field sweep starts at 50 Hz with the electroquasistatic Maxwell solution, which is the correct low-frequency limit for this millimetre-scale geometry.</li>
               <li>EQS and cylindrical <em>m</em> = 0 MEEP overlap at 300 MHz and 1 GHz. The 300 MHz point anchors the provisional port normalization; the independent 1 GHz point checks whether their slopes agree before handoff.</li>
@@ -989,7 +990,7 @@
               <li>The frequency-domain network combines the FEniCSx Maxwell capacitance matrix with geometry-derived partial inductance for each axial current path.</li>
               <li>The 350 m&Omega; low-loss reference exposes the coupled LC natural modes; it is not the physical filter resistance.</li>
               <li>A single-mode RLC check chooses L<sub>eff</sub> so its zero-resistance natural frequency matches the first coupled-model peak, then applies the same physical resistance.</li>
-              <li>For an underdamped mode, the physical-resistance peak follows f<sub>peak</sub> = f<sub>0</sub>&radic;(1 &minus; 2&zeta;<sup>2</sup>). With the default 12 M&Omega; stages the model is overdamped, so it predicts no shifted amplitude peak.</li>
+              <li>For an underdamped mode, the physical-resistance peak follows f<sub>peak</sub> = f<sub>0</sub>&radic;(1 &minus; 2&zeta;<sup>2</sup>). With the default 10 M&Omega; stages the model is overdamped, so it predicts no shifted amplitude peak.</li>
               <li>The intrinsic comparison applies 1 V directly to the input plate, leaves interior plates floating, measures the output open-circuit, and calculates V<sub>out</sub>/V<sub>in</sub> from a field-derived complex admittance matrix.</li>
               <li>EQS includes distributed conduction and displacement current, but not magnetic induction, skin effect, radiation, or the 3D MELF helix.</li>
               <li>After EQS-to-SPICE validation, the next check is a 3D curl-curl solution followed by a measured S-parameter or impedance sweep.</li>
@@ -1036,7 +1037,7 @@
         </article>
 
         <article class="slide slide-copy-wide caen-comparison-slide">
-          <p class="eyebrow">CAEN sketch · saved three-plate DP270 reference · 50 Hz AC comparison</p>
+          <p class="eyebrow">Fixed reference · three-plate DP270 · 50 Hz · independent of Designer settings</p>
           <h2 style="font-size:34px;margin:8px 0 14px">CAEN Output Network and 50 Hz Pickup</h2>
           <p style="font-size:17px;line-height:1.4;margin:10px 0">Filtered internal source → <strong>40 kΩ series</strong> → CAEN output → 10 m input cable → discoidal filter. At the CAEN output: <strong>1 nF ∥ 300 MΩ to ground</strong>.</p>
           <p style="font-size:17px;line-height:1.4;margin:10px 0">The sketch specifies “a few tens of k”; 40 kΩ is the selected approximation. The upstream HV filter and regulator feedback impedance remain unspecified.</p>
@@ -1060,7 +1061,7 @@
             <ul>
               <li>DP270 default: provisional 40&nbsp;&deg;C stress-free reference, cooling to 20&nbsp;&deg;C. The manufacturer does not specify a complete cure duration at 40&nbsp;&deg;C.</li>
               <li>CTE is 80 ppm/K below the 43&nbsp;&deg;C Tg onset and 180 ppm/K above it. E = 3 GPa is assumed; actual stress lock-in depends on gelation and relaxation. The encapsulated MELF uses a ceramic-body proxy.</li>
-              <li>At 20&nbsp;&deg;C: closed form 6.63&nbsp;MPa at the ceramic proxy (5.82&nbsp;MPa at copper); saved three-plate FEA P99 tension 11.80&nbsp;MPa, raw corner 25.71&nbsp;MPa. The seven-plate thermal FEA has not been rerun. Corner peaks are mesh-sensitive. Copper lap shear is not a tensile failure criterion; no bulk tensile safety margin is assigned.</li>
+              <li id="thermalSlideResult">Current seven-plate thermal FEA: P99 tension 10.92 MPa; raw corner peak 24.69 MPa.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -1075,7 +1076,7 @@
           <ul>
             <li style="font-size:20px;line-height:1.4">Use seven bias plates with six interplate 10 M&Omega; MELF resistors, plus the configured input and output resistors.</li>
             <li style="font-size:20px;line-height:1.4">The installation uses 50 Hz mains. Noise comparisons follow the Designer power-line setting, which defaults to 50 Hz.</li>
-            <li style="font-size:20px;line-height:1.4">Seven plates bring the two-band supply-noise bound below the 0.10 &times; Fano &sigma; allocation after energy shaping.</li>
+            <li style="font-size:20px;line-height:1.4">For the 28 mm default, six plates give 95.6 eV &sigma; (11.5% of Fano); seven give 62.5 eV &sigma; (7.51%). Seven is the minimum passing count in the descending search.</li>
             <li id="supplyNoiseDesignCurrent" style="font-size:20px;line-height:1.4">Evaluating the current SPICE supply-noise contribution...</li>
             <li style="font-size:20px;line-height:1.4">The single-frequency ripple scenario is an alternative to the two-band supply bound. Cable pickup contributes separately to total noise.</li>
             <li style="font-size:20px;line-height:1.4">Three-plate FEA supplies repeated Cg and Cpar classes; seven-plate performance requires only a new SPICE solve.</li>
@@ -1170,15 +1171,13 @@
 
         <article class="slide slide-visual prototype-geometry-slide">
           <div class="slide-copy slide-copy-compact">
-            <p class="eyebrow">Proposed prototype geometry</p>
+            <p class="eyebrow">28 mm default</p>
             <h2>Reference Design</h2>
             <ul>
-              <li>Dielectric gap: 1.0 mm of continuous 3M DP270 between 2.0 mm copper plates.</li>
-              <li>The 2.2 mm MELF body leaves a 1.20 mm core-to-ground radial gap.</li>
-              <li>The same epoxy fills the plate gap and the surrounding potting volume, eliminating a separate washer interface in this reference model.</li>
-              <li>Potting baseline: vacuum degas, cure 16&ndash;24 hours at room temperature, then post-cure 2&ndash;4 hours at 45&nbsp;&deg;C.</li>
-              <li>The 45&nbsp;&deg;C bake advances cross-linking and stabilizes cured properties without imposing the former 80&nbsp;&deg;C cooldown; provide open fill/vent paths before cure.</li>
-              <li>This is a fixed prototype reference; the earlier report slides continue to follow the current Designer inputs.</li>
+              <li>Seven bias plates: 2.0 mm copper with 1.0 mm continuous DP270 gaps.</li>
+              <li>Core &Oslash;2.2, ground ID &Oslash;4.2, bias OD &Oslash;25.8, shell ID &Oslash;28.0 mm. Radial clearances: 1.0 and 1.1 mm.</li>
+              <li>Refined margin: 4.25&times; at 6 kV; 4.12&times; with a 3% field allowance. Both radial gaps are below 2 mm.</li>
+              <li>Vacuum degas; compare room-temperature and heat cures. Thermal default: 40&nbsp;&deg;C reference to 20&nbsp;&deg;C.</li>
             </ul>
           </div>
           <figure class="slide-figure">
@@ -1269,6 +1268,7 @@
         <article class="slide slide-copy-wide metal-trade-slide">
           <p class="eyebrow">Backup: what changing the metal actually changes</p>
           <h2>CTE-Matched Metal Trades Tension for Lower Shear</h2>
+          <p class="simulation-reference">Saved fitted-layout material study. These reference results do not follow the current Designer settings.</p>
           <p class="metal-trade-hypothesis"><strong>Idea tested:</strong> replace the copper tube, ground plates, and bias plates with metal that either matches alumina CTE or deforms more readily. The hoped-for outcome was lower epoxy tension after cooling from 70 to 20&nbsp;&deg;C.</p>
           <div class="metal-trade-grid" aria-label="Fitted-alumina conductor comparison">
             <section class="metal-trade-card baseline">

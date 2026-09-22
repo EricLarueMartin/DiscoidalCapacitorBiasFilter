@@ -1,0 +1,15 @@
+Reconstructed collaboration record, 2026-09-22.
+
+User: looks like it need a full field solve for the default geometry for some slides, like 20
+
+Assistant: Run the full-wave solve, including the EQS sweep, for the seven-plate default and bundle the results for the slides. Retain manual-only simulation starts and the reusable end/interior capacitance extraction.
+
+Work: submitted full-wave job c12a076da099473280b5281af29be8f7 on the development Pi, using hardware/geometry/default-parameters.json. Added independent full-wave bundling and canonical matching of implicit/backend RF solver defaults. Preserve actual solve parameters and all convergence/validation diagnostics.
+
+User: it is fine for default slides to use seven-plate capacitances; symmetric plate-count changes should reuse them and only require SPICE again for noise. Is memory usage recorded for the long full-field sweep?
+
+Assistant: retain reuse, run the seven-plate default capacitance solve, and check resource records. Backend jobs record peak process-tree RSS, process swap and duration. Earlier 45-minute runs recorded 408-411 MiB peak RSS and zero process swap. The older direct-run DP270 bundle has no resource record; the current run snapshot was about 537 MiB, with final peak pending completion.
+
+Completed: full-wave/EQS 25.75 minutes, peak RSS 537.02 MiB and zero process swap; four MEEP points converged, 30 GHz did not. EQS/MEEP agreement failed the 2 dB handoff check (residual -14.77 dB). Electrostatic seven-plate solve took 5.09 minutes and 258.38 MiB peak with zero process swap. Default SPICE rerun with the new seven-plate matrix still meets the 0.1-Fano supply allocation. Saved real provenance and resource records; exclude unconverged RF points from plotting and mark the remaining RF curve diagnostic.
+
+Deployed and verified: all default simulation-dependent graphics load. Seven-to-five plate edit retains seven-plate FEA classes, flags only SPICE for noise, and does not launch jobs. EQS plot axes were corrected to display the full seven-plate frequency and attenuation range. Browser error log empty; bundle, capacitance-reuse, manual-run, and noise regression checks pass.

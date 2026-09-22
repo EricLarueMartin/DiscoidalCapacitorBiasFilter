@@ -901,6 +901,7 @@ canvas {
 
 .slides.deck-ready .slide.deck-active {
   display: grid;
+  align-content: safe center;
   grid-column: 2;
   grid-row: 1;
   min-height: 0;
@@ -1837,3 +1838,19 @@ pre {
  .noise-cable-editor input, .noise-cable-editor select { width: 100%; min-width: 0; padding: 5px; }
  .noise-cable-editor output { display: block; font-size: 13px; }
  #noiseSchematicCanvas { display: block; width: 100%; height: auto; }
+
+
+/* Missing simulation graphics are replaced with accessible run instructions. */
+.slide-figure canvas[hidden], .simulation-required[hidden] { display: none !important; }
+.simulation-required {
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+}
+.simulation-required strong { display: block; font-size: 1.3rem; }
+.slide .simulation-required p, .slide .simulation-required li,
+.slide .simulation-reference { font-size: 1rem; line-height: 1.45; }
+.simulation-reference { border-left: 3px solid var(--accent); padding-left: 0.75rem; }

@@ -1,0 +1,403 @@
+{
+  "breakdown_v_per_mm": 33464.56692913386,
+  "target_margin": 4,
+  "numerical_guard_fraction": 0.03,
+  "cases": [
+    {
+      "case": "end",
+      "fine_mm": 0.05,
+      "coarse_mm": 0.1,
+      "z_extent_mm": [
+        0,
+        4
+      ],
+      "cells": 25463,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 7813.368776303711,
+          "r_mm": 12.91184033039431,
+          "z_mm": 3.9264253905779283
+        },
+        "core_gap": {
+          "field_v_per_mm": 7659.3298650303,
+          "r_mm": 1.109021097956088,
+          "z_mm": 0.7343749999999998
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7813.368776303711,
+          "r_mm": 12.91184033039431,
+          "z_mm": 3.9264253905779283
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 1.0,
+          "field_v_per_mm": 7563.56022967411,
+          "potential_v": 5999.924364732517
+        }
+      ],
+      "seconds": 9.290379118174314,
+      "ground_id_mm": 4.2,
+      "bias_od_mm": 25.8,
+      "margin": 4.282988284211644,
+      "guarded_margin": 4.158241052632664
+    },
+    {
+      "case": "interior",
+      "fine_mm": 0.05,
+      "coarse_mm": 0.1,
+      "z_extent_mm": [
+        4,
+        7
+      ],
+      "cells": 21792,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 7810.379649143631,
+          "r_mm": 12.913918865150531,
+          "z_mm": 4.047904554962772
+        },
+        "core_gap": {
+          "field_v_per_mm": 7287.586942796735,
+          "r_mm": 1.1074295382260335,
+          "z_mm": 6.982076606872318
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7810.379649143631,
+          "r_mm": 12.913918865150531,
+          "z_mm": 4.047904554962772
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 7.0,
+          "field_v_per_mm": 7269.188787500718,
+          "potential_v": 5999.927308340754
+        }
+      ],
+      "seconds": 7.914752323180437,
+      "ground_id_mm": 4.2,
+      "bias_od_mm": 25.8,
+      "margin": 4.284627435851097,
+      "guarded_margin": 4.159832461991356
+    },
+    {
+      "case": "end",
+      "fine_mm": 0.025,
+      "coarse_mm": 0.05,
+      "z_extent_mm": [
+        0,
+        4
+      ],
+      "cells": 58190,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 7827.12866546809,
+          "r_mm": 12.91274688195196,
+          "z_mm": 3.9730275422655708
+        },
+        "core_gap": {
+          "field_v_per_mm": 7690.649469734278,
+          "r_mm": 1.1048810119645056,
+          "z_mm": 0.662499999999997
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7827.12866546809,
+          "r_mm": 12.91274688195196,
+          "z_mm": 3.9730275422655708
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 1.0,
+          "field_v_per_mm": 7587.80153986385,
+          "potential_v": 5999.9241221059265
+        }
+      ],
+      "seconds": 21.182963179890066,
+      "ground_id_mm": 4.2,
+      "bias_od_mm": 25.8,
+      "margin": 4.2754589019053215,
+      "guarded_margin": 4.150930972723613
+    },
+    {
+      "case": "interior",
+      "fine_mm": 0.025,
+      "coarse_mm": 0.05,
+      "z_extent_mm": [
+        4,
+        7
+      ],
+      "cells": 53956,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 7827.528632814209,
+          "r_mm": 12.912686667028586,
+          "z_mm": 4.026919979102776
+        },
+        "core_gap": {
+          "field_v_per_mm": 7303.746171032066,
+          "r_mm": 1.1061004233964005,
+          "z_mm": 6.985566243270256
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7827.528632814209,
+          "r_mm": 12.912686667028586,
+          "z_mm": 4.026919979102776
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 7.0,
+          "field_v_per_mm": 7287.337893556379,
+          "potential_v": 5999.927126806207
+        }
+      ],
+      "seconds": 19.85144681483507,
+      "ground_id_mm": 4.2,
+      "bias_od_mm": 25.8,
+      "margin": 4.2752404365338545,
+      "guarded_margin": 4.150718870421218
+    },
+    {
+      "case": "end",
+      "fine_mm": 0.0125,
+      "coarse_mm": 0.025,
+      "z_extent_mm": [
+        0,
+        4
+      ],
+      "cells": 233060,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 7881.470211157007,
+          "r_mm": 12.906708669671657,
+          "z_mm": 3.975068751757317
+        },
+        "core_gap": {
+          "field_v_per_mm": 7721.679933479288,
+          "r_mm": 1.1026369279807897,
+          "z_mm": 0.7437499999999947
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7881.470211157007,
+          "r_mm": 12.906708669671657,
+          "z_mm": 3.975068751757317
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 1.0,
+          "field_v_per_mm": 7620.237045257342,
+          "potential_v": 5999.923797661519
+        }
+      ],
+      "seconds": 87.49958770675585,
+      "ground_id_mm": 4.2,
+      "bias_od_mm": 25.8,
+      "margin": 4.245980259084331,
+      "guarded_margin": 4.122310931149836
+    },
+    {
+      "case": "interior",
+      "fine_mm": 0.0125,
+      "coarse_mm": 0.025,
+      "z_extent_mm": [
+        4,
+        7
+      ],
+      "cells": 214536,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 7881.646714294546,
+          "r_mm": 12.9066981543411,
+          "z_mm": 4.024958735244373
+        },
+        "core_gap": {
+          "field_v_per_mm": 7335.577368247405,
+          "r_mm": 1.1030502116981797,
+          "z_mm": 6.992783121635132
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7881.646714294546,
+          "r_mm": 12.9066981543411,
+          "z_mm": 4.024958735244373
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 7.0,
+          "field_v_per_mm": 7327.417420273652,
+          "potential_v": 5999.926725871283
+        }
+      ],
+      "seconds": 80.7588826767169,
+      "ground_id_mm": 4.2,
+      "bias_od_mm": 25.8,
+      "margin": 4.245885173772235,
+      "guarded_margin": 4.12221861531285
+    },
+    {
+      "case": "mirror_half",
+      "fine_mm": 0.05,
+      "coarse_mm": 0.5,
+      "z_extent_mm": [
+        0,
+        22
+      ],
+      "cells": 170697,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 7842.755935932815,
+          "r_mm": 12.91035344255192,
+          "z_mm": 10.049787153263347
+        },
+        "core_gap": {
+          "field_v_per_mm": 7675.251497485907,
+          "r_mm": 1.1063164119867106,
+          "z_mm": 0.6718749999999751
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7842.755935932815,
+          "r_mm": 12.91035344255192,
+          "z_mm": 10.049787153263347
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 1.0,
+          "field_v_per_mm": 7569.03408152393,
+          "potential_v": 5999.924309926246
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 7.0,
+          "field_v_per_mm": 7276.829980523088,
+          "potential_v": 5999.927231770427
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 13.0,
+          "field_v_per_mm": 7289.386861967635,
+          "potential_v": 5999.927106199987
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 19.0,
+          "field_v_per_mm": 7288.445001725596,
+          "potential_v": 5999.927115583565
+        }
+      ],
+      "seconds": 65.98293653363362,
+      "ground_id_mm": 4.2,
+      "bias_od_mm": 25.8,
+      "margin": 4.266939734259829,
+      "guarded_margin": 4.142659936174591
+    },
+    {
+      "case": "full_stack",
+      "fine_mm": 0.05,
+      "coarse_mm": 0.5,
+      "z_extent_mm": [
+        0,
+        44
+      ],
+      "cells": 348126,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 7836.211421089467,
+          "r_mm": 12.912639165714701,
+          "z_mm": 10.001315059753372
+        },
+        "core_gap": {
+          "field_v_per_mm": 7667.750986383972,
+          "r_mm": 1.1060987917769078,
+          "z_mm": 0.6094268845055583
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7836.211421089467,
+          "r_mm": 12.912639165714701,
+          "z_mm": 10.001315059753372
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 1.0,
+          "field_v_per_mm": 7566.741346253411,
+          "potential_v": 5999.924332748646
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 7.0,
+          "field_v_per_mm": 7284.354398886781,
+          "potential_v": 5999.92715645727
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 13.0,
+          "field_v_per_mm": 7288.251165809043,
+          "potential_v": 5999.927117546459
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 19.0,
+          "field_v_per_mm": 7280.559262430601,
+          "potential_v": 5999.927194408461
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 25.0,
+          "field_v_per_mm": 7276.204703850462,
+          "potential_v": 5999.927237984068
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 31.0,
+          "field_v_per_mm": 7279.90888448069,
+          "potential_v": 5999.9272009111655
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 37.0,
+          "field_v_per_mm": 7281.464845932125,
+          "potential_v": 5999.927185359643
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 43.0,
+          "field_v_per_mm": 7560.266693009215,
+          "potential_v": 5999.924397543718
+        }
+      ],
+      "seconds": 161.8752668350935,
+      "ground_id_mm": 4.2,
+      "bias_od_mm": 25.8,
+      "margin": 4.270503324995957,
+      "guarded_margin": 4.146119733005784
+    }
+  ],
+  "verification": {
+    "relative_field_changes_0_05_to_0_0125": {
+      "end_all": 0.00864070192854271,
+      "end_core_gap": 0.008074676622978484,
+      "end_bias_outer_rim": 0.00864070192854271,
+      "interior_all": 0.009042154226687388,
+      "interior_core_gap": 0.006542146996963073,
+      "interior_bias_outer_rim": 0.009042154226687388
+    },
+    "maximum_relative_change": 0.009042154226687388,
+    "mesh_change_below_3_percent": true,
+    "worst_peak_v_per_mm": 7881.646714294546,
+    "minimum_margin": 4.245885173772235,
+    "minimum_margin_with_3_percent_allowance": 4.12221861531285,
+    "both_radial_gaps_at_most_2_mm": true
+  }
+}

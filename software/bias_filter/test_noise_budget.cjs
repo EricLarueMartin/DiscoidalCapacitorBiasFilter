@@ -83,8 +83,8 @@ assert.notEqual(context.fanoNoiseBudget(alternate).supplyMainsEquivalentEnergyEv
 assert.notEqual(context.spicePowerLineSummary(bundle.spiceLadder, alternate).regulatorInputTlineAttenuationDb,
   context.spicePowerLineSummary(bundle.spiceLadder, p).regulatorInputTlineAttenuationDb);
 if (p.plate_pairs === 7 && p.epoxy_material === 'three_m_dp270') {
-  assert.equal(bundle.result.parameters.plate_pairs, 3, 'retain the actual FEA source geometry');
+  assert.equal(bundle.result.parameters.plate_pairs, 7, 'default now uses a solved seven-plate capacitance network');
   assert.equal(bundle.spiceLadder.parameters.plate_pairs, 7);
   assert(reference.supplyEquivalentEnergyEv / reference.fanoSigmaEv < 0.1, 'seven-plate supply allocation');
 }
-console.log('PASS: Designer frequency drives noise and SPICE readouts; seven-plate supply target and three-plate FEA provenance.');
+console.log('PASS: Designer frequency drives noise and SPICE readouts; seven-plate supply target and FEA provenance.');

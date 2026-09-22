@@ -1,0 +1,22 @@
+Reconstructed user-facing collaboration record
+
+User: Designer parasitic capacitance and capacitance to ground are not updating after a field solve. Keep 2 mm plates, 1 mm axial gaps, a 28 mm shell ID/ground OD and 2.2 mm core. Adjust ground ID and bias OD on a 0.2 mm diameter grid for margin at least four, refine critical meshes to under 3% error, and use the selected values as defaults.
+User: If a gap exceeds 2 mm without reaching margin four, stop.
+User clarification: The stale capacitances are in the Designer readouts.
+
+Agent: Use DP270 and 6 kV; select maximum overlap with a 3% upward allowance on peak field. Sweep found 4.2 mm ground ID and 25.8 mm bias OD, with 1.0 and 1.1 mm radial gaps. End/interior refinement to 0.0125 mm gives 7.88165 kV/mm, 4.24589x nominal margin and 4.12222x with allowance. Full-stack and mirror checks agree. Found a 120-second browser timeout followed by silent JS fallback; remove this fallback and allow real FEniCSx completion. Also refresh dependent SPICE controls without auto-running and show Cg to 0.01 pF.
+
+User: I expected adaptive meshing, using coarse solutions as initial conditions for finer meshes.
+Agent: The current FEniCSx implementation uses a geometry-graded fixed mesh and direct LU; it has no adaptive refinement or coarse-mesh initial guess. The <3% check is a separate convergence study. Clarified the UI/backend metadata. Removing repeated mesh-search-tree construction reduced the completed refined solve to 61.905 s. Production-mesh lookup results match exactly; the obsolete unoptimized reference was stopped at 2,259 s rather than claiming a completed comparison.
+Agent: New default Cg is 37.07-37.10 pF per plate and adjacent Cpar about 117 fF. Matching supply noise is 62.5 eV sigma versus 831.5 eV sigma Fano. Thermal and RF were rerun; the RF branch converged but EQS/RF agreement remains unvalidated and visibly diagnostic. All 88 Python tests and relevant JS checks pass. Browser checks confirm refreshed Designer values, loaded defaults, plate-count capacitance reuse, and manual-only simulations.
+
+User: Does six plates keep supply noise below 10% of Fano? If so, try five; find the minimum count.
+Agent: Fresh six-plate SPICE using the retained seven-plate FEA capacitance classes gives 95.6 eV sigma (11.5% Fano), compared with seven plates at 62.5 eV sigma (7.51%). Six fails the 83.15 eV sigma two-band limit, so keep seven and stop before five as instructed. Six passes the separate 50 Hz-only scenario at 52.9 eV sigma, but that is not the two-band design bound. Added this comparison to the engineering decision slide.
+
+User: The reference-design graphic overlaps some text; scale it slightly smaller.
+Agent: Reduced only the radial cross-section scale from 15 to 12.5 px/mm (16.7%), leaving the labels and physical dimensions unchanged. The circle now fits between the upper and lower legend rows.
+
+User: Similar overlap on slide 9 with the input-noise current.
+Agent: Right-aligned the pickup-current label in the space left of the MX11RC/BF862 block, preserving the current-source symbol and text size.
+
+User: Commit and push the accumulated project changes.

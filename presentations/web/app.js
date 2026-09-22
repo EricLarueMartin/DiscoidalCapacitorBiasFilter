@@ -59,16 +59,16 @@ const defaults = {
   use_package_core_od: true,
   core_material: "mmb0207_melf",
   ferrite_epsr: 6,
-  core_to_ground_gap_mm: 0.9,
-  hv_to_tube_gap_mm: 1.5,
-  hv_plate_od_mm: 23.0,
-  ground_plate_inner_diameter_mm: 4.0,
-  washer_id_mm: 4.0,
-  washer_od_mm: 23.0,
+  core_to_ground_gap_mm: 1.0,
+  hv_to_tube_gap_mm: 1.1,
+  hv_plate_od_mm: 25.8,
+  ground_plate_inner_diameter_mm: 4.2,
+  washer_id_mm: 4.2,
+  washer_od_mm: 25.8,
   washer_id_mode: "custom",
   washer_od_mode: "custom",
-  ground_plate_od_mm: 26,
-  tube_id_mm: 26,
+  ground_plate_od_mm: 28,
+  tube_id_mm: 28,
   plate_gap_mm: 1.0,
   plate_thickness_mm: 2.0,
   bias_plate_thickness_mm: 2.0,
@@ -90,14 +90,14 @@ const defaults = {
   plate_pairs: 7,
   include_ground_tube: true,
   field_solver: "backend_auto",
-  mesh_edge_radius_ratio: 0.2,
+  mesh_edge_radius_ratio: 0.05,
   tube_wall_thickness_mm: 1,
   domain_margin_mm: 4,
   // Browser fallback solver controls. These match the finite-difference
   // backend defaults so a static local page gives the same screening result
   // when the Python service is unavailable.
-  grid_r_count: 90,
-  grid_z_count: 150,
+  grid_r_count: 120,
+  grid_z_count: 180,
   solver_iterations: 700,
   solver_tolerance_v: 0.01,
   solve_strategy: "end_repeat_approx",
@@ -119,11 +119,12 @@ const GEOMETRY_ENDPOINT = "/api/geometry";
 const SPICE_LADDER_ENDPOINT = "/api/spice-ladder";
 const THERMAL_SOLVER_ENDPOINT = "/api/thermal-solve";
 const FULL_WAVE_SOLVER_ENDPOINT = "/api/full-wave-solve";
-const FIELD_SOLVER_CONNECT_TIMEOUT_MS = 1800;
+const FIELD_SOLVER_CONNECT_TIMEOUT_MS = 15000;
 const GEOMETRY_CONNECT_TIMEOUT_MS = 900;
 const SPICE_CONNECT_TIMEOUT_MS = 600000;
-const FIELD_SOLVER_POLL_MS = 850;
-const FIELD_SOLVER_JOB_TIMEOUT_MS = 120000;
+const FIELD_SOLVER_POLL_MS = 2000;
+// Allow queued jobs plus the backend's one-hour refined FEniCSx budget.
+const FIELD_SOLVER_JOB_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const THERMAL_SOLVER_TIMEOUT_MS = 15 * 60 * 1000;
 const FULL_WAVE_SOLVER_POLL_MS = 2000;
 const FULL_WAVE_CONNECT_TIMEOUT_MS = 5000;
@@ -196,9 +197,9 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   bias_voltage_v:
     "DC voltage applied to the bias plates and resistive core relative to the grounded plates and tube, in volts. The electrostatic field solve uses this as the conductor-potential difference, so electric field scales linearly with it for fixed geometry. It also sets the load resistance inferred from Rload = Vbias / Iload and affects dielectric-spacing guidance; attenuation ratios of an otherwise linear RC network do not depend on its absolute value.",
   core_volume_resistivity_log10_ohm_cm:
-    "Base-10 logarithm of the resistive core's bulk volume resistivity in ohm-cm. When stage resistance is calculated, the model uses Rstage = rho L/A, where L is the bias-to-bias resistive length through one ground-plate section and A is the circular core area. Changing resistance reruns the SPICE ladder but retains electrostatic capacitance and peak-field FEA because conductivity is absent from that solve. Full-wave electromagnetic transfer still depends on conductivity. This is a bulk-material approximation: contact resistance, anisotropy, voltage coefficient, temperature dependence, and ferrite microstructure are not included.",
+    "Base-10 logarithm of the resistive core's bulk volume resistivity in ohm-cm. When stage resistance is calculated, the model uses Rstage = rho L/A, where L is the bias-to-bias resistive length through one ground-plate section and A is the circular core area. Changing resistance requires pressing Run SPICE simulation, and retains electrostatic capacitance and peak-field FEA because conductivity is absent from that solve. Full-wave electromagnetic transfer still depends on conductivity. This is a bulk-material approximation: contact resistance, anisotropy, voltage coefficient, temperature dependence, and ferrite microstructure are not included.",
   melf_stage_resistance_mohm:
-    "Electrical resistance of one bias-to-bias stage, entered directly in megaohms. It replaces the bulk-resistivity R = rho L/A calculation when Enter stage R is checked, and it is used by the analytical ladder and SPICE backend. Changing it requests a new SPICE result but retains electrostatic capacitance and peak-field FEA; a full-wave electromagnetic result must be rerun because damping changes. This is the resistance between adjacent bias nodes, not the total series resistance of the complete filter.",
+    "Electrical resistance of one bias-to-bias stage, entered directly in megaohms. It replaces the bulk-resistivity R = rho L/A calculation when Enter stage R is checked, and it is used by the analytical ladder and SPICE backend. After changing it, press Run SPICE simulation. The change retains electrostatic capacitance and peak-field FEA; a full-wave electromagnetic result must be rerun because damping changes. This is the resistance between adjacent bias nodes, not the total series resistance of the complete filter.",
   input_series_resistance_mohm:
     "Series resistance between the ideal bias source and the first bias plate, in megaohms. It is an additional ladder element and is not one of the internal bias-to-bias stage resistors. A value of zero makes the first plate an ideally driven node; a nonzero value adds low-pass action and source isolation.",
   input_series_matches_stage:
@@ -298,9 +299,9 @@ const PARAMETER_TOOLTIPS = Object.freeze({
   field_solver:
     "Selects the electrostatic solution method. Backend auto prefers the conforming Gmsh/FEniCSx finite-element solve and falls back to the Python adaptive finite-difference worker; FEniCSx required reports failure instead of falling back; Backend adaptive FD forces the Python approximation; Browser JS runs the reduced local screening solver. Capacitance and peak-field fidelity depend on the selected backend and mesh.",
   mesh_edge_radius_ratio:
-    "Target fine-element size near rounded conductor edges divided by the local edge radius. For example, 0.2 requests elements about one fifth of the radius and 0.1 requests about one tenth. The backend also caps size using the smallest dielectric gap. Lower values generally improve spatial resolution but increase mesh size, memory use, and solve time; convergence should be checked rather than trusting one setting.",
+    "Target fine-element size near rounded conductor edges divided by the local edge radius. For example, 0.2 requests elements about one fifth of the radius and 0.1 requests about one tenth. The backend also caps size using the smallest dielectric gap. Lower values generally improve spatial resolution but increase mesh size, memory use, and solve time; convergence should be checked rather than trusting one setting. This is a fixed mesh graded around geometry features, not solution-driven adaptive refinement. FEniCSx currently uses direct LU without a coarse-mesh initial guess.",
   use_repeating_cell_approximation:
-    "Use only for the reflection-symmetric all-bias excitation. FEA solves one physical end region and one representative interior half-cell, then reconstructs the field and total capacitance. The fast SPICE network allocates that total to end/interior nodes and uses an analytical adjacent-Cpar screen; those entries are not Maxwell row sums or differential FEA capacitances. Unchecked mode uses full-stack basis fields for node-resolved Maxwell extraction, reusing only exact reflected partner excitations.",
+    "The all-bias field uses an end region and repeated interior half-cell. Cg and Cpar come from separate node-basis Maxwell-matrix solves with reflected and repeated excitation classes. Compatible changes in plate count reuse those classes; press Run SPICE to update performance. Unchecked mode uses full-stack basis fields, reusing only exact reflected partner excitations.",
   thermal_min_temperature_c:
     "Temperature at which thermal-mismatch stress is evaluated, in degrees Celsius. The reference Stycast 2850FT/CAT 23LV process is room-temperature cure followed by a 45 C post-cure bake. The model conservatively treats 45 C as stress-free and applies the full cooldown below it; actual stress lock-in depends on gelation, cross-link development, and relaxation. MG 9510 and CAT 11 retain 70 C and 80 C reference temperatures. The setting does not model a thermal transient, cure shrinkage, interface separation, or time-dependent stress relaxation.",
   thermal_epoxy_modulus_gpa:
@@ -604,7 +605,7 @@ function refreshDynamicLanguageLabels() {
       document.getElementById("maxField").textContent = translateText("Not solved");
       document.getElementById("rawMaxField").textContent = translateText("raw point not solved");
       updateFeaResourceReadouts("fieldFea", null);
-      setModelStatus("JS screening");
+      setModelStatus("Field simulation needed");
     }
   }
 }
@@ -1246,7 +1247,14 @@ function updateThermalFeaReadouts() {
     return;
   }
   if (result) {
-    const overStrength = p99 >= thermalScreenFor(params).epoxyTensileStrengthMpa;
+    const strength = EpoxyCure.materials[params.epoxy_material]
+      ? EpoxyCure.materials[params.epoxy_material].tensileMpa
+      : thermalScreenFor(params).epoxyTensileStrengthMpa;
+    if (!Number.isFinite(strength)) {
+      status.textContent = "Thermal FEA complete. Perfect bonding and linear elasticity are assumed; no bulk tensile failure limit is assigned to this material.";
+      return;
+    }
+    const overStrength = p99 >= strength;
     status.classList.add(overStrength ? "risk" : "pass");
     status.textContent = overStrength
       ? translateText("FEA epoxy P99 exceeds the provisional bulk tensile proxy; the raw corner peak is diagnostic only.")
@@ -1314,6 +1322,7 @@ function drawThermalRawPeakMarker(ctx, m, location, fullLength) {
 }
 
 function drawThermalFeaViewer(canvas = document.getElementById("thermalFeaCanvas")) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const result = thermalFeaResultForCurrentDesign();
@@ -1451,8 +1460,22 @@ async function solveThermalFea() {
 
 function fullWaveKey(p = params) {
   const simulationParameters = backendParameters(p);
+  // The backend records these defaults even when the Designer omits them.
+  // Canonicalize them so a saved solve matches without ignoring RF settings.
+  for (const [key, fallback] of Object.entries({
+    full_wave_space_margin_mm: 8,
+    full_wave_pml_mm: 3,
+    full_wave_max_iterations: 10000,
+    full_wave_bicgstab_l: 10,
+    full_wave_resonance_hints_hz: []
+  })) simulationParameters[key] ??= fallback;
+  delete simulationParameters.epoxy_cure_schedule;
   delete simulationParameters.additional_ground_capacitance_pf;
-  removePostProcessingOnlyParameters(simulationParameters);
+  for (const key of Object.keys(simulationParameters)) {
+    if (key.startsWith("noise_") || key.startsWith("thermal_")) delete simulationParameters[key];
+  }
+  delete simulationParameters.core_volume_resistivity_ohm_cm;
+  if (p.use_direct_stage_circuit) delete simulationParameters.core_resistance_gohm;
   delete simulationParameters.bias_source_resistance_mohm;
   delete simulationParameters.bias_source_capacitance_nf;
   delete simulationParameters.bias_source_divider_mohm;
@@ -1471,12 +1494,12 @@ function loadBundledDefaultFullWaveResult() {
   const bundle = window.DISCOIDAL_DEFAULT_FULL_WAVE;
   if (!bundle?.settings || !bundle?.result) return false;
   const bundledParameters = settingsWithBuiltInFallback(bundle.settings);
-  if (!bundledDefaultParametersMatch(
-    bundledParameters,
-    params,
-    "defaultFullWaveMismatch",
-    ["noise_", "thermal_", "full_wave_"]
-  )) return false;
+  const mismatch = parameterKeyDifference(fullWaveKey(bundledParameters), fullWaveKey(params));
+  if (mismatch) {
+    document.documentElement.dataset.defaultFullWaveMismatch = mismatch;
+    return false;
+  }
+  delete document.documentElement.dataset.defaultFullWaveMismatch;
   fullWaveCache = { key: fullWaveKey(params), result: bundle.result };
   return true;
 }
@@ -2025,6 +2048,7 @@ function removePostProcessingOnlyParameters(simulationParameters) {
 }
 
 function removeElectrostaticIndependentParameters(simulationParameters) {
+  delete simulationParameters.epoxy_cure_schedule;
   for (const key of Object.keys(simulationParameters)) {
     if (key.startsWith("noise_") || key.startsWith("thermal_") || key.startsWith("full_wave_")) {
       delete simulationParameters[key];
@@ -2068,6 +2092,7 @@ function removeElectrostaticIndependentParameters(simulationParameters) {
 }
 
 function removeThermalIndependentParameters(simulationParameters) {
+  delete simulationParameters.thermal_restraint_factor;
   for (const key of Object.keys(simulationParameters)) {
     if (key.startsWith("noise_") || key.startsWith("full_wave_")) delete simulationParameters[key];
   }
@@ -2129,6 +2154,8 @@ function spiceCircuitParameters(p) {
   delete circuitParameters.core_volume_resistivity_ohm_cm;
   if (p.use_direct_stage_circuit) delete circuitParameters.core_resistance_gohm;
   if (p.noise_cables) circuitParameters.noise_cables = p.noise_cables;
+  circuitParameters.noise_sample_rate_msps = p.noise_sample_rate_msps;
+  delete circuitParameters.epoxy_cure_schedule;
   return JSON.stringify(circuitParameters);
 }
 
@@ -3078,6 +3105,11 @@ function formatCapacitance(pf) {
   return `${(pf * 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} fF`;
 }
 
+function formatExtractedCapacitance(pf) {
+  if (!Number.isFinite(pf) || pf < 1 || pf >= 1000) return formatCapacitance(pf);
+  return `${pf.toLocaleString(undefined, { maximumFractionDigits: 2 })} pF`;
+}
+
 function formatResistance(ohms) {
   if (!Number.isFinite(ohms)) return "--";
   if (ohms >= 1e12) return `${(ohms / 1e12).toLocaleString(undefined, { maximumFractionDigits: 2 })} TΩ`;
@@ -3394,7 +3426,7 @@ function capacitanceForAdmittance(circuit, p) {
   if (solved) {
     return {
       capacitancePf: solved.totalPf + addedTotalPf,
-      sourceLabel: `${solved.method === "fenicsx-energy" ? "FEniCSx energy" : solved.method} + added Cg`
+      sourceLabel: `${solved.network ? "FEA node matrix" : solved.method} + added Cg`
     };
   }
   return {
@@ -4109,6 +4141,7 @@ function setupControls() {
     fullWaveCache = null;
     normalizeParams();
     loadBundledDefaultFieldResult();
+    loadBundledDefaultThermalResult();
     loadBundledDefaultFullWaveResult();
     syncControls();
     drawCadModel();
@@ -4523,10 +4556,10 @@ function updateCircuitEstimates() {
   );
   document.getElementById("analyticStageCapacitance").textContent = formatCapacitance(circuit.geometricShuntCapPf);
   document.getElementById("shuntCapacitance").textContent = feaCircuit
-    ? feaCircuit.geometricShuntCapPfByNode.map(formatCapacitance).join(", ")
+    ? feaCircuit.geometricShuntCapPfByNode.map(formatExtractedCapacitance).join(", ")
     : translateText("not solved");
   document.getElementById("circuitShuntCapacitance").textContent = feaCircuit
-    ? feaCircuit.shuntCapPfByNode.map(formatCapacitance).join(", ")
+    ? feaCircuit.shuntCapPfByNode.map(formatExtractedCapacitance).join(", ")
     : Array.from({ length: biasPlateCount(params) }, () => circuit.shuntCapPf).map(formatCapacitance).join(", ");
   document.getElementById("additionalGroundCapacitanceSummary").textContent =
     `+ ${formatCapacitance(additionalGroundCapacitancePf(params))} per node; Cpar unchanged`;
@@ -4548,14 +4581,14 @@ function updateCircuitEstimates() {
   document.getElementById("cgMethodComparisonDifference").textContent = Number.isFinite(cgDifferenceFraction)
     ? `one bias / corrected three bias; Δ ${(100 * cgDifferenceFraction).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
     : translateText("one bias vs corrected three bias");
-  document.getElementById("totalGroundCapacitance").textContent = formatCapacitance(admittanceCap.capacitancePf);
+  document.getElementById("totalGroundCapacitance").textContent = formatExtractedCapacitance(admittanceCap.capacitancePf);
   document.getElementById("totalGroundCapSource").textContent = admittanceCap.sourceLabel;
   document.getElementById("parasiticCapacitance").textContent = formatCapacitance(circuit.parasiticPf);
   const hasFeaParasitic = feaCircuit && Array.isArray(feaCircuit.parasiticPfByAdjacentPair);
   document.getElementById("feaParasiticCapacitance").textContent = hasFeaParasitic
     ? (
         feaCircuit.parasiticPfByAdjacentPair.length
-          ? feaCircuit.parasiticPfByAdjacentPair.map(formatCapacitance).join(", ")
+          ? feaCircuit.parasiticPfByAdjacentPair.map(formatExtractedCapacitance).join(", ")
           : translateText("none")
       )
     : translateText(feaCap ? "not available" : "not solved");
@@ -5148,7 +5181,7 @@ function drawAxes(ctx, canvas, m) {
   ctx.stroke();
   ctx.fillStyle = "#5b6670";
   ctx.font = "13px Arial";
-  ctx.fillText("z", canvas.width - 38, canvas.height - 12);
+  ctx.fillText("r = 0: rotation axis along the core (z)", 56, canvas.height - 12);
   ctx.fillText("r", 18, 26);
 }
 
@@ -6145,6 +6178,7 @@ function fullWaveResonanceHints() {
 }
 
 function drawElectromagneticSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const circuit = electromagneticCircuitForCurrentDesign();
@@ -6302,9 +6336,10 @@ function drawElectromagneticSlide(canvas) {
 }
 
 function drawEqsSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
-  const sweep = window.DISCOIDAL_DEFAULT_EQS_SWEEP;
+  const sweep = eqsSweepForCurrentDesign();
   const samples = Array.isArray(sweep?.samples) ? sweep.samples : [];
   const plot = { x0: 88, y0: 72, x1: 815, y1: 492 };
   const xFor = (frequencyHz) => plot.x0 + Math.log10(Math.max(1, frequencyHz)) / 8 * (plot.x1 - plot.x0);
@@ -6412,14 +6447,21 @@ function drawEqsSlide(canvas) {
 }
 
 function drawIntrinsicComparisonSlide(canvas, spiceOnly = false) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
-  const sweep = window.DISCOIDAL_DEFAULT_EQS_SWEEP;
+  const sweep = eqsSweepForCurrentDesign();
   const samples = Array.isArray(sweep?.samples) ? sweep.samples : [];
   const validation = sweep?.validation || {};
   const plot = { x0: 88, y0: 72, x1: 815, y1: 492 };
-  const xFor = (frequencyHz) => plot.x0 + Math.log10(Math.max(1, frequencyHz)) / 8 * (plot.x1 - plot.x0);
-  const yFor = (db) => plot.y1 - (Math.max(-60, Math.min(0, db)) + 60) / 60 * (plot.y1 - plot.y0);
+  const fMin = Math.min(...samples.map((sample) => sample.frequencyHz), 50);
+  const fMax = Math.max(...samples.map((sample) => sample.frequencyHz), 1000);
+  const minimumDb = Math.min(0, ...samples.flatMap((sample) =>
+    [sample.intrinsicFieldDb, sample.intrinsicSpiceDb]).filter(Number.isFinite));
+  const yStep = minimumDb < -120 ? 50 : minimumDb < -60 ? 20 : 10;
+  const yMin = Math.min(-yStep, Math.floor(minimumDb / yStep) * yStep);
+  const xFor = (frequencyHz) => plot.x0 + Math.log10(frequencyHz / fMin) / Math.log10(fMax / fMin) * (plot.x1 - plot.x0);
+  const yFor = (db) => plot.y1 - (db - yMin) / -yMin * (plot.y1 - plot.y0);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#fffdf8";
@@ -6427,13 +6469,13 @@ function drawIntrinsicComparisonSlide(canvas, spiceOnly = false) {
   ctx.fillStyle = "#17202a";
   ctx.font = "22px Arial";
   ctx.textAlign = "left";
-  ctx.fillText(spiceOnly ? "Intrinsic SPICE transfer" : "Intrinsic field / SPICE comparison", plot.x0, 42);
+  ctx.fillText(spiceOnly ? "Intrinsic SPICE transfer" : "Intrinsic field / lumped RC comparison", plot.x0, 42);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(plot.x0, plot.y0, plot.x1 - plot.x0, plot.y1 - plot.y0);
   ctx.strokeStyle = "#cbd4dc";
   ctx.strokeRect(plot.x0, plot.y0, plot.x1 - plot.x0, plot.y1 - plot.y0);
 
-  [-60, -50, -40, -30, -20, -10, 0].forEach((tick) => {
+  Array.from({ length: Math.round(-yMin / yStep) + 1 }, (_, index) => yMin + index * yStep).forEach((tick) => {
     const y = yFor(tick);
     ctx.strokeStyle = "#e0e6eb";
     ctx.beginPath();
@@ -6445,7 +6487,11 @@ function drawIntrinsicComparisonSlide(canvas, spiceOnly = false) {
     ctx.textAlign = "right";
     ctx.fillText(String(tick), plot.x0 - 10, y + 5);
   });
-  [1, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8].forEach((tick) => {
+  const frequencyTicks = [fMin];
+  for (let exponent = Math.ceil(Math.log10(fMin)); 10 ** exponent <= fMax; exponent += 1) {
+    if (10 ** exponent >= 3 * fMin) frequencyTicks.push(10 ** exponent);
+  }
+  frequencyTicks.forEach((tick) => {
     const x = xFor(tick);
     ctx.strokeStyle = "#e0e6eb";
     ctx.beginPath();
@@ -6507,7 +6553,7 @@ function drawIntrinsicComparisonSlide(canvas, spiceOnly = false) {
   ] : [
     ["FEA mesh", sweep ? `${sweep.meshMm.toFixed(2)} mm · ${sweep.cells.toLocaleString()} cells` : "--"],
     ["1 kHz FEniCSx", oneKhz ? `${oneKhz.intrinsicFieldDb.toFixed(2)} dB` : "--"],
-    ["1 kHz SPICE", oneKhz ? `${oneKhz.intrinsicSpiceDb.toFixed(2)} dB` : "--"],
+    ["1 kHz lumped RC", oneKhz ? `${oneKhz.intrinsicSpiceDb.toFixed(2)} dB` : "--"],
     ["Worst curve difference", Number.isFinite(validation.maxLumpedComparisonDifferenceDb) ? `${validation.maxLumpedComparisonDifferenceDb.toFixed(2)} dB` : "--"],
     ["Mesh change @ 1 kHz", Number.isFinite(meshTransferRangeDb) ? `${meshTransferRangeDb.toFixed(5)} dB` : "--"],
     ["Output condition", "Open circuit"]
@@ -6529,13 +6575,13 @@ function drawIntrinsicComparisonSlide(canvas, spiceOnly = false) {
     { label: "Intrinsic SPICE: no external network", color: "#b73e3e", dashed: [9, 6] }
   ] : [
     { label: "FEniCSx EQS, open output", color: "#1f6f78" },
-    { label: "Intrinsic SPICE, same ports", color: "#b73e3e", dashed: [9, 6] }
+    { label: "Intrinsic lumped RC, same ports", color: "#b73e3e", dashed: [9, 6] }
   ], 88, 520, { maxWidth: 430 });
   drawWrappedLines(ctx, spiceOnly ? [
     "The source is the first bias plate itself; the output is the final bias plate at infinite impedance."
   ] : [
     "Both curves remove the source resistor, output resistor, cable, detector, and load conductance.",
-    "The continuous MELF cylinder is calibrated to 10 MΩ per stage; the physical helix still requires 3D validation."
+    `The continuous MELF cylinder is calibrated to ${(electromagneticCircuitForCurrentDesign().stageResistanceOhm / 1e6).toPrecision(3)} MΩ per stage; the physical helix still requires 3D validation.`
   ], 88, 570, 18, "#5b6670", "13px Arial", 965);
 }
 
@@ -6673,6 +6719,7 @@ function drawRcParasiticCapacitor(ctx, x0, nodeY, x1, branchY) {
 }
 
 function drawRcDiagram(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   const ctx = canvas.getContext("2d");
   const analyticCircuit = circuitEstimates(params);
   const feaCapacitance = feaCapacitanceForCurrentDesign();
@@ -7451,6 +7498,7 @@ function drawLegacyCapacitanceExtractionOverviewSlide(canvas) {
 }
 
 function drawCapacitanceExtractionOverviewSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const feaCapacitance = feaCapacitanceForCurrentDesign();
@@ -7650,6 +7698,7 @@ function drawCapacitanceExtractionOverviewSlide(canvas) {
 }
 
 function drawCgPlateCountComparisonSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const comparison = feaCapacitanceForCurrentDesign()?.cgMatrixComparison;
@@ -7775,6 +7824,7 @@ function drawCgPlateCountComparisonSlide(canvas) {
 }
 
 function drawFeaSanitySlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
@@ -7943,6 +7993,7 @@ function drawLegacyCparExtractionSlide(canvas) {
 }
 
 function drawCparExtractionSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const circuit = circuitEstimates(params);
@@ -8182,6 +8233,7 @@ function drawDbFrequencyFrame(ctx, x, y, width, height, fMin, fMax, maxDb, title
 }
 
 function drawLoadedLadderSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
@@ -8328,8 +8380,7 @@ function refreshSpiceDependentViews() {
   fanoNoiseBudgetCache = null;
   updateSpiceSolverPanel();
   updateNoiseReadouts();
-  drawSpiceLadderSlide(document.getElementById("slideSpiceLadderCanvas"));
-  drawFanoNoiseSlide(document.getElementById("slideFanoNoiseCanvas"));
+  drawSlideGraphics();
 }
 
 async function requestSpiceLadderResult(key, capacitanceNetwork) {
@@ -8349,7 +8400,12 @@ async function requestSpiceLadderResult(key, capacitanceNetwork) {
       }),
       signal: controller.signal
     });
-    if (requestId !== spiceLadderRequestId || spiceLadderRequestKey() !== key) return;
+    if (requestId !== spiceLadderRequestId) return;
+    if (spiceLadderRequestKey() !== key) {
+      spiceLadderPendingKey = null;
+      refreshSpiceDependentViews();
+      return;
+    }
     spiceLadderCache = { key, payload };
     spiceLadderPendingKey = null;
     spiceLadderDisabled = false;
@@ -8367,16 +8423,8 @@ async function requestSpiceLadderResult(key, capacitanceNetwork) {
 }
 
 function spiceLadderResultForCurrentDesign() {
-  if (spiceLadderDisabled) return null;
-  const capacitanceNetwork = feaCapacitanceNetworkForCurrentDesign();
-  const key = spiceLadderRequestKey();
-  if (!capacitanceNetwork || !key) return null;
-  if (spiceLadderCache?.key === key) return spiceLadderCache.payload;
-  if (spiceLadderPendingKey !== key) {
-    spiceLadderPendingKey = key;
-    requestSpiceLadderResult(key, capacitanceNetwork);
-  }
-  return null;
+  // Reading or rendering results must never submit a simulation.
+  return cachedSpiceLadderResultForCurrentDesign();
 }
 
 function runSpiceSimulation() {
@@ -8391,6 +8439,7 @@ function runSpiceSimulation() {
   spiceLadderCache = null;
   fanoNoiseBudgetCache = null;
   spiceLadderPendingKey = key;
+  refreshSpiceDependentViews();
   requestSpiceLadderResult(key, capacitanceNetwork);
 }
 
@@ -8432,6 +8481,7 @@ function shortSpicePackageLabel(label) {
 }
 
 function drawSpiceLadderSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
@@ -8453,7 +8503,7 @@ function drawSpiceLadderSlide(canvas) {
       spiceLadderDisabled
         ? "Backend SPICE-style endpoint is not available from this page load."
         : hasFeaNetwork
-          ? "Waiting for the Pi backend SPICE-style solve."
+          ? "Press Run SPICE simulation when the settings are ready."
           : "Run a matching FEniCSx field solve to extract the capacitance network.",
       hasFeaNetwork
         ? "The backend receives each node-to-ground capacitance and the full mutual-capacitance matrix."
@@ -8537,6 +8587,7 @@ function drawSpiceLadderSlide(canvas) {
 }
 
 function drawDetectorFrontendModelSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const circuit = electromagneticCircuitForCurrentDesign();
@@ -8613,7 +8664,11 @@ function drawDetectorFrontendModelSlide(canvas) {
   ctx.stroke();
   ctx.fillStyle = "#b73e3e";
   ctx.font = "15px Arial";
-  ctx.fillText("Ipickup = 1 A AC", 494, 276);
+  // Keep the current-source label left of the cascode block at x=586.
+  ctx.save();
+  ctx.textAlign = "right";
+  ctx.fillText("Ipickup = 1 A AC", 566, 276);
+  ctx.restore();
 
   wire(942, 270, 942, 214, "#7354a3");
   wire(942, 214, 742, 214, "#7354a3");
@@ -8648,6 +8703,7 @@ function drawDetectorFrontendModelSlide(canvas) {
 }
 
 function drawThreeNoiseSourcesSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const budget = fanoNoiseBudget(params);
@@ -8698,6 +8754,7 @@ function drawThreeNoiseSourcesSlide(canvas) {
 }
 
 function drawSimplifiedAmplifierSpiceSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const cdetPf = detectorCapacitancePf(params);
@@ -8806,21 +8863,15 @@ const LMFE_STUDY_COLORS = Object.freeze({
 });
 
 function lmfeStudyForCurrentDesign() {
-  const currentPayload = spiceLadderResultForCurrentDesign();
-  const current = currentPayload?.lmfeOutputCapacitanceStudy;
-  if (current?.cases?.length) return { ...current, signalStep: currentPayload?.lmfeSignalStep, bundledReference: false };
-  const bundledPayload = window.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT?.spiceLadder;
-  const bundled = bundledPayload?.lmfeOutputCapacitanceStudy;
-  return bundled?.cases?.length ? { ...bundled, signalStep: bundledPayload?.lmfeSignalStep, bundledReference: true } : null;
+  const payload = cachedSpiceLadderResultForCurrentDesign();
+  const study = payload?.lmfeOutputCapacitanceStudy;
+  return study?.cases?.length ? { ...study, signalStep: payload.lmfeSignalStep, bundledReference: false } : null;
 }
 
 function lmfeResistanceStudyForCurrentDesign() {
-  const currentPayload = spiceLadderResultForCurrentDesign();
-  const current = currentPayload?.lmfeOutputResistanceStudy;
-  if (current?.cases?.length) return { ...current, signalStep: currentPayload?.lmfeSignalStep, bundledReference: false };
-  const bundledPayload = window.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT?.spiceLadder;
-  const bundled = bundledPayload?.lmfeOutputResistanceStudy;
-  return bundled?.cases?.length ? { ...bundled, signalStep: bundledPayload?.lmfeSignalStep, bundledReference: true } : null;
+  const payload = cachedSpiceLadderResultForCurrentDesign();
+  const study = payload?.lmfeOutputResistanceStudy;
+  return study?.cases?.length ? { ...study, signalStep: payload.lmfeSignalStep, bundledReference: false } : null;
 }
 
 function interpolatePositiveLogSample(samples, key, frequencyHz) {
@@ -9019,6 +9070,7 @@ function formatEnergyRms(value) {
 }
 
 function drawLmfeSignalCalibrationSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const study = lmfeStudyForCurrentDesign();
@@ -9121,6 +9173,7 @@ function drawLmfeSignalCalibrationSlide(canvas) {
 }
 
 function drawLmfeFrequencyStudySlide(canvas, mode) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const study = lmfeStudyForCurrentDesign();
@@ -9184,6 +9237,7 @@ function drawLmfeFrequencyStudySlide(canvas, mode) {
 }
 
 function drawLmfePickupNoiseSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const study = lmfePickupNoiseStudy(params);
@@ -9261,6 +9315,7 @@ function drawLmfePickupNoiseSlide(canvas) {
 }
 
 function drawLmfeResistanceNoiseSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const study = lmfeResistanceNoiseStudy(params);
@@ -9626,6 +9681,16 @@ function updateNoiseReadouts() {
   document.querySelectorAll("[data-power-line-hz]").forEach((element) => {
     element.textContent = `${powerLineFrequencyHz()} Hz`;
   });
+  const missing = missingSlideSimulations(["capacitance", "spice"]);
+  if (missing.length) {
+    for (const id of ["noiseEquivalentEnergy", "noiseFanoLimit", "noiseFanoTarget", "noiseTrapMainsAttenuation"]) {
+      const output = document.getElementById(id);
+      if (output) output.textContent = "Simulation needed";
+    }
+    const decision = document.getElementById("supplyNoiseDesignCurrent");
+    if (decision) decision.textContent = `Current design needs: ${missing.map((name) => SIMULATION_RUN_LABELS[name]).join("; ")}.`;
+    return;
+  }
   const budget = fanoNoiseBudget(params);
   const set = (id, value) => {
     const element = document.getElementById(id);
@@ -9642,6 +9707,7 @@ function updateNoiseReadouts() {
 }
 
 function drawFanoNoiseSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const budget = fanoNoiseBudget(params);
@@ -10433,7 +10499,7 @@ function drawFieldMapInset(ctx, result, p, x, y, width, height) {
   ctx.strokeRect(x, y, width, height);
   ctx.fillStyle = "#5b6670";
   ctx.font = "14px Arial";
-  ctx.fillText("z", x + width - 22, y + height - 10);
+  ctx.fillText("r = 0: rotation axis / core centreline (z)", x + 12, y + height - 10);
   ctx.fillText("r", x + 10, y + 18);
 }
 
@@ -10573,25 +10639,9 @@ function currentSolvedResultForSlides() {
   return null;
 }
 
-function slidePreviewResult() {
-  const previewParams = slideResultParameters();
-  const cacheKey = comparableResultParameters(previewParams);
-  let result = slideResultCache?.key === cacheKey ? slideResultCache.result : null;
-  if (!result) {
-    result = solveField(previewParams);
-    result.source = "js-slide-screening";
-    captureResultParameters(result, previewParams);
-    slideResultCache = { key: cacheKey, result };
-  }
-  return {
-    result,
-    parameters: previewParams,
-    mode: "preview",
-    blurb: "No current solved result is available for this exact design; displaying a reduced JS screening preview for the slide."
-  };
-}
 
 function drawSimulationResultsSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
@@ -10600,7 +10650,7 @@ function drawSimulationResultsSlide(canvas) {
   ctx.fillStyle = "#fffdf8";
   ctx.fillRect(0, 0, w, h);
 
-  const slideResult = currentSolvedResultForSlides() || slidePreviewResult();
+  const slideResult = currentSolvedResultForSlides();
   const result = slideResult.result;
   const resultParams = slideResult.parameters;
 
@@ -10666,14 +10716,15 @@ function drawSimulationResultsSlide(canvas) {
   drawWrappedLines(ctx, [
     slideResult.mode !== "preview"
       ? slideResult.mode === "bundled-default"
-        ? "This slide is using the committed default-geometry FEniCSx result. Change an input to switch to the browser preview."
+        ? "This slide is using the committed default-geometry FEniCSx result. Change an input, then press Solve field when ready."
         : "This slide is using the field result that was actually run in the Designer tab."
-      : "Preview mode uses a reduced browser solve; run a field solve to replace this with the latest result.",
+      : "Run Solve field for the current design.",
     "Color scale is absolute field magnitude; breakdown markers use material-specific placeholder thresholds where available."
   ], 52, 560, 23, "#5b6670", "17px Arial");
 }
 
 function drawThermalSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (canvas && EpoxyCure.materials[params.epoxy_material]) {
     EpoxyCure.draw(canvas, params);
     return;
@@ -10945,6 +10996,7 @@ function drawThermalSlide(canvas) {
 }
 
 function drawFullWaveSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const result = fullWaveResultForCurrentDesign();
@@ -10965,7 +11017,7 @@ function drawFullWaveSlide(canvas) {
         intrinsicFieldDb: sample.magnitude_db
       }))
     : [];
-  const eqsSaved = (resultEqsSamples.length ? resultEqsSamples : (window.DISCOIDAL_DEFAULT_EQS_SWEEP?.samples || []))
+  const eqsSaved = (resultEqsSamples.length ? resultEqsSamples : (eqsSweepForCurrentDesign()?.samples || []))
     .filter((sample) => Number.isFinite(sample.frequencyHz) && Number.isFinite(sample.intrinsicFieldDb))
     .sort((a, b) => a.frequencyHz - b.frequencyHz);
   const interpolateTransmissionDb = (frequencyHz) => {
@@ -10977,9 +11029,11 @@ function drawFullWaveSlide(canvas) {
     const fraction = Math.log(frequencyHz / lower.frequencyHz) / Math.log(upper.frequencyHz / lower.frequencyHz);
     return lower.intrinsicFieldDb + fraction * (upper.intrinsicFieldDb - lower.intrinsicFieldDb);
   };
-  const meepRaw = result.samples
+  const meepSamples = result.samples
     .filter((sample) => Number.isFinite(sample.frequency_hz) && Number.isFinite(sample.magnitude_db))
     .sort((a, b) => a.frequency_hz - b.frequency_hz);
+  const meepRaw = meepSamples.filter((sample) => sample.convergence?.converged === true);
+  const failedMeep = meepSamples.filter((sample) => sample.convergence?.converged !== true);
   const sharedFrequencies = meepRaw.map((sample) => sample.frequency_hz).filter((frequency) => (
     eqsSaved.some((sample) => Math.abs(Math.log(sample.frequencyHz / frequency)) < 1e-9)
   ));
@@ -11201,7 +11255,7 @@ function drawFullWaveSlide(canvas) {
   }
 
   const panelX = 825;
-  const eqsValidationDifference = Number(window.DISCOIDAL_DEFAULT_EQS_SWEEP?.validation?.maxLumpedComparisonDifferenceDb);
+  const eqsValidationDifference = Number(eqsSweepForCurrentDesign()?.validation?.maxLumpedComparisonDifferenceDb);
   ctx.fillStyle = "#17202a";
   ctx.font = "bold 20px Arial";
   ctx.textAlign = "left";
@@ -11211,13 +11265,14 @@ function drawFullWaveSlide(canvas) {
     ["Normalize at", formatFrequency(normalizationFrequency)],
     ["Handoff check", `${formatFrequency(overlapFrequency)}; ${Number.isFinite(handoffResidual) ? `${handoffResidual >= 0 ? "+" : ""}${handoffResidual.toFixed(2)} dB` : "no shared point"}`],
     ["Overlap status", overlapValidated ? "consistent within 2 dB" : "handoff not validated"],
+    ["MEEP convergence", `${meepRaw.length}/${meepSamples.length}${failedMeep.length ? `; excludes ${failedMeep.map((sample) => formatFrequency(sample.frequency_hz)).join(", ")}` : "; all converged"}`],
     ["Low-loss ladder f0", ladderModes.length ? ladderModes.slice(0, 2).map((mode) => formatFrequency(mode.naturalFrequencyHz)).join(" / ") : "not found"],
     ["Predicted loaded peaks", loadedLadderModes.length ? loadedLadderModes.slice(0, 2).map((mode) => formatFrequency(mode.loadedPeakFrequencyHz)).join(" / ") : "none; overdamped"],
     [result.resonance_verification?.enabled ? "First verified mode" : "First coarse bracket", resonance ? formatFrequency(resonance.frequency) : "not bracketed"],
     ["ADC Nyquist", "31.25 MHz"]
   ];
   rows.forEach(([label, value], index) => {
-    const y = 96 + index * 46;
+    const y = 96 + index * 42;
     ctx.fillStyle = "#f5f2ea";
     ctx.fillRect(panelX, y, 238, 39);
     ctx.fillStyle = "#5b6670";
@@ -11248,6 +11303,7 @@ function drawFullWaveSlide(canvas) {
 }
 
 function drawSimulationChainSlide(canvas) {
+  if (!simulationGraphicReady(canvas)) return;
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const circuit = electromagneticCircuitForCurrentDesign();
@@ -11361,7 +11417,169 @@ function drawSimulationChainSlide(canvas) {
   ], 62, 514, 27, "#35434a", "16px Arial", 970);
 }
 
+
+// Every slide graphic is explicitly classified: current simulation, analytical,
+// geometry, or a fixed historical study. Result accessors below are read-only.
+const SLIDE_SIMULATION_REQUIREMENTS = Object.freeze({
+  slideResultsCanvas: ["field"],
+  slideThermalCanvas: ["thermal"],
+  slideThermalFeaModelCanvas: ["thermal"],
+  slideSimulationChainCanvas: ["capacitance", "spice"],
+  slideCapacitanceExtractionCanvas: ["capacitance"],
+  slideCgPlateCountComparisonCanvas: ["capacitance", "cgComparison"],
+  slideCparExtractionCanvas: ["capacitance"],
+  slideFeaSanityCanvas: ["capacitance"],
+  slideRcCanvas: ["capacitance"],
+  slideLoadedLadderCanvas: ["capacitance", "spice"],
+  slideSpiceLadderCanvas: ["capacitance", "spice"],
+  slideDetectorFrontendCanvas: ["capacitance", "spice"],
+  slideSimplifiedAmplifierCanvas: ["capacitance", "spice"],
+  slideThreeNoiseSourcesCanvas: ["capacitance", "spice"],
+  slideLmfeGateGainCanvas: ["capacitance", "spice"],
+  slideLmfePickupTransferCanvas: ["capacitance", "spice"],
+  slideLmfePickupNoiseCanvas: ["capacitance", "spice", "capacitanceStudy"],
+  slideLmfeResistanceNoiseCanvas: ["capacitance", "spice", "resistanceStudy"],
+  slideFanoNoiseCanvas: ["capacitance", "spice"],
+  slideEqsCanvas: ["capacitance", "eqs"],
+  slideFullWaveCanvas: ["capacitance", "eqs", "fullwave"],
+  slideElectromagneticCanvas: ["capacitance"]
+});
+const SLIDE_REFERENCE_GRAPHICS = Object.freeze({
+  slideCparStrategyValidationCanvas: "Saved full/mirror/repeated capacitance validation",
+  slideCparLimitValidationCanvas: "Saved parasitic-capacitance limiting-case study",
+  slideCgStrategyValidationCanvas: "Saved ground-capacitance strategy validation",
+  slideCgLimitValidationCanvas: "Saved ground-capacitance limiting-case study",
+  slideCgValidationHistoryCanvas: "Saved validation history",
+  slideAluminaThermalStudyCanvas: "Saved alumina-insert thermal comparison",
+  slideThermalConductorStudyCanvas: "Saved conductor-material thermal comparison",
+  slidePrototypeGeometryCanvas: "Saved 28 mm default reference geometry",
+  slidePrototypePerformanceCanvas: "Analytical earlier prototype comparison"
+});
+const SLIDE_ANALYTICAL_GRAPHICS = Object.freeze([
+  "slideCadCanvas", "slideMaterialCanvas", "slideModelerCanvas",
+  "slideEdgeCanvas", "slideDeformationCanvas", "slidePackingCanvas", "slideStageValidationCanvas"
+]);
+const SIMULATION_RUN_LABELS = Object.freeze({
+  field: "Field FEA: Designer > Field FEA > Solve field",
+  capacitance: "Field FEA (Cg/Cpar): Designer > Field FEA > Solve field",
+  spice: "SPICE: Designer > SPICE > Run SPICE simulation",
+  thermal: "Thermal FEA: Designer > Thermal > Solve thermal FEA",
+  eqs: "Electroquasistatic FEA: Designer > Field FEA > Solve full-wave EM (includes EQS)",
+  fullwave: "Full-wave EM: Designer > Field FEA > Solve full-wave EM",
+  cgComparison: "Two/three-plate comparison FEA: disable Repeat interior, select mirror/full stack, then press Solve field",
+  capacitanceStudy: "Output-capacitance sweep: Designer > SPICE > Run SPICE simulation",
+  resistanceStudy: "Output-resistance sweep: Designer > SPICE > Run SPICE simulation"
+});
+
+function eqsResultKey(p) {
+  const value = JSON.parse(fullWaveKey(p));
+  for (const key of Object.keys(value)) if (key.startsWith("full_wave_") && key !== "full_wave_eqs_frequencies_hz") delete value[key];
+  return JSON.stringify(value);
+}
+
+function intrinsicLumpedTransferDb(frequencyHz, network, stageResistanceOhm) {
+  const caps = network?.maxwell_pf_matrix;
+  if (!caps?.length || !(stageResistanceOhm > 0)) return NaN;
+  if (caps.length === 1) return 0;
+  const n = caps.length;
+  const g = 1 / stageResistanceOhm;
+  const omega = 2 * Math.PI * frequencyHz;
+  const matrix = caps.map((row, i) => row.map((pf, j) => c(
+    i === j ? g * (i === 0 || i === n - 1 ? 1 : 2) : Math.abs(i - j) === 1 ? -g : 0,
+    omega * pf * 1e-12
+  )));
+  const solved = solveComplexLinear(matrix.slice(1).map((row) => row.slice(1)),
+    matrix.slice(1).map((row) => c(-row[0].re, -row[0].im)));
+  return solved ? 20 * Math.log10(Math.max(cAbs(solved.at(-1)), 1e-300)) : NaN;
+}
+
+function eqsSweepForCurrentDesign() {
+  const wave = fullWaveResultForCurrentDesign();
+  if (wave?.eqs_samples?.length) {
+    const circuit = electromagneticCircuitForCurrentDesign();
+    const network = feaCapacitanceNetworkForCurrentDesign();
+    const samples = wave.eqs_samples.map((sample) => ({
+      frequencyHz: sample.frequency_hz,
+      intrinsicFieldDb: sample.magnitude_db,
+      intrinsicSpiceDb: intrinsicLumpedTransferDb(sample.frequency_hz, network, circuit.stageResistanceOhm)
+    }));
+    return { samples, meshMm: wave.eqs_mesh?.target_size_mm ?? NaN, cells: wave.eqs_mesh?.cells ?? 0,
+      validation: { maxLumpedComparisonDifferenceDb: Math.max(...samples.map((sample) => Math.abs(sample.intrinsicFieldDb - sample.intrinsicSpiceDb))) } };
+  }
+  const saved = window.DISCOIDAL_DEFAULT_EQS_SWEEP;
+  return saved?.samples?.length && !parameterKeyDifference(eqsResultKey(saved.settings), eqsResultKey(params)) ? saved : null;
+}
+
+function missingSlideSimulations(requirements) {
+  const spice = cachedSpiceLadderResultForCurrentDesign();
+  const available = {
+    field: Boolean(currentSolvedResultForSlides()),
+    capacitance: Boolean(feaCapacitanceNetworkForCurrentDesign()),
+    spice: Boolean(spice?.samples?.length && spice?.lmfeSignalStep?.samples?.length
+      && spice?.lmfeEverythingTransfer?.samples?.length && spice?.lmfeInputPickupTransfer?.samples?.length
+      && spice?.lmfeCryostatPickupTransfer?.samples?.length),
+    thermal: Boolean(thermalFeaResultForCurrentDesign()),
+    eqs: Boolean(eqsSweepForCurrentDesign()?.samples?.length),
+    fullwave: Boolean(fullWaveResultForCurrentDesign()?.samples?.length),
+    cgComparison: Boolean(feaCapacitanceForCurrentDesign()?.cgMatrixComparison),
+    capacitanceStudy: Boolean(spice?.lmfeOutputCapacitanceStudy?.cases?.length),
+    resistanceStudy: Boolean(spice?.lmfeOutputResistanceStudy?.cases?.length)
+  };
+  return requirements.filter((name) => !available[name]);
+}
+
+function simulationGraphicReady(canvas) {
+  if (!canvas) return false;
+  const requirements = SLIDE_SIMULATION_REQUIREMENTS[canvas.id];
+  if (!requirements) return true;
+  const missing = missingSlideSimulations(requirements);
+  canvas.dataset.simulationMissing = missing.join(",");
+  canvas.hidden = missing.length > 0;
+  let notice = document.getElementById(`${canvas.id}SimulationNotice`);
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.id = `${canvas.id}SimulationNotice`;
+    notice.className = "simulation-required";
+    notice.setAttribute("role", "status");
+    canvas.before(notice);
+  }
+  notice.hidden = !missing.length;
+  if (missing.length) {
+    notice.replaceChildren();
+    const title = document.createElement("strong");
+    title.textContent = "Simulations needed for the current settings";
+    const list = document.createElement("ul");
+    for (const name of missing) {
+      const item = document.createElement("li");
+      item.textContent = SIMULATION_RUN_LABELS[name];
+      list.append(item);
+    }
+    const help = document.createElement("p");
+    help.textContent = "Finish changing the settings, then press the listed run buttons. Simulations do not start automatically.";
+    notice.append(title, list, help);
+  }
+  return !missing.length;
+}
+
+function labelReferenceGraphics() {
+  for (const [id, label] of Object.entries(SLIDE_REFERENCE_GRAPHICS)) {
+    const canvas = document.getElementById(id);
+    if (!canvas || document.getElementById(`${id}ReferenceNote`)) continue;
+    const note = document.createElement("p");
+    note.id = `${id}ReferenceNote`;
+    note.className = "simulation-reference";
+    note.textContent = `${label}. Fixed reference; not a simulation of the current Designer settings.`;
+    canvas.before(note);
+  }
+}
+
 function drawSlideGraphics() {
+  labelReferenceGraphics();
+  const thermal = thermalFeaResultForCurrentDesign();
+  const thermalText = document.getElementById("thermalSlideResult");
+  if (thermalText) thermalText.textContent = thermal
+    ? `Current ${thermal.parameters.plate_pairs}-plate FEA: P99 tension ${thermal.epoxy_principal_tensile_stress_mpa.p99.toFixed(2)} MPa; raw corner peak ${thermal.epoxy_principal_tensile_stress_mpa.raw_max.toFixed(2)} MPa. Corner peaks are mesh-sensitive; no DP270 bulk tensile safety margin is assigned.`
+    : "Thermal FEA is needed for the current settings. No current stress result is displayed.";
   const slideCad = document.getElementById("slideCadCanvas");
   if (!slideCad) return;
   const slideView = { ...defaultCadView, zoom: 1.16, panY: 10 };
@@ -11636,11 +11854,10 @@ function drawPrototypeGeometrySlide(canvas) {
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
   const h = canvas.height;
-  const cases = prototypeSimulationCases();
-  const melf = cases.find((entry) => entry.key === "melf");
-  const ferrite = cases.find((entry) => entry.key === "ferrite");
-  const pairCapPf = melf.circuit.pairCapPf;
-  const shuntCapPf = melf.circuit.shuntCapPf;
+  const reference = defaults;
+  const circuit = circuitEstimates(reference);
+  const pairCapPf = circuit.pairCapPf;
+  const shuntCapPf = circuit.shuntCapPf;
 
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#fffdf8";
@@ -11648,7 +11865,8 @@ function drawPrototypeGeometrySlide(canvas) {
 
   const centerX = 270;
   const centerY = 302;
-  const scale = 15;
+  // Keep the radial drawing clear of the fixed legend rows at y=92 and y=520.
+  const scale = 12.5;
   const radiusPx = (diameterMm) => diameterMm * scale / 2;
   const drawRing = (outerDiameter, innerDiameter, fill, stroke, lineWidth = 2) => {
     ctx.beginPath();
@@ -11663,22 +11881,22 @@ function drawPrototypeGeometrySlide(canvas) {
 
   ctx.fillStyle = "#17202a";
   ctx.font = "23px Arial";
-  ctx.fillText("Shared radial envelope", 70, 58);
-  drawRing(28, 26, "rgba(85, 122, 56, 0.24)", "#557a38", 3);
-  drawRing(23, 4, "rgba(214, 183, 93, 0.55)", "#a7862e", 3);
+  ctx.fillText("MELF radial envelope", 70, 58);
+  drawRing(30, 28, "rgba(85, 122, 56, 0.24)", "#557a38", 3);
+  drawRing(25.8, 4.2, "rgba(214, 183, 93, 0.55)", "#a7862e", 3);
 
   ctx.save();
   ctx.strokeStyle = "#557a38";
   ctx.lineWidth = 2;
   ctx.setLineDash([8, 7]);
   ctx.beginPath();
-  ctx.arc(centerX, centerY, radiusPx(4), 0, Math.PI * 2);
+  ctx.arc(centerX, centerY, radiusPx(4.2), 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 
-  ctx.fillStyle = "rgba(31, 111, 120, 0.78)";
+  ctx.fillStyle = "rgba(183, 62, 62, 0.78)";
   ctx.beginPath();
-  ctx.arc(centerX, centerY, radiusPx(2), 0, Math.PI * 2);
+  ctx.arc(centerX, centerY, radiusPx(2.2), 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "#1f6f78";
   ctx.lineWidth = 3;
@@ -11690,10 +11908,10 @@ function drawPrototypeGeometrySlide(canvas) {
   ctx.stroke();
 
   const radialLabels = [
-    { x: 76, y: 92, color: "#557a38", label: "Ground tube ID 26.0 mm" },
-    { x: 300, y: 92, color: "#a7862e", label: "Epoxy to bias OD 23.0 mm" },
-    { x: 76, y: 520, color: "#a7862e", label: "Epoxy from ground ID 4.0 mm" },
-    { x: 300, y: 520, color: "#557a38", label: "Ground minimum ID 4.0 mm" }
+    { x: 76, y: 92, color: "#557a38", label: "Ground tube ID 28.0 mm" },
+    { x: 300, y: 92, color: "#a7862e", label: "Epoxy to bias OD 25.8 mm" },
+    { x: 76, y: 520, color: "#a7862e", label: "Epoxy from ground ID 4.2 mm" },
+    { x: 300, y: 520, color: "#557a38", label: "Ground minimum ID 4.2 mm" }
   ];
   radialLabels.forEach((entry) => {
     ctx.strokeStyle = entry.color;
@@ -11707,33 +11925,20 @@ function drawPrototypeGeometrySlide(canvas) {
     ctx.fillText(entry.label, entry.x + 30, entry.y);
   });
 
-  ctx.fillStyle = "#1f6f78";
-  ctx.font = "16px Arial";
-  ctx.fillText("2.0 mm ferrite", 116, 574);
-  ctx.strokeStyle = "#1f6f78";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(82, 568);
-  ctx.lineTo(106, 568);
-  ctx.stroke();
   ctx.fillStyle = "#b73e3e";
-  ctx.fillText("2.2 mm MELF", 338, 574);
-  ctx.strokeStyle = "#b73e3e";
-  ctx.beginPath();
-  ctx.moveTo(304, 568);
-  ctx.lineTo(328, 568);
-  ctx.stroke();
+  ctx.font = "16px Arial";
+  ctx.fillText("2.2 mm MELF core path", 180, 574);
 
   const panelX = 650;
   ctx.fillStyle = "#17202a";
   ctx.font = "23px Arial";
-  ctx.fillText("Fixed two-pair simulation", panelX, 58);
+  ctx.fillText("MELF reference dimensions", panelX, 58);
 
   const rows = [
     ["Epoxy gap", "1.0 mm", "continuous dielectric"],
     ["Copper plates", "2.0 mm", "1.0 mm edge radius"],
-    ["MELF radial gap", "0.90 mm", "(4.0 - 2.2) / 2"],
-    ["Ferrite radial gap", "1.00 mm", "(4.0 - 2.0) / 2"],
+    ["MELF radial gap", "1.00 mm", "(4.2 - 2.2) / 2"],
+    ["Bias-to-shell gap", "1.10 mm", "(28.0 - 25.8) / 2"],
     ["One washer C", formatCapacitance(pairCapPf), "analytic overlap"],
     ["Node shunt C", formatCapacitance(shuntCapPf), "two washers"]
   ];
@@ -11756,7 +11961,7 @@ function drawPrototypeGeometrySlide(canvas) {
   });
 
   drawWrappedLines(ctx, [
-    "The epoxy gap and copper geometry remain fixed. Only the central resistive insert and its termination method change."
+    "DP270 at 6 kV: refined peak margin 4.25x; 4.12x with a 3% field allowance. Diameters selected on a 0.2 mm grid."
   ], panelX, 535, 22, "#5b6670", "16px Arial", 390);
 }
 
@@ -12917,12 +13122,13 @@ function clearField() {
   document.getElementById("maxLocation").textContent = "--";
   document.getElementById("iterations").textContent = "--";
   updateFeaResourceReadouts("fieldFea", null);
-  setModelStatus("JS screening");
+  setModelStatus("Field simulation needed");
   updateEdgeEstimate();
   updateCircuitEstimates();
   updateDielectricMarginReadouts();
   fanoNoiseBudgetCache = null;
   updateSpiceSolverPanel();
+  drawSlideGraphics();
 }
 
 async function fetchJson(url, options = {}) {
@@ -12984,6 +13190,7 @@ async function pollBackendJob(jobId, startTimeMs) {
   while (Date.now() - startTimeMs < FIELD_SOLVER_JOB_TIMEOUT_MS) {
     await new Promise((resolve) => window.setTimeout(resolve, FIELD_SOLVER_POLL_MS));
     const payload = await fetchJson(`${FIELD_SOLVER_ENDPOINT}/${encodedJob}`);
+    setModelStatus(`Field FEA ${payload.status || "running"}: ${formatDuration((Date.now() - startTimeMs) / 1000)} elapsed`);
     if (payload.status === "failed" || payload.error) {
       throw new Error(payload.error || "Field backend job failed.");
     }
@@ -12991,11 +13198,11 @@ async function pollBackendJob(jobId, startTimeMs) {
       return backendResultFromPayload(payload);
     }
   }
-  throw new Error("Field backend job timed out.");
+  throw new Error(`Stopped waiting for field job ${jobId}; no fallback was run.`);
 }
 
 async function solveFieldWithBackend(p) {
-  const backendSolver = backendSolverForRequest();
+  const backendSolver = fieldSolverOptions[p.field_solver]?.backendSolver;
   if (!backendSolver) {
     throw new Error("Backend solver was not selected.");
   }
@@ -13012,6 +13219,7 @@ async function solveFieldWithBackend(p) {
       }),
       signal: controller.signal
     });
+    window.clearTimeout(timeout);
     if (payload.job_id && payload.status !== "complete" && !payload.result) {
       return pollBackendJob(payload.job_id, Date.now());
     }
@@ -13060,7 +13268,9 @@ function drawSolvedResult(result) {
       ? `${backendModelLabel}; end/interior classes reused from ${solvedPlateCount} for ${currentPlateCount} plates`
       : result.source?.startsWith("js") ? jsModelLabel : backendModelLabel
   );
-  drawSlideGraphics();
+  // A completed field solve changes the Cg/Cpar network and SPICE eligibility.
+  // Refresh every dependent view, but leave running SPICE to its explicit button.
+  refreshSpiceDependentViews();
 }
 
 function reportSolveFailure(error) {
@@ -13074,29 +13284,25 @@ function solveAndDraw() {
   solveButton.disabled = true;
   solveButton.textContent = translateText("Solving...");
   const solver = selectedFieldSolver();
+  const submittedParameters = structuredClone(params);
   setModelStatus(solver.modelLabel);
   window.setTimeout(async () => {
     try {
       if (!solver.backendSolver) {
-        lastResult = solveField(params);
+        lastResult = solveField(submittedParameters);
         lastResult.source = "js-local";
       } else {
-        lastResult = await solveFieldWithBackend(params);
+        lastResult = await solveFieldWithBackend(submittedParameters);
       }
-      captureResultParameters(lastResult, params);
-      drawSolvedResult(lastResult);
+      captureResultParameters(lastResult, submittedParameters);
+      if (lastResult.parameterKey === comparableResultParameters(params)) drawSolvedResult(lastResult);
+      else { clearField(); drawSlideGraphics(); }
     } catch (error) {
-      if (params.field_solver === "backend_fenicsx") {
-        lastResult = null;
-        reportSolveFailure(error);
-        setModelStatus("FEniCSx unavailable");
-      } else {
-        lastResult = solveField(params);
-        setModelStatus("Backend unavailable; JS fallback");
-        lastResult.source = "js-fallback";
-        captureResultParameters(lastResult, params);
-        drawSolvedResult(lastResult);
-      }
+      // A slow or failed FEA must not be replaced by a different solver with
+      // no capacitance network. Browser JS is available by explicit selection.
+      lastResult = null;
+      reportSolveFailure(error);
+      setModelStatus(`${solver.label} failed: ${error.message}`);
     } finally {
       solveButton.disabled = false;
       solveButton.textContent = translateText("Solve field");

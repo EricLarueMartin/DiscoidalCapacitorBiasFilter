@@ -6,7 +6,9 @@ const root = path.resolve(__dirname, '../..');
 const app = fs.readFileSync(path.join(root, 'presentations/web/app.js'), 'utf8');
 const bundle = JSON.parse(fs.readFileSync(path.join(root,'presentations/web/default-fenicsx-field-dp270.js'),'utf8').replace(/^window\.DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT = /,'').trim().replace(/;$/, ''));
 const p = {...bundle.settings, plate_pairs: 3};
-const network = bundle.result.capacitance.capacitance_network;
+// Retain the original three-plate regression fixture while the default moves to seven.
+const originalField = JSON.parse(fs.readFileSync(path.join(root,'simulations/axisymmetric/outputs/default-dp270-field.json'),'utf8'));
+const network = originalField.capacitance.capacitance_network;
 const ctx = vm.createContext({structuredClone, params:p, defaults:p, EPSILON_0_F_PER_M:8.8541878128e-12});
 const names = ['clamp','averageFinite','maxwellMatrixFromGroundAndMutual','repeatedNetworkForPlateCount',
  'usesDirectStageCapacitance','usesMelfCoreModel','melfEffectiveEpsr','coreCapacitanceEpsr',
@@ -51,4 +53,19 @@ if(process.argv[2]) {
  const cases=[{...p,plate_pairs:7},{...p,plate_pairs:3},{...p,plate_pairs:5},{...p,plate_pairs:5,melf_stage_resistance_mohm:20,input_series_resistance_mohm:20,melf_stage_resistance_log10_ohm:Math.log10(20e6)}];
  fs.writeFileSync(process.argv[2],JSON.stringify(cases.map(parameters=>({parameters,network:ctx.repeatedNetworkForPlateCount(network,parameters.plate_pairs,parameters)}))));
 }
-console.log('PASS: reused 3→4/5/7/8 plates, resistor-only cache keys, physical geometry, invalidating geometry changes, terminal indexing, immutable FEA source.');
+const currentNetwork = bundle.result.capacitance.capacitance_network;
+for (const target of [3,5,7,9]) {
+ const base = {...bundle.settings,plate_pairs:currentNetwork.node_count};
+ const changed = {...base,plate_pairs:target};
+ assert.equal(ctx.comparableResultParameters(base),ctx.comparableResultParameters(changed),'saved default FEA remains reusable');
+ if(target!==base.plate_pairs) assert.notEqual(ctx.spiceCircuitParameters(base),ctx.spiceCircuitParameters(changed));
+ const reused = ctx.repeatedNetworkForPlateCount(currentNetwork,target,changed);
+ assert.equal(reused.node_ground_pf.length,target);
+ if(target===currentNetwork.node_count) assert.equal(reused,currentNetwork,'exact default network is retained');
+ else assert.equal(reused.reconstructed_from_plate_count,currentNetwork.node_count);
+ for(let i=0;i<target;i++) {
+  assert(Math.abs(reused.maxwell_pf_matrix[i].reduce((x,y)=>x+y,0)-reused.node_ground_pf[i])<1e-10);
+  for(let j=0;j<target;j++) assert.equal(reused.mutual_pf_matrix[i][j],reused.mutual_pf_matrix[j][i]);
+ }
+}
+console.log('PASS: original 3-plate and current default capacitance reuse, explicit SPICE invalidation, geometry changes, terminal indexing, immutable source.');

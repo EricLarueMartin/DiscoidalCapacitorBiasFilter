@@ -1,0 +1,359 @@
+{
+  "profile_steps_per_quarter": 64,
+  "parameters": {
+    "units": "mm",
+    "bias_voltage_v": 6000,
+    "core_volume_resistivity_log10_ohm_cm": 8.0,
+    "core_volume_resistivity_ohm_cm": 100000000.0,
+    "use_direct_stage_circuit": true,
+    "use_direct_stage_capacitance": false,
+    "melf_stage_resistance_mohm": 10.0,
+    "melf_stage_resistance_log10_ohm": 7.0,
+    "melf_stage_parasitic_pf": 0.3,
+    "melf_substrate_epsr": 9.8,
+    "melf_metal_fill_factor": 0.5,
+    "ferrite_conductor_fill_factor": 0.0,
+    "input_series_resistance_mohm": 10.0,
+    "output_series_resistance_ohm": 47.0,
+    "input_series_matches_stage": true,
+    "output_series_matches_stage": false,
+    "bias_source_resistance_mohm": 0.04,
+    "source_cable_length_m": 10.0,
+    "source_cable_impedance_ohm": 50.0,
+    "source_cable_velocity_factor": 0.66,
+    "load_current_na": 1.0,
+    "load_cable_length_m": 10.0,
+    "load_cable_impedance_ohm": 50.0,
+    "load_cable_velocity_factor": 0.66,
+    "detector_capacitance_pf": 10.0,
+    "additional_ground_capacitance_pf": 0.0,
+    "noise_sample_rate_msps": 62.5,
+    "noise_waveform_samples": 8192,
+    "noise_trap_rise_us": 10.0,
+    "noise_trap_flat_us": 4.0,
+    "noise_supply_noise_pp_mv": 10.0,
+    "noise_lab_broadband_rms_mv": 0.05,
+    "noise_mains_rms_mv": 0.2,
+    "noise_cryostat_broadband_rms_mv": 0.05,
+    "noise_cryostat_mains_rms_mv": 0.2,
+    "noise_mains_frequency_hz": 50,
+    "noise_fano_factor": 0.114545454545455,
+    "core_resistance_gohm": 0.070000047,
+    "core_od_mm": 2.2,
+    "use_package_core_od": true,
+    "core_material": "mmb0207_melf",
+    "ferrite_epsr": 6.0,
+    "core_to_ground_gap_mm": 0.8999999999999999,
+    "hv_to_tube_gap_mm": 1.5,
+    "hv_plate_od_mm": 23.0,
+    "ground_plate_inner_diameter_mm": 4.0,
+    "washer_id_mm": 4.0,
+    "washer_od_mm": 23.0,
+    "washer_id_mode": "custom",
+    "washer_od_mode": "custom",
+    "ground_plate_od_mm": 26.0,
+    "tube_id_mm": 26.0,
+    "plate_gap_mm": 1.0,
+    "plate_thickness_mm": 2.0,
+    "bias_plate_thickness_mm": 2.0,
+    "ground_plate_thickness_mm": 2.0,
+    "ground_matches_bias_thickness": true,
+    "edge_diameter_percent": 100.0,
+    "edge_radius_mm": 1.0,
+    "washer_material": "epoxy",
+    "washer_epsr": 3.5,
+    "epoxy_material": "three_m_dp270",
+    "epoxy_epsr": 3.5,
+    "plate_material": "copper",
+    "plate_conductivity_log10_s_per_m": 7.763427993562937,
+    "plate_relative_permeability": 1.0,
+    "tube_material": "copper",
+    "tube_conductivity_log10_s_per_m": 7.763427993562937,
+    "tube_relative_permeability": 1.0,
+    "rf_compare_frequency_log10_mhz": 0.0,
+    "plate_pairs": 7,
+    "include_ground_tube": true,
+    "field_solver": "backend_auto",
+    "mesh_edge_radius_ratio": 0.2,
+    "tube_wall_thickness_mm": 1.0,
+    "domain_margin_mm": 4.0,
+    "grid_r_count": 90,
+    "grid_z_count": 150,
+    "solver_iterations": 700,
+    "solver_tolerance_v": 0.01,
+    "solve_strategy": "end_repeat_approx",
+    "use_repeating_cell_approximation": true,
+    "thermal_min_temperature_c": 20.0,
+    "thermal_epoxy_modulus_gpa": 3.0,
+    "thermal_restraint_factor": 1.0,
+    "thermal_mesh_size_mm": 0.3,
+    "full_wave_resolution_per_mm": 2.0,
+    "full_wave_timeout_hours": 2.0,
+    "full_wave_verify_resonances": false,
+    "full_wave_eqs_frequencies_hz": [
+      50.0,
+      1000.0,
+      1000000.0,
+      31250000.0,
+      100000000.0,
+      300000000.0,
+      1000000000.0
+    ],
+    "full_wave_frequencies_hz": [
+      300000000.0,
+      1000000000.0,
+      3000000000.0,
+      10000000000.0,
+      30000000000.0
+    ],
+    "epoxy_cure_schedule": "three_m_dp270:40",
+    "bias_source_capacitance_nf": 1.0,
+    "bias_source_divider_mohm": 300.0,
+    "full_wave_tolerance": 1e-08,
+    "washer_id_matches_ground": false,
+    "washer_od_matches_bias": false
+  },
+  "axis": "r=0, the core centreline; x[0]=r, x[1]=z",
+  "cases": [
+    {
+      "case": "coaxial_analytic_check",
+      "samples": [
+        {
+          "r_mm": 1.105,
+          "potential_v": 5954.587236472064,
+          "exact_potential_v": 5954.484364537566,
+          "field_v_per_mm": 9082.552705587743,
+          "exact_field_v_per_mm": 9082.516215173586
+        },
+        {
+          "r_mm": 1.3,
+          "potential_v": 4323.418146486394,
+          "exact_potential_v": 4323.415066795572,
+          "field_v_per_mm": 7690.590604833535,
+          "exact_field_v_per_mm": 7720.138782897548
+        },
+        {
+          "r_mm": 1.6,
+          "potential_v": 2239.5120565274283,
+          "exact_potential_v": 2239.508940050616,
+          "field_v_per_mm": 6292.301842178328,
+          "exact_field_v_per_mm": 6272.612761104257
+        },
+        {
+          "r_mm": 1.995,
+          "potential_v": 25.153435430293978,
+          "exact_potential_v": 25.121866478201007,
+          "field_v_per_mm": 5030.687086058731,
+          "exact_field_v_per_mm": 5030.666876073589
+        }
+      ],
+      "max_relative_field_error": 0.0038274153995095928,
+      "passed": true,
+      "exact_core_surface_v_per_mm": 9123.80037978801
+    },
+    {
+      "case": "end",
+      "fine_mm": 0.11249999999999999,
+      "coarse_mm": 0.44999999999999996,
+      "z_extent_mm": [
+        0,
+        4
+      ],
+      "cells": 14067,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 8316.825079531982,
+          "r_mm": 1.1080480457860589,
+          "z_mm": 0.7990011243715592
+        },
+        "core_gap": {
+          "field_v_per_mm": 8316.825079531982,
+          "r_mm": 1.1080480457860589,
+          "z_mm": 0.7990011243715592
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7597.490233765378,
+          "r_mm": 10.77099358486057,
+          "z_mm": 3.0238630959609245
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 1.0,
+          "field_v_per_mm": 8258.559320354474,
+          "potential_v": 5999.9174144067965
+        }
+      ],
+      "seconds": 5.147174113895744
+    },
+    {
+      "case": "interior",
+      "fine_mm": 0.11249999999999999,
+      "coarse_mm": 0.44999999999999996,
+      "z_extent_mm": [
+        4,
+        7
+      ],
+      "cells": 10689,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 8039.37278297632,
+          "r_mm": 1.106439415066409,
+          "z_mm": 6.984150443457756
+        },
+        "core_gap": {
+          "field_v_per_mm": 8039.37278297632,
+          "r_mm": 1.106439415066409,
+          "z_mm": 6.984150443457756
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7584.875175160839,
+          "r_mm": 10.74637169771271,
+          "z_mm": 4.983568007089558
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 7.0,
+          "field_v_per_mm": 8011.6136400391715,
+          "potential_v": 5999.919884324265
+        }
+      ],
+      "seconds": 3.9087081789039075
+    },
+    {
+      "case": "mirror_half",
+      "fine_mm": 0.11249999999999999,
+      "coarse_mm": 0.44999999999999996,
+      "z_extent_mm": [
+        0,
+        22
+      ],
+      "cells": 90616,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 8326.19865968204,
+          "r_mm": 1.1058689865641242,
+          "z_mm": 0.8833370582948383
+        },
+        "core_gap": {
+          "field_v_per_mm": 8326.19865968204,
+          "r_mm": 1.1058689865641242,
+          "z_mm": 0.8833370582948383
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7587.744246496844,
+          "r_mm": 10.746304093711036,
+          "z_mm": 3.0166320038786196
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 1.0,
+          "field_v_per_mm": 8258.51376896288,
+          "potential_v": 5999.917414862311
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 7.0,
+          "field_v_per_mm": 8026.250565831664,
+          "potential_v": 5999.9197374943415
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 13.0,
+          "field_v_per_mm": 8027.576687192142,
+          "potential_v": 5999.919724233128
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 19.0,
+          "field_v_per_mm": 8025.026019396783,
+          "potential_v": 5999.919749739805
+        }
+      ],
+      "seconds": 33.857871069107205
+    },
+    {
+      "case": "full_stack",
+      "fine_mm": 0.11249999999999999,
+      "coarse_mm": 0.44999999999999996,
+      "z_extent_mm": [
+        0,
+        44
+      ],
+      "cells": 183046,
+      "regions": {
+        "all": {
+          "field_v_per_mm": 8336.28729014453,
+          "r_mm": 1.1054038287268686,
+          "z_mm": 43.200932389257126
+        },
+        "core_gap": {
+          "field_v_per_mm": 8336.28729014453,
+          "r_mm": 1.1054038287268686,
+          "z_mm": 43.200932389257126
+        },
+        "bias_outer_rim": {
+          "field_v_per_mm": 7594.4971741318195,
+          "r_mm": 10.770827716892244,
+          "z_mm": 34.97498396586738
+        }
+      },
+      "core_surface_probes": [
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 1.0,
+          "field_v_per_mm": 8255.913542734048,
+          "potential_v": 5999.917440864573
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 7.0,
+          "field_v_per_mm": 8024.43949622362,
+          "potential_v": 5999.919755605038
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 13.0,
+          "field_v_per_mm": 8016.376522755056,
+          "potential_v": 5999.9198362347715
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 19.0,
+          "field_v_per_mm": 8025.67410295296,
+          "potential_v": 5999.91974325897
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 25.0,
+          "field_v_per_mm": 8024.671289648272,
+          "potential_v": 5999.919753287103
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 31.0,
+          "field_v_per_mm": 8024.069853082047,
+          "potential_v": 5999.91975930147
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 37.0,
+          "field_v_per_mm": 8023.885956810074,
+          "potential_v": 5999.9197611404325
+        },
+        {
+          "r_mm": 1.1000100000000002,
+          "z_mm": 43.0,
+          "field_v_per_mm": 8248.530042339484,
+          "potential_v": 5999.917514699576
+        }
+      ],
+      "seconds": 69.97210381785408
+    }
+  ]
+}

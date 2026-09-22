@@ -106,7 +106,9 @@ def mesh_plan_summary() -> dict[str, Any]:
             "Set small Gmsh sizes on rounded ground inner edges.",
             "Refine dielectric-interface endpoints near plate overlap boundaries.",
         ],
-        "adaptiveLoop": [
+        "adaptiveLoopImplemented": False,
+        "linearSolver": "Direct LU; no coarse-solution initial guess is used.",
+        "plannedAdaptiveLoop": [
             "Solve on the conforming mesh.",
             "Estimate field and/or flux-jump error by cell.",
             "Refine marked cells or remesh with tighter Gmsh size fields.",
@@ -240,9 +242,13 @@ def _build_gmsh_model(
     include_core_dielectric: bool = False,
     z_min_mm: float = 0.0,
     z_max_mm: float | None = None,
+    refine_peak_field: bool = False,
 ) -> dict[str, float]:
     gmsh = modules["gmsh"]
     sizes = _mesh_sizes(p)
+    if refine_peak_field:
+        sizes["core_surface_fine_mm"] = min(sizes["fine"], float(p["core_to_ground_gap_mm"]) / 32.0)
+        sizes["profile_steps_per_quarter"] = 64
     length = axisymmetric_model.stack_length_mm(p)
     solve_z_min = max(0.0, min(float(z_min_mm), length))
     solve_z_max = length if z_max_mm is None else max(solve_z_min, min(float(z_max_mm), length))
@@ -253,13 +259,13 @@ def _build_gmsh_model(
     gmsh.initialize()
     gmsh.model.add("discoidal_capacitor_bias_filter_axisymmetric")
     gmsh.option.setNumber("General.Terminal", 0)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", sizes["fine"])
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", sizes.get("core_surface_fine_mm", sizes["fine"]))
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", sizes["coarse"])
     gmsh.option.setNumber("Mesh.Algorithm", 6)
 
     domain = gmsh.model.occ.addRectangle(r_min, solve_z_min, 0.0, tube_inner - r_min, solve_z_max - solve_z_min)
     tools: list[tuple[int, int]] = []
-    for component in axisymmetric_model.component_profiles(p):
+    for component in axisymmetric_model.component_profiles(p, curve_steps=64 if refine_peak_field else 8):
         if component["material"] not in {"hv", "ground"}:
             continue
         solve_profile = _component_profile_for_solve(p, component, include_core_dielectric)
@@ -291,6 +297,13 @@ def _build_gmsh_model(
         raise RuntimeError("Gmsh produced no dielectric surfaces for the FEniCSx solve.")
     gmsh.model.addPhysicalGroup(2, [tag for _, tag in surfaces], PHYSICAL_DIELECTRIC_TAG)
     gmsh.model.setPhysicalName(2, PHYSICAL_DIELECTRIC_TAG, "dielectric")
+    if refine_peak_field:
+        # Plate-edge vertices already carry the fine size. The straight core
+        # boundary otherwise inherits the much coarser rectangle size, masking
+        # its 1/r field enhancement. Explicitly refine its surviving endpoints.
+        core_points = [(dim, tag) for dim, tag in gmsh.model.getEntities(0)
+                       if abs(float(gmsh.model.getValue(0, tag, [])[0]) - core_r) < 1e-7]
+        gmsh.model.mesh.setSize(core_points, sizes["core_surface_fine_mm"])
     gmsh.model.mesh.generate(2)
     return sizes
 
@@ -392,14 +405,29 @@ def _component_marker(
         and (materials is None or component["material"] in materials)
     ]
 
+    # Basis solves revisit the same conductors for every mesh point. Reject
+    # points outside each tolerance-expanded bounding box before the detailed
+    # segment-distance test; this preserves the boundary tolerance exactly.
+    bounded_profiles = []
+    for component in components:
+        profile = component["profile"]
+        if len(profile) < 3:
+            continue
+        radii, heights = zip(*profile)
+        tol = BOUNDARY_MARKER_TOLERANCE_MM
+        bounds = (min(radii) - tol, max(radii) + tol,
+                  min(heights) - tol, max(heights) + tol)
+        bounded_profiles.append((profile, bounds))
+
     def marker(x: Any) -> Any:
         values: list[bool] = []
         for r, z in zip(x[0], x[1]):
             rr = max(0.0, float(r))
             zz = min(max(float(z), 0.0), length)
             values.append(any(
-                _point_in_polygon_or_on_boundary((rr, zz), component["profile"])
-                for component in components
+                bounds[0] <= rr <= bounds[1] and bounds[2] <= zz <= bounds[3]
+                and _point_in_polygon_or_on_boundary((rr, zz), profile)
+                for profile, bounds in bounded_profiles
             ))
         return np.array(values, dtype=bool)
 
@@ -700,7 +728,8 @@ def _reflect_potential_axially(
     reflected_points = np.zeros((len(dof_coordinates), 3), dtype=np.float64)
     reflected_points[:, : dof_coordinates.shape[1]] = dof_coordinates
     reflected_points[:, 1] = float(z_min_mm) + float(z_max_mm) - dof_coordinates[:, 1]
-    cells = _colliding_cell_lookup(mesh, reflected_points, modules)
+    tree = _cell_search_tree(mesh, modules)
+    cells = _colliding_cell_lookup(mesh, reflected_points, modules, tree=tree)
     for index, cell in enumerate(cells):
         if cell is not None:
             continue
@@ -721,7 +750,7 @@ def _reflect_potential_axially(
             for candidate, (dr, dz) in zip(candidates, offsets):
                 candidate[0] = max(0.0, candidate[0] + dr)
                 candidate[1] += dz
-            candidate_cells = _colliding_cell_lookup(mesh, candidates, modules)
+            candidate_cells = _colliding_cell_lookup(mesh, candidates, modules, tree=tree)
             match = next(
                 (
                     (candidate, candidate_cell)
@@ -2537,13 +2566,21 @@ def cg_limiting_geometry_sweep(
     }
 
 
-def _colliding_cell_lookup(mesh: Any, points: Any, modules: dict[str, Any]) -> list[int | None]:
+def _cell_search_tree(mesh: Any, modules: dict[str, Any]) -> Any:
     geometry = modules["geometry"]
-    tdim = mesh.topology.dim
     try:
-        tree = geometry.bb_tree(mesh, tdim)
+        return geometry.bb_tree(mesh, mesh.topology.dim)
     except AttributeError:
-        tree = geometry.BoundingBoxTree(mesh, tdim)
+        return geometry.BoundingBoxTree(mesh, mesh.topology.dim)
+
+
+def _colliding_cell_lookup(
+    mesh: Any, points: Any, modules: dict[str, Any], *, tree: Any = None,
+) -> list[int | None]:
+    geometry = modules["geometry"]
+    # Repeated near-boundary probes share the same immutable mesh/tree.
+    if tree is None:
+        tree = _cell_search_tree(mesh, modules)
 
     try:
         candidates = geometry.compute_collisions_points(tree, points)
@@ -2594,7 +2631,23 @@ def _sample_to_browser_grid(
     repeat_z_bounds_mm: tuple[float, float] | None = None,
     end_z_max_mm: float | None = None,
 ) -> dict[str, Any]:
-    grid = axisymmetric_model.build_grid(p)
+    # Resolve the field immediately outside the core as well as plate rims.
+    # The general plotting grid's first dielectric radius may be >0.1 mm away.
+    core_r = float(p["core_od_mm"]) / 2.0
+    probe_step = min((mesh_sizes or {}).get("core_surface_fine_mm", 0.025), 0.025)
+    # Sample both sides of the narrow radial clearances. The rounded bias tip
+    # can become limiting as its OD approaches the grounded shell.
+    offsets = [factor * probe_step for factor in (0.25, 0.5, 1, 2, 3, 4)]
+    bias_r = float(p["hv_plate_od_mm"]) / 2.0
+    ground_r = float(p["ground_plate_inner_diameter_mm"]) / 2.0
+    grid = axisymmetric_model.build_grid(p, adaptive_coords={
+        "r": ([core_r + offset for offset in offsets]
+              + [bias_r + offset for offset in offsets]
+              + [ground_r - offset for offset in offsets]),
+        "z": [center + sign * offset
+              for kind, center in axisymmetric_model.plate_centers(p)
+              for sign in (-1, 1) for offset in offsets[:4]],
+    })
     r_coords = grid["r_coords"]
     z_coords = grid["z_coords"]
     labels = grid["labels"]
@@ -2757,6 +2810,10 @@ def _sample_to_browser_grid(
         "field_projection": "DG0 |grad(V)| sampled to r-z grid",
         "target_fine_mm": mesh_sizes.get("fine") if mesh_sizes else None,
         "target_coarse_mm": mesh_sizes.get("coarse") if mesh_sizes else None,
+        "core_surface_fine_mm": mesh_sizes.get("core_surface_fine_mm") if mesh_sizes else None,
+        "profile_steps_per_quarter": mesh_sizes.get("profile_steps_per_quarter", 8) if mesh_sizes else None,
+        "rotation_axis": "r=0, along the core centreline; plotted horizontally as z",
+        "weak_form_weight": "r; the common 2*pi factor cancels in the potential solve",
         "edge_radius_ratio": mesh_sizes.get("edge_radius_ratio") if mesh_sizes else None,
         "edge_radius_mm": mesh_sizes.get("edge_radius_mm") if mesh_sizes else None,
         "gap_limiter_mm": mesh_sizes.get("gap_limiter_mm") if mesh_sizes else None,
@@ -2819,7 +2876,7 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         end_z_max_mm = first_bias_center
         repeat_z_bounds_mm = (first_bias_center, second_ground_center)
         try:
-            mesh_sizes = _build_gmsh_model(p, modules, z_max_mm=end_z_max_mm)
+            mesh_sizes = _build_gmsh_model(p, modules, z_max_mm=end_z_max_mm, refine_peak_field=True)
             mesh = _model_to_mesh(modules)
         finally:
             gmsh.finalize()
@@ -2832,6 +2889,7 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
                 modules,
                 z_min_mm=repeat_z_bounds_mm[0],
                 z_max_mm=repeat_z_bounds_mm[1],
+                refine_peak_field=True,
             )
             repeat_mesh = _model_to_mesh(modules)
         finally:
@@ -2858,7 +2916,7 @@ def solve(parameters: dict[str, Any]) -> dict[str, Any]:
         }
     else:
         try:
-            mesh_sizes = _build_gmsh_model(p, modules, z_max_mm=mirror_z_mm)
+            mesh_sizes = _build_gmsh_model(p, modules, z_max_mm=mirror_z_mm, refine_peak_field=True)
             mesh = _model_to_mesh(modules)
         finally:
             gmsh.finalize()

@@ -47,6 +47,8 @@ def build_thermal_bundle(thermal_path: Path) -> None:
         "thermal_min_temperature_c",
         "thermal_epoxy_modulus_gpa",
         "thermal_mesh_size_mm",
+        "core_od_mm", "hv_plate_od_mm", "ground_plate_inner_diameter_mm",
+        "tube_id_mm", "plate_gap_mm", "bias_plate_thickness_mm", "ground_plate_thickness_mm",
     )
     mismatches = [key for key in required_matches if solved.get(key) != settings.get(key)]
     if mismatches:
@@ -59,6 +61,41 @@ def build_thermal_bundle(thermal_path: Path) -> None:
             "version": 1,
             "settings": settings,
             "result": thermal,
+        },
+    )
+
+
+
+def build_full_wave_bundle(full_wave_path: Path) -> None:
+    """Update EQS/RF independently of the reusable electrostatic cell solution.
+
+    Keep the actual solved parameters, convergence, and validation status. The
+    browser checks those parameters against the Designer before displaying it.
+    A completed sweep can contain failed validation checks; preserve them.
+    """
+    job = read_json(full_wave_path)
+    result = job.get("result", job)
+    if result.get("status") != "completed" or not result.get("parameters"):
+        raise ValueError("Full-wave result must be completed and include solved parameters")
+    for name, parameter in (("samples", "full_wave_frequencies_hz"),
+                            ("eqs_samples", "full_wave_eqs_frequencies_hz")):
+        samples = result.get(name, [])
+        if not samples:
+            raise ValueError(f"Full-wave result is missing {name}")
+        actual = {float(sample["frequency_hz"]) for sample in samples}
+        requested = {float(value) for value in result["parameters"].get(parameter, [])}
+        if not requested <= actual:
+            raise ValueError(f"Full-wave result is missing requested frequencies in {name}")
+        if any(not math.isfinite(float(sample["magnitude_db"])) for sample in samples):
+            raise ValueError(f"Full-wave result has non-finite values in {name}")
+    write_bundle(
+        ROOT / "presentations" / "web" / "default-full-wave-dp270.js",
+        "DISCOIDAL_DEFAULT_FULL_WAVE",
+        {
+            "format": "discoidal-capacitor-bias-filter-full-wave",
+            "version": 1,
+            "settings": result["parameters"],
+            "result": result,
         },
     )
 
@@ -163,6 +200,37 @@ def build(args: argparse.Namespace) -> None:
             "reason": "Checked-in default generated directly by the FEniCSx solver.",
         }
     spice = read_json(args.spice)
+    if args.electrical_only:
+        # Refresh the default seven-plate field/SPICE pair independently of
+        # historical EQS mesh-comparison fixtures and the RF sweep.
+        for label, payload in (("field", field), ("SPICE", spice)):
+            for key in ("plate_pairs", "epoxy_material", "epoxy_epsr", "washer_material", "washer_epsr",
+                        "plate_gap_mm", "bias_plate_thickness_mm", "ground_plate_thickness_mm",
+                        "core_od_mm", "hv_plate_od_mm", "ground_plate_inner_diameter_mm", "tube_id_mm"):
+                if payload.get("parameters", {}).get(key) != settings.get(key):
+                    raise ValueError(f"{label} result does not match current default {key}")
+        from axisymmetric_model import normalize_parameters
+        expected = normalize_parameters(dict(settings))
+        for key, value in expected.items():
+            actual = spice.get("parameters", {}).get(key)
+            equal = actual == value
+            if isinstance(value, (int, float)) and isinstance(actual, (int, float)):
+                equal = math.isclose(actual, value, rel_tol=1e-9, abs_tol=1e-12)
+            if not equal:
+                raise ValueError(f"SPICE settings do not match current default {key}")
+        network = field["capacitance"]["capacitance_network"]
+        cg = spice["circuit"]["geometricShuntCapPfByNode"]
+        mutual = spice["circuit"]["mutualCapPfMatrix"]
+        if cg != network["node_ground_pf"] or mutual != network["mutual_pf_matrix"]:
+            raise ValueError("SPICE capacitances do not match the saved field result")
+        write_bundle(
+            ROOT / "presentations" / "web" / "default-fenicsx-field-dp270.js",
+            "DISCOIDAL_BUNDLED_DEFAULT_FIELD_RESULT",
+            {"format": "discoidal-capacitor-bias-filter-bundled-field", "version": 2,
+             "settings": settings, "result": field, "exactCapacitanceParameters": field["parameters"],
+             "spiceLadder": spice},
+        )
+        return
     eqs = read_json(ROOT / "simulations" / "electromagnetic" / "default-dp270-eqs-sweep.json")
     full_wave = read_json(ROOT / "simulations" / "electromagnetic" / "latest-dp270-full-wave.json")
     coarse_paths = {
@@ -185,7 +253,7 @@ def build(args: argparse.Namespace) -> None:
             raise ValueError(f"{label} result has {solved_count} plates; expected {plate_count}")
 
     for label, payload in (("field", field), ("EQS", eqs), ("full-wave", full_wave), ("SPICE", spice)):
-        for key in ("epoxy_material", "epoxy_epsr", "washer_material", "washer_epsr", "plate_gap_mm", "bias_plate_thickness_mm", "ground_plate_thickness_mm", "core_od_mm", "hv_plate_od_mm", "tube_id_mm"):
+        for key in ("epoxy_material", "epoxy_epsr", "washer_material", "washer_epsr", "plate_gap_mm", "bias_plate_thickness_mm", "ground_plate_thickness_mm", "core_od_mm", "hv_plate_od_mm", "ground_plate_inner_diameter_mm", "tube_id_mm"):
             if payload.get("parameters", {}).get(key) != settings.get(key):
                 raise ValueError(f"{label} result does not match current default {key}")
     for key in ("bias_source_resistance_mohm", "bias_source_capacitance_nf", "bias_source_divider_mohm"):
@@ -376,15 +444,21 @@ def main() -> None:
     parser.add_argument("--field-job", type=Path, help="Downloaded field job JSON")
     parser.add_argument("--spice", type=Path, help="Downloaded matching SPICE response JSON")
     parser.add_argument("--thermal", type=Path, help="Downloaded matching thermal FEA result JSON")
+    parser.add_argument("--full-wave", type=Path, help="Completed full-wave/EQS result; independent of electrostatic cell reuse")
+    parser.add_argument("--electrical-only", action="store_true", help="Update only the --field-job/--spice bundle, leaving EQS/RF references intact")
     args = parser.parse_args()
+    if args.electrical_only and not (args.field_job and args.spice):
+        parser.error("--electrical-only requires both --field-job and --spice")
+    if args.full_wave:
+        build_full_wave_bundle(args.full_wave)
     if args.thermal:
         build_thermal_bundle(args.thermal)
     if args.field_job or args.spice:
         if not args.field_job or not args.spice:
             parser.error("--field-job and --spice must be supplied together")
         build(args)
-    elif not args.thermal:
-        parser.error("provide --thermal, or both --field-job and --spice")
+    elif not args.thermal and not args.full_wave:
+        parser.error("provide --thermal, --full-wave, or both --field-job and --spice")
 
 
 if __name__ == "__main__":

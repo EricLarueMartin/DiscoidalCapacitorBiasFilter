@@ -151,3 +151,11 @@ Run backend tests with:
 ```powershell
 python -m unittest software.bias_filter.test_field_backend
 ```
+
+## 28 mm default and field-completion behavior
+
+The 2026-09-22 default uses ground ID 4.2 mm and bias OD 25.8 mm inside a 28 mm shell, with a 2.2 mm core, 2 mm copper plates and 1 mm axial gaps. The 0.2 mm diameter sweep, 2 mm radial-gap stop condition, and sub-3% peak-field convergence checks are recorded in `docs/knowledge/28mm-default-margin.md` and can be reproduced with `sweep_margin_geometry.py`.
+
+The field backend permits one hour for the refined capacitance extraction; the browser waits up to two hours including queuing. Backend errors are explicit and do not trigger a JavaScript fallback. Browser JS remains a manually selected screening option. A completed field result refreshes Designer Cg/Cpar and invalidates SPICE results for a different extracted network, but never starts SPICE automatically. Run `node software/bias_filter/test_field_refresh.cjs` for this regression.
+
+The current FEniCSx mesh is geometry-graded but fixed for each solve. The planned solution-driven adaptive loop is not implemented, and direct LU does not use a coarse-mesh initial guess. Reflected basis fields now reuse their mesh search tree, avoiding repeated tree construction for boundary probes; the refined 28 mm default completed in 61.905 seconds. See the design note and recorded search-tree equivalence check.

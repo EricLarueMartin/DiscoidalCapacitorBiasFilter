@@ -1,0 +1,5 @@
+Reconstructed conversation record; routine tool output omitted.
+
+User: Run the missing default thermal FEA. Require the Run button for SPICE after changing plates, and audit all slides so unmatched results are replaced by notes listing the required simulations. Do not start simulations automatically while settings are being edited.
+
+Assistant: Ran and bundled seven-plate DP270 thermal FEA (P99 10.92 MPa, raw corner 24.69 MPa). Removed automatic SPICE and JS field-preview solves, added per-graphic simulation requirements, marked fixed references, and protected pending field results against subsequent edits.
