@@ -24,7 +24,7 @@
     <script defer src="default-full-wave-dp270.js?v=2026-09-22-28mm-margin"></script>
     <script defer src="noise-cables.js?v=2026-09-22-caen-dp270"></script>
     <script defer src="epoxy-cure.js?v=2026-09-22-dp270-default"></script>
-    <script defer src="app.js?v=2026-09-22-pickup-label-spacing"></script>
+    <script defer src="app.js?v=2026-10-20-split-edge-radius"></script>
   </head>
   <body>
     <header class="topbar">
@@ -256,7 +256,15 @@
             <label title="Minimum is nominal 1/2 oz copper foil: 0.0175 mm.">Bias plate thickness <output id="bias_plate_thickness_mm_out"></output><input id="bias_plate_thickness_mm" type="range" min="0.0175" max="4" step="0.0005"></label>
             <label title="Minimum is nominal 1/2 oz copper foil: 0.0175 mm.">Ground plate thickness <output id="ground_plate_thickness_mm_out"></output><input id="ground_plate_thickness_mm" type="range" min="0.0175" max="4" step="0.0005"></label>
             <label class="check"><input id="ground_matches_bias_thickness" type="checkbox"> Ground thickness = bias thickness</label>
-            <label>Edge diameter <output id="edge_diameter_percent_out"></output><input id="edge_diameter_percent" type="range" min="0" max="100" step="5"></label>
+            <label title="Choose whether rounded plate edges are specified as a percentage of that plate's thickness or directly in millimetres.">Edge radius units <select id="edge_radius_mode">
+              <option value="percent">% of thickness</option>
+              <option value="mm">mm</option>
+            </select></label>
+            <label data-edge-mode="percent">Bias edge diameter <output id="bias_edge_diameter_percent_out"></output><input id="bias_edge_diameter_percent" type="range" min="0" max="100" step="5"></label>
+            <label data-edge-mode="percent">Ground edge diameter <output id="ground_edge_diameter_percent_out"></output><input id="ground_edge_diameter_percent" type="range" min="0" max="100" step="5"></label>
+            <label data-edge-mode="mm">Bias edge radius <output id="bias_edge_radius_mm_out"></output><input id="bias_edge_radius_mm" type="range" min="0" max="2" step="0.005"></label>
+            <label data-edge-mode="mm">Ground edge radius <output id="ground_edge_radius_mm_out"></output><input id="ground_edge_radius_mm" type="range" min="0" max="2" step="0.005"></label>
+            <label class="check"><input id="ground_matches_bias_edge" type="checkbox"> Ground edge = bias edge</label>
             <label>Bias plates <output id="plate_pairs_out"></output><input id="plate_pairs" type="range" min="1" max="12" step="1"></label>
             <label class="check"><input id="include_ground_tube" type="checkbox"> Ground tube</label>
             <div class="derived-dimensions" aria-label="Derived diameters">

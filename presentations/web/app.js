@@ -75,6 +75,12 @@ const defaults = {
   ground_plate_thickness_mm: 2.0,
   ground_matches_bias_thickness: true,
   edge_diameter_percent: 100,
+  edge_radius_mode: "percent",
+  bias_edge_diameter_percent: 100,
+  ground_edge_diameter_percent: 100,
+  bias_edge_radius_mm: 1.0,
+  ground_edge_radius_mm: 1.0,
+  ground_matches_bias_edge: true,
   washer_material: "epoxy",
   washer_epsr: 3.5,
   epoxy_material: "three_m_dp270",
@@ -292,6 +298,18 @@ const PARAMETER_TOOLTIPS = Object.freeze({
     "When checked, every ground plate is assigned the same thickness as the bias plates and the separate ground-thickness input is disabled. Uncheck it to model different stock or machining thicknesses. The chosen thicknesses participate in geometry, resistance, edge radius, stack length, and package-length constraints.",
   edge_diameter_percent:
     "Rounded plate-edge diameter as a percentage of that plate's thickness. At 100%, radius equals half the plate thickness and the edge is fully semicircular; at 0%, the edge is square. Bias plates are rounded at their outer edge and ground plates at their inner edge. Smaller radii generally raise local electric field and also request a finer FEA mesh.",
+  edge_radius_mode:
+    "Chooses how rounded plate edges are entered. % of thickness keeps each edge proportional to its own plate, so changing plate thickness rescales the radius; mm fixes the radius in millimetres, which is what you want when the edge is cut with a specific corner-rounding tool. Both are clamped to half the plate thickness, since a corner radius cannot exceed that.",
+  bias_edge_diameter_percent:
+    "Bias-plate outer-edge diameter as a percentage of the bias-plate thickness. At 100% the radius equals half the thickness and the edge is fully semicircular; at 0% the edge is square. Smaller radii generally raise local electric field and request a finer FEA mesh.",
+  ground_edge_diameter_percent:
+    "Ground-plate inner-edge diameter as a percentage of the ground-plate thickness. Disabled when Ground edge = bias edge is checked.",
+  bias_edge_radius_mm:
+    "Bias-plate outer-edge radius in millimetres. The slider maximum tracks half the bias-plate thickness. Use this when the edge is produced by a corner-rounding end mill of known radius.",
+  ground_edge_radius_mm:
+    "Ground-plate inner-edge radius in millimetres. The slider maximum tracks half the ground-plate thickness. Disabled when Ground edge = bias edge is checked.",
+  ground_matches_bias_edge:
+    "When checked, the ground-plate edge uses the same setting as the bias plate and its own input is disabled. In mm mode the ground radius is additionally capped at half the ground-plate thickness, so a thinner ground plate still gets a valid edge. Uncheck to round the two plates differently.",
   plate_pairs:
     "Number of bias plates in the alternating filter stack. The geometry contains one more ground plate than bias plates, so this is not labeled as a pair count. Increasing it adds bias nodes, ground shunt capacitors, internal resistive sections, physical length, and SPICE ladder order. With Repeat interior FEA cell checked, a solved model containing at least three bias plates already supplies reflected end and interior classes; changing among three or more plates reconstructs a new approximate capacitance network without rerunning electrostatic FEA. A one- or two-plate source solve cannot supply an interior class for a longer stack. Exact full-stack capacitance or full-wave resonance calculations still depend on plate count.",
   include_ground_tube:
@@ -764,7 +782,10 @@ const ids = [
   "plate_gap_mm",
   "bias_plate_thickness_mm",
   "ground_plate_thickness_mm",
-  "edge_diameter_percent",
+  "bias_edge_diameter_percent",
+  "ground_edge_diameter_percent",
+  "bias_edge_radius_mm",
+  "ground_edge_radius_mm",
   "mesh_edge_radius_ratio",
   "plate_pairs",
   "thermal_min_temperature_c",
@@ -826,6 +847,10 @@ const units = {
   bias_plate_thickness_mm: " mm",
   ground_plate_thickness_mm: " mm",
   edge_diameter_percent: "%",
+  bias_edge_diameter_percent: "%",
+  ground_edge_diameter_percent: "%",
+  bias_edge_radius_mm: " mm",
+  ground_edge_radius_mm: " mm",
   mesh_edge_radius_ratio: "",
   plate_pairs: "",
   thermal_min_temperature_c: " &deg;C",
@@ -1958,12 +1983,22 @@ function plateThicknessMm(p, kind) {
 }
 
 function edgeRadiusMm(p, kind = null) {
-  const rawPercent = Number.isFinite(p.edge_diameter_percent)
-    ? p.edge_diameter_percent
-    : defaults.edge_diameter_percent;
-  const percent = Math.max(0, Math.min(100, rawPercent));
-  if (kind) return (plateThicknessMm(p, kind) * percent) / 200;
-  return Math.min(edgeRadiusMm(p, "hv"), edgeRadiusMm(p, "ground"));
+  if (!kind) return Math.min(edgeRadiusMm(p, "hv"), edgeRadiusMm(p, "ground"));
+  const half = plateThicknessMm(p, kind) / 2;
+  const mmKey = kind === "hv" ? "bias_edge_radius_mm" : "ground_edge_radius_mm";
+  const pctKey = kind === "hv" ? "bias_edge_diameter_percent" : "ground_edge_diameter_percent";
+  if (p.edge_radius_mode === "mm") {
+    if (Number.isFinite(p[mmKey])) return Math.max(0, Math.min(p[mmKey], half));
+  }
+  if (Number.isFinite(p[pctKey])) {
+    return (half * Math.max(0, Math.min(100, p[pctKey]))) / 100;
+  }
+  // Legacy settings files: one shared percent, or one shared radius in mm.
+  if (Number.isFinite(p.edge_diameter_percent)) {
+    return (half * Math.max(0, Math.min(100, p.edge_diameter_percent))) / 100;
+  }
+  if (Number.isFinite(p.edge_radius_mm)) return Math.max(0, Math.min(p.edge_radius_mm, half));
+  return (half * defaults.edge_diameter_percent) / 100;
 }
 
 function melfMinPairLengthMm(p) {
@@ -2329,6 +2364,9 @@ function syncDynamicRanges() {
     const max = spacingRange.max;
     setRangeInputBounds(id, min, max, 0.1);
   }
+  // A rounded edge can never exceed half the plate it is cut into.
+  setRangeInputBounds("bias_edge_radius_mm", 0, biasPlateThicknessMm(params) / 2, 0.005);
+  setRangeInputBounds("ground_edge_radius_mm", 0, groundPlateThicknessMm(params) / 2, 0.005);
   const hvOdInput = document.getElementById("hv_plate_od_mm");
   const hvOdBaseMax = defaultControlRanges.hv_plate_od_mm?.max ?? numericAttribute(hvOdInput, "max", 56);
   setRangeInputBounds("hv_plate_od_mm", minHvPlateOdForGeometry(params), hvOdBaseMax, 0.5);
@@ -4026,6 +4064,28 @@ function setupControls() {
     clearField();
   });
 
+  const groundMatchesBiasEdge = document.getElementById("ground_matches_bias_edge");
+  groundMatchesBiasEdge.checked = params.ground_matches_bias_edge;
+  groundMatchesBiasEdge.addEventListener("change", () => {
+    params.ground_matches_bias_edge = groundMatchesBiasEdge.checked;
+    normalizeParams();
+    syncControls();
+    drawCadModel();
+    drawGeometry();
+    clearField();
+  });
+
+  const edgeRadiusMode = document.getElementById("edge_radius_mode");
+  edgeRadiusMode.value = params.edge_radius_mode;
+  edgeRadiusMode.addEventListener("change", () => {
+    params.edge_radius_mode = edgeRadiusMode.value === "mm" ? "mm" : "percent";
+    normalizeParams();
+    syncControls();
+    drawCadModel();
+    drawGeometry();
+    clearField();
+  });
+
   const usePackageCoreOd = document.getElementById("use_package_core_od");
   usePackageCoreOd.checked = params.use_package_core_od;
   usePackageCoreOd.addEventListener("change", () => {
@@ -4315,7 +4375,7 @@ function normalizeParams() {
   if (!Number.isFinite(params.melf_stage_resistance_mohm) && Number.isFinite(params.melf_stage_resistance_log10_ohm)) {
     params.melf_stage_resistance_mohm = (10 ** params.melf_stage_resistance_log10_ohm) / 1e6;
   }
-  const edgeRange = controlRange("edge_diameter_percent", 0, 100);
+  const edgeRange = controlRange("bias_edge_diameter_percent", 0, 100);
   const rfRange = controlRange("rf_compare_frequency_log10_mhz", -3, 4);
   const melfRRange = controlRange("melf_stage_resistance_mohm", 1, 1000);
   const melfCRange = controlRange("melf_stage_parasitic_pf", 0.001, 5);
@@ -4342,7 +4402,45 @@ function normalizeParams() {
   if (params.ground_matches_bias_thickness) {
     params.ground_plate_thickness_mm = params.bias_plate_thickness_mm;
   }
-  params.edge_diameter_percent = clamp(params.edge_diameter_percent, edgeRange.min, edgeRange.max);
+  // Edge radius: per-plate values, optionally linked, in percent-of-thickness or mm.
+  params.edge_radius_mode = params.edge_radius_mode === "mm" ? "mm" : "percent";
+  params.ground_matches_bias_edge = params.ground_matches_bias_edge !== false;
+  const biasHalf = biasPlateThicknessMm(params) / 2;
+  const groundHalf = groundPlateThicknessMm(params) / 2;
+  if (params.edge_radius_mode === "mm") {
+    if (!Number.isFinite(params.bias_edge_radius_mm)) params.bias_edge_radius_mm = biasHalf;
+    params.bias_edge_radius_mm = clamp(params.bias_edge_radius_mm, 0, biasHalf);
+    if (params.ground_matches_bias_edge) {
+      params.ground_edge_radius_mm = Math.min(params.bias_edge_radius_mm, groundHalf);
+    } else {
+      if (!Number.isFinite(params.ground_edge_radius_mm)) params.ground_edge_radius_mm = groundHalf;
+      params.ground_edge_radius_mm = clamp(params.ground_edge_radius_mm, 0, groundHalf);
+    }
+    params.bias_edge_diameter_percent = biasHalf > 0 ? clamp((params.bias_edge_radius_mm / biasHalf) * 100, 0, 100) : 0;
+    params.ground_edge_diameter_percent = groundHalf > 0 ? clamp((params.ground_edge_radius_mm / groundHalf) * 100, 0, 100) : 0;
+  } else {
+    if (!Number.isFinite(params.bias_edge_diameter_percent)) {
+      params.bias_edge_diameter_percent = Number.isFinite(params.edge_diameter_percent)
+        ? params.edge_diameter_percent
+        : defaults.bias_edge_diameter_percent;
+    }
+    params.bias_edge_diameter_percent = clamp(params.bias_edge_diameter_percent, edgeRange.min, edgeRange.max);
+    if (params.ground_matches_bias_edge) {
+      params.ground_edge_diameter_percent = params.bias_edge_diameter_percent;
+    } else {
+      if (!Number.isFinite(params.ground_edge_diameter_percent)) {
+        params.ground_edge_diameter_percent = params.bias_edge_diameter_percent;
+      }
+      params.ground_edge_diameter_percent = clamp(params.ground_edge_diameter_percent, edgeRange.min, edgeRange.max);
+    }
+    params.bias_edge_radius_mm = (biasHalf * params.bias_edge_diameter_percent) / 100;
+    params.ground_edge_radius_mm = (groundHalf * params.ground_edge_diameter_percent) / 100;
+  }
+  // Legacy key kept in sync so older settings files and bundles still round-trip.
+  params.edge_diameter_percent = Math.min(
+    params.bias_edge_diameter_percent,
+    params.ground_edge_diameter_percent
+  );
   params.rf_compare_frequency_log10_mhz = clamp(params.rf_compare_frequency_log10_mhz, rfRange.min, rfRange.max);
   params.melf_stage_resistance_mohm = clamp(params.melf_stage_resistance_mohm, melfRRange.min, melfRRange.max);
   params.melf_stage_resistance_log10_ohm = Math.log10(params.melf_stage_resistance_mohm * 1e6);
@@ -4436,6 +4534,17 @@ function syncControls() {
   for (const id of ["noise_pz_decay_us", "noise_pz_decay_us_manual"]) {
     const control = document.getElementById(id);
     if (control) control.disabled = params.noise_apply_shaping === false || !params.noise_pz_enabled;
+  }
+  document.getElementById("edge_radius_mode").value = params.edge_radius_mode;
+  document.getElementById("ground_matches_bias_edge").checked = params.ground_matches_bias_edge;
+  document.querySelectorAll("[data-edge-mode]").forEach((label) => {
+    label.hidden = label.dataset.edgeMode !== params.edge_radius_mode;
+  });
+  for (const id of ["ground_edge_diameter_percent", "ground_edge_radius_mm"]) {
+    const control = document.getElementById(id);
+    if (control) control.disabled = params.ground_matches_bias_edge;
+    const manual = document.getElementById(`${id}_manual`);
+    if (manual) manual.disabled = params.ground_matches_bias_edge;
   }
   document.getElementById("washer_id_mode").value = params.washer_id_mode;
   document.getElementById("washer_od_mode").value = params.washer_od_mode;
