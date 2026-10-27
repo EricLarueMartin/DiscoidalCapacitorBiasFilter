@@ -52,9 +52,15 @@ Bias and ground plate thickness controls allow values down to `0.0175 mm`, the n
 
 ### Plate-Size Limits
 
-Bias-plate OD has no fixed minimum and no required radial overlap with the ground plates. Its only lower limit is geometric: core OD + 2 x bias edge radius, so the rounded outer edge fits outside the core on both sides. With the 2.2 mm core and a 1.0 mm edge radius this is 4.2 mm. Bias plates smaller than the ground-plate ID (no overlap) are allowed; the analytic washer/overlap capacitance then goes to zero and only fringe coupling remains, so rely on the field solvers there. Ground-plate ID is limited to tube ID - 2 x ground edge radius so the ground annulus can hold its rounded inner edge. Distinct ceramic washers tied to both plates (`ground_id` / `bias_od` modes) still require a minimum washer radial width, which implies some overlap in those modes.
+Plate sizes have no fixed floors and no required radial overlap between bias and ground plates. Each plate only has to hold its own rounded edge:
 
-The earlier fixed 12 mm minimum bias-plate OD and 1 mm minimum radial overlap were arbitrary UI limits with no documented basis and were removed on 2026-10-27.
+- Bias-plate OD >= core OD + 2 x bias edge radius (the rounded outer edge fits outside the core on both sides). With a 2.2 mm core and 1.0 mm edge radius this is 4.2 mm.
+- Tube ID (= ground-plate OD) >= ground-plate ID + 2 x ground edge radius, equivalently ground-plate ID <= tube ID - 2 x ground edge radius (the ground ring holds its rounded inner edge).
+- Bias edge radius <= min(bias thickness / 2, (bias OD - core OD) / 2); ground edge radius <= min(ground thickness / 2, (tube ID - ground ID) / 2). With linked edges, the single control is limited by the tighter plate.
+
+Voltage standoffs are separate and unchanged: the Designer keeps the epoxy breakdown spacing between core and ground ID and between bias OD and tube. Bias plates smaller than the ground-plate ID (no overlap) are allowed; the analytic washer/overlap capacitance then goes to zero and only fringe coupling remains, so rely on the field solvers there. Distinct ceramic washers tied to both plates (`ground_id` / `bias_od` modes) still require a minimum washer radial width, which implies some overlap in those modes.
+
+The earlier fixed 12 mm minimum bias-plate OD, 12 mm minimum tube ID and 1 mm minimum radial overlap were arbitrary UI limits with no documented basis and were removed on 2026-10-27. FD and FEniCSx solves were checked at the limits (bias OD = core OD + 2r, ground ring width = r).
 
 ## Dielectric Regions
 

@@ -233,7 +233,7 @@
             <h2>Geometry</h2>
             <label id="core_od_control">Core OD <output id="core_od_mm_out"></output><input id="core_od_mm" type="range" min="1" max="14" step="0.1"></label>
             <label id="use_package_core_od_control" class="check" title="Set core OD from the selected component package when its diameter is known."><input id="use_package_core_od" type="checkbox"> Use package diameter</label>
-            <label title="Primary inside diameter of the surrounding grounded tube.">Ground tube ID <output id="tube_id_mm_out"></output><input id="tube_id_mm" type="range" min="12" max="64" step="0.1"></label>
+            <label title="Primary inside diameter of the surrounding grounded tube.">Ground tube ID <output id="tube_id_mm_out"></output><input id="tube_id_mm" type="range" min="1" max="64" step="0.1"></label>
             <label title="Primary axial washer thickness between adjacent plate faces.">Washer thickness <output id="plate_gap_mm_out"></output><input id="plate_gap_mm" type="range" min="0.4" max="4" step="0.1"></label>
             <label id="washer_id_control" title="Ceramic washer inner diameter and source dimension for coupled ground-ID modes.">Washer ID <output id="washer_id_mm_out"></output><input id="washer_id_mm" type="range" min="2" max="40" step="0.1"></label>
             <label id="washer_id_mode_control">Washer ID relation
@@ -252,7 +252,7 @@
               </select>
             </label>
             <label title="Primary bias-plate outside diameter when the dielectric is continuous epoxy; ceramic washer relation modes may derive it from washer OD.">Bias plate OD <output id="hv_plate_od_mm_out"></output><input id="hv_plate_od_mm" type="range" min="0.5" max="56" step="0.1"></label>
-            <label title="Primary ground-plate inside diameter when the dielectric is continuous epoxy; ceramic washer relation modes may derive it from washer ID.">Ground plate ID <output id="ground_plate_inner_diameter_mm_out"></output><input id="ground_plate_inner_diameter_mm" type="range" min="2" max="40" step="0.1"></label>
+            <label title="Primary ground-plate inside diameter when the dielectric is continuous epoxy; ceramic washer relation modes may derive it from washer ID.">Ground plate ID <output id="ground_plate_inner_diameter_mm_out"></output><input id="ground_plate_inner_diameter_mm" type="range" min="0.5" max="40" step="0.1"></label>
             <label title="Minimum is nominal 1/2 oz copper foil: 0.0175 mm.">Bias plate thickness <output id="bias_plate_thickness_mm_out"></output><input id="bias_plate_thickness_mm" type="range" min="0.0175" max="4" step="0.0005"></label>
             <label title="Minimum is nominal 1/2 oz copper foil: 0.0175 mm.">Ground plate thickness <output id="ground_plate_thickness_mm_out"></output><input id="ground_plate_thickness_mm" type="range" min="0.0175" max="4" step="0.0005"></label>
             <label class="check"><input id="ground_matches_bias_thickness" type="checkbox"> Ground thickness = bias thickness</label>

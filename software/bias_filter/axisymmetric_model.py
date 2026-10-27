@@ -92,8 +92,10 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
     # the bias plate's only lower limit is the core OD plus its rounded outer
     # edge on both sides.
     min_hv_od = core_od + 2.0 * bias_radius
-    p["tube_id_mm"] = max(min_hv_od + 0.02, float(p.get("tube_id_mm", 24.0)))
-    max_ground_id = max(min_ground_id, p["tube_id_mm"] - 2.0 * ground_radius - 0.02)
+    # Ground OD (= tube ID) must hold the ground plate's rounded inner edge:
+    # tube ID >= ground ID + 2 x ground edge radius.
+    p["tube_id_mm"] = max(min_hv_od + 0.02, min_ground_id + 2.0 * ground_radius, float(p.get("tube_id_mm", 24.0)))
+    max_ground_id = max(min_ground_id, p["tube_id_mm"] - 2.0 * ground_radius)
     if p["washer_material"] == "epoxy":
         p["ground_plate_inner_diameter_mm"] = max(
             min_ground_id,

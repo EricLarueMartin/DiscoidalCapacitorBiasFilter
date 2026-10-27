@@ -140,11 +140,12 @@ const FIELD_ADAPTIVE_MAX_POINTS = 18;
 const FIELD_ADAPTIVE_THRESHOLD_FRACTION = 0.45;
 const SUPPORTED_PEAK_PERCENTILE = 0.75;
 const SUPPORTED_PEAK_OUTLIER_RATIO = 1.35;
-// Bias-plate OD has no fixed floor and no required bias/ground radial overlap:
-// the only lower limit is the core OD plus the rounded outer edge on both sides
-// (core OD + 2 x bias edge radius). A ground annulus must still be wider than its
-// rounded inner edge.
-const MIN_GEOMETRY_CLEARANCE_MM = 0.01;
+// Plate sizes have no fixed floors and no required bias/ground radial overlap.
+// Each plate only has to hold its own rounded edge:
+//   bias OD   >= core OD   + 2 x bias edge radius   (edge on the outside of a disc)
+//   tube ID   >= ground ID + 2 x ground edge radius (ground OD = tube ID; edge on the inside of a ring)
+//   bias edge radius   <= min(bias thickness / 2,   (bias OD - core OD) / 2)
+//   ground edge radius <= min(ground thickness / 2, (tube ID - ground ID) / 2)
 const MIN_WASHER_RADIAL_WIDTH_MM = 0.1;
 const SPEED_OF_LIGHT_M_PER_S = 299792458;
 const ATTENUATION_PLOT_FMIN_HZ = 1;
@@ -1742,6 +1743,12 @@ const hvSpacingControlIds = [
 function isDynamicallyConstrainedControl(id) {
   return hvSpacingControlIds.includes(id)
     || id === "hv_plate_od_mm"
+    || id === "tube_id_mm"
+    || id === "ground_plate_inner_diameter_mm"
+    || id === "bias_edge_radius_mm"
+    || id === "ground_edge_radius_mm"
+    || id === "bias_edge_diameter_percent"
+    || id === "ground_edge_diameter_percent"
     || id === "washer_id_mm"
     || id === "washer_od_mm";
 }
@@ -2271,12 +2278,29 @@ function spacingRangeForWasher(p) {
   };
 }
 
+// Round away floating-point dust so range bounds land exactly on the 0.1 mm grid.
+function geometryMm(value) {
+  return Math.round(value * 1e9) / 1e9;
+}
+
 function minHvPlateOdForGeometry(p) {
-  return p.core_od_mm + 2 * edgeRadiusMm(p, "hv");
+  return geometryMm(p.core_od_mm + 2 * edgeRadiusMm(p, "hv"));
 }
 
 function maxGroundIdForGeometry(p) {
-  return p.tube_id_mm - 2 * edgeRadiusMm(p, "ground") - 2 * MIN_GEOMETRY_CLEARANCE_MM;
+  return geometryMm(p.tube_id_mm - 2 * edgeRadiusMm(p, "ground"));
+}
+
+function minTubeIdForGeometry(p) {
+  return geometryMm(p.ground_plate_inner_diameter_mm + 2 * edgeRadiusMm(p, "ground"));
+}
+
+function maxEdgeRadiusForGeometry(p, kind) {
+  const half = plateThicknessMm(p, kind) / 2;
+  const room = kind === "hv"
+    ? (p.hv_plate_od_mm - p.core_od_mm) / 2
+    : (p.tube_id_mm - p.ground_plate_inner_diameter_mm) / 2;
+  return geometryMm(Math.max(0, Math.min(half, room)));
 }
 
 function derivedGeometry(p) {
@@ -2306,7 +2330,7 @@ function applyWasherGeometry(p) {
   const coreGapMin = minimumSpacingForMaterial(epoxyMaterialPresets[p.epoxy_material], p.bias_voltage_v);
   const tubeGapMin = coreGapMin;
   const minGroundId = p.core_od_mm + 2 * coreGapMin;
-  p.tube_id_mm = Math.max(p.tube_id_mm, minHvPlateOdForGeometry(p) + 2 * tubeGapMin);
+  p.tube_id_mm = Math.max(p.tube_id_mm, minHvPlateOdForGeometry(p) + 2 * tubeGapMin, minGroundId + 2 * groundRadius);
   const maxGroundId = Math.max(minGroundId, maxGroundIdForGeometry(p));
 
   p.washer_id_mode = WASHER_ID_MODES.has(p.washer_id_mode) ? p.washer_id_mode : "ground_id";
@@ -2370,13 +2394,30 @@ function syncDynamicRanges() {
     const max = spacingRange.max;
     setRangeInputBounds(id, min, max, 0.1);
   }
-  // A rounded edge can never exceed half the plate it is cut into.
-  setRangeInputBounds("bias_edge_radius_mm", 0, biasPlateThicknessMm(params) / 2, 0.005);
-  setRangeInputBounds("ground_edge_radius_mm", 0, groundPlateThicknessMm(params) / 2, 0.005);
+  // A rounded edge can never exceed half the plate it is cut into, nor the radial
+  // room its plate has (bias: OD beyond the core; ground: ring width to the tube).
+  const biasHalf = biasPlateThicknessMm(params) / 2;
+  const groundHalf = groundPlateThicknessMm(params) / 2;
+  const biasRadiusMax = maxEdgeRadiusForGeometry(params, "hv");
+  const groundRadiusMax = maxEdgeRadiusForGeometry(params, "ground");
+  const groundRoom = (params.tube_id_mm - params.ground_plate_inner_diameter_mm) / 2;
+  const linkedEdges = params.ground_matches_bias_edge;
+  // Linked: one control drives both plates, so it must fit the tighter plate.
+  const biasRadiusControlMax = linkedEdges ? Math.min(biasRadiusMax, Math.max(0, groundRoom)) : biasRadiusMax;
+  setRangeInputBounds("bias_edge_radius_mm", 0, biasRadiusControlMax, 0.005);
+  setRangeInputBounds("ground_edge_radius_mm", 0, groundRadiusMax, 0.005);
+  const biasPctMax = biasHalf > 0 ? Math.min(100, (biasRadiusMax / biasHalf) * 100) : 0;
+  const groundPctMax = groundHalf > 0 ? Math.min(100, (groundRadiusMax / groundHalf) * 100) : 0;
+  setRangeInputBounds("bias_edge_diameter_percent", 0, linkedEdges ? Math.min(biasPctMax, groundPctMax) : biasPctMax);
+  setRangeInputBounds("ground_edge_diameter_percent", 0, groundPctMax);
   const hvOdInput = document.getElementById("hv_plate_od_mm");
   const hvOdBaseMax = defaultControlRanges.hv_plate_od_mm?.max ?? numericAttribute(hvOdInput, "max", 56);
-  setRangeInputBounds("hv_plate_od_mm", minHvPlateOdForGeometry(params), hvOdBaseMax, 0.5);
+  setRangeInputBounds("hv_plate_od_mm", minHvPlateOdForGeometry(params), hvOdBaseMax, 0.1);
   const epoxyGapMin = minimumSpacingForMaterial(epoxyMaterialPresets[params.epoxy_material], params.bias_voltage_v);
+  const tubeInput = document.getElementById("tube_id_mm");
+  const tubeBaseMax = defaultControlRanges.tube_id_mm?.max ?? numericAttribute(tubeInput, "max", 64);
+  setRangeInputBounds("tube_id_mm", geometryMm(Math.max(minTubeIdForGeometry(params), minHvPlateOdForGeometry(params) + 2 * epoxyGapMin)), tubeBaseMax, 0.1);
+  setRangeInputBounds("ground_plate_inner_diameter_mm", geometryMm(params.core_od_mm + 2 * epoxyGapMin), maxGroundIdForGeometry(params), 0.1);
   const washerIdOffset = params.washer_id_mode === "ground_flat_id" ? 2 * edgeRadiusMm(params, "ground") : 0;
   const washerIdMin = params.core_od_mm + 2 * epoxyGapMin + washerIdOffset;
   const washerIdMax = Math.max(washerIdMin, Math.min(params.washer_od_mm - 2 * MIN_WASHER_RADIAL_WIDTH_MM, maxGroundIdForGeometry(params) + washerIdOffset));
