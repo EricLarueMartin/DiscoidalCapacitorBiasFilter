@@ -8488,6 +8488,24 @@ function cachedSpiceLadderResultForCurrentDesign() {
   return key && spiceLadderCache?.key === key ? spiceLadderCache.payload : null;
 }
 
+// Why a returned SPICE payload is not complete enough for the SPICE slides.
+function spicePayloadIncompleteReason(payload) {
+  if (!payload) return "";
+  const parts = [
+    ["lmfeSignalStep", "LMFE signal-step transient"],
+    ["lmfeEverythingTransfer", "LMFE full-chain transfer"],
+    ["lmfeInputPickupTransfer", "LMFE input-pickup transfer"],
+    ["lmfeCryostatPickupTransfer", "LMFE cryostat-pickup transfer"]
+  ];
+  if (!payload.samples?.length) return "the AC ladder sweep returned no samples";
+  for (const [key, label] of parts) {
+    if (payload[key]?.samples?.length) continue;
+    const detail = String(payload[key]?.error || "no samples returned").split("\n").find((line) => line.trim()) || "";
+    return `the ${label} failed (${detail.trim().slice(0, 160)})`;
+  }
+  return "";
+}
+
 function updateSpiceSolverPanel() {
   const button = document.getElementById("solveSpice");
   const status = document.getElementById("spiceSolveStatus");
@@ -8522,6 +8540,8 @@ function updateSpiceSolverPanel() {
     status.textContent = "Plate geometry has no matching capacitance network. Run the field FEA first.";
   } else if (pending) {
     status.textContent = "Running the complete circuit with the current FEA capacitance network...";
+  } else if (payload && spicePayloadIncompleteReason(payload)) {
+    status.textContent = `SPICE ran, but ${spicePayloadIncompleteReason(payload)}. Slides that need the full SPICE result stay hidden until a run completes.`;
   } else if (payload) {
     status.textContent = `Current: ${count} bias plates and ${Math.max(0, count - 1)} interplate resistors, plus the configured input/output resistors. ${reuse ? "Reused FEA capacitance classes; no new field solve." : "Slides 3 and 5 use this SPICE result."}`;
   } else if (spiceLadderError) {

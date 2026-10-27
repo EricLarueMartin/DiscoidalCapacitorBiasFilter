@@ -13,6 +13,7 @@ import cmath
 import importlib.util
 import math
 import noise_cables
+import os
 import shutil
 import subprocess
 import tempfile
@@ -28,8 +29,18 @@ except ImportError:  # Direct script execution by the Pi backend.
 EPS0_F_PER_MM = 8.8541878128e-15
 FR4_WASHER_EPSR = 4.3
 SPEED_OF_LIGHT_M_PER_S = 299_792_458.0
-NGSPICE_TIMEOUT_SECONDS = 20
-LMFE_SIGNAL_TIMEOUT_SECONDS = 120
+def _timeout_seconds_from_env(name: str, default: float) -> float:
+    try:
+        return max(1.0, float(os.environ.get(name, default)))
+    except ValueError:
+        return float(default)
+
+
+NGSPICE_TIMEOUT_SECONDS = _timeout_seconds_from_env("SHV_NGSPICE_TIMEOUT_S", 20)
+# The LMFE signal-step transient takes roughly 30 s on a desktop and ~2-3 min on
+# a Raspberry Pi 4; 120 s silently dropped it there. 480 s keeps the whole
+# /api/spice-ladder request inside the browser's 600 s SPICE timeout.
+LMFE_SIGNAL_TIMEOUT_SECONDS = _timeout_seconds_from_env("SHV_LMFE_SIGNAL_TIMEOUT_S", 480)
 ATTENUATION_SWEEP_FMIN_HZ = 1.0
 ATTENUATION_SWEEP_FMAX_HZ = 100e6
 INSTRUMENT_PORT_OHM = 50.0
