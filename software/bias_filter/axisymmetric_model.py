@@ -88,8 +88,12 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
     p["washer_od_mm"] = float(p.get("washer_od_mm", p.get("hv_plate_od_mm", p["washer_id_mm"] + 2.0)))
 
     min_ground_id = core_od + 0.02
-    p["tube_id_mm"] = max(12.02, float(p.get("tube_id_mm", 24.0)))
-    max_ground_id = max(min_ground_id, p["tube_id_mm"] - 2.02)
+    # No fixed bias-plate OD floor and no required bias/ground radial overlap:
+    # the bias plate's only lower limit is the core OD plus its rounded outer
+    # edge on both sides.
+    min_hv_od = core_od + 2.0 * bias_radius
+    p["tube_id_mm"] = max(min_hv_od + 0.02, float(p.get("tube_id_mm", 24.0)))
+    max_ground_id = max(min_ground_id, p["tube_id_mm"] - 2.0 * ground_radius - 0.02)
     if p["washer_material"] == "epoxy":
         p["ground_plate_inner_diameter_mm"] = max(
             min_ground_id,
@@ -113,7 +117,6 @@ def normalize_parameters(p: dict[str, Any]) -> dict[str, Any]:
 
     p["washer_id_mm"] = max(core_od, p["washer_id_mm"])
     p["washer_od_mm"] = max(p["washer_id_mm"] + min_washer_width_diameter, p["washer_od_mm"])
-    min_hv_od = max(12.0, p["ground_plate_inner_diameter_mm"] + 2.0)
     max_hv_od = max(min_hv_od, p["tube_id_mm"] - 0.02)
     if p["washer_material"] == "epoxy":
         p["hv_plate_od_mm"] = max(

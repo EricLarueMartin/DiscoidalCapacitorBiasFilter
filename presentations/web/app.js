@@ -140,8 +140,11 @@ const FIELD_ADAPTIVE_MAX_POINTS = 18;
 const FIELD_ADAPTIVE_THRESHOLD_FRACTION = 0.45;
 const SUPPORTED_PEAK_PERCENTILE = 0.75;
 const SUPPORTED_PEAK_OUTLIER_RATIO = 1.35;
-const MIN_RADIAL_OVERLAP_MM = 1;
-const MIN_HV_PLATE_OD_MM = 12;
+// Bias-plate OD has no fixed floor and no required bias/ground radial overlap:
+// the only lower limit is the core OD plus the rounded outer edge on both sides
+// (core OD + 2 x bias edge radius). A ground annulus must still be wider than its
+// rounded inner edge.
+const MIN_GEOMETRY_CLEARANCE_MM = 0.01;
 const MIN_WASHER_RADIAL_WIDTH_MM = 0.1;
 const SPEED_OF_LIGHT_M_PER_S = 299792458;
 const ATTENUATION_PLOT_FMIN_HZ = 1;
@@ -2269,8 +2272,11 @@ function spacingRangeForWasher(p) {
 }
 
 function minHvPlateOdForGeometry(p) {
-  const groundInner = p.ground_plate_inner_diameter_mm;
-  return Math.max(MIN_HV_PLATE_OD_MM, groundInner + 2 * MIN_RADIAL_OVERLAP_MM);
+  return p.core_od_mm + 2 * edgeRadiusMm(p, "hv");
+}
+
+function maxGroundIdForGeometry(p) {
+  return p.tube_id_mm - 2 * edgeRadiusMm(p, "ground") - 2 * MIN_GEOMETRY_CLEARANCE_MM;
 }
 
 function derivedGeometry(p) {
@@ -2300,8 +2306,8 @@ function applyWasherGeometry(p) {
   const coreGapMin = minimumSpacingForMaterial(epoxyMaterialPresets[p.epoxy_material], p.bias_voltage_v);
   const tubeGapMin = coreGapMin;
   const minGroundId = p.core_od_mm + 2 * coreGapMin;
-  p.tube_id_mm = Math.max(p.tube_id_mm, MIN_HV_PLATE_OD_MM + 2 * tubeGapMin);
-  const maxGroundId = Math.max(minGroundId, p.tube_id_mm - 2 * tubeGapMin - 2 * MIN_RADIAL_OVERLAP_MM);
+  p.tube_id_mm = Math.max(p.tube_id_mm, minHvPlateOdForGeometry(p) + 2 * tubeGapMin);
+  const maxGroundId = Math.max(minGroundId, maxGroundIdForGeometry(p));
 
   p.washer_id_mode = WASHER_ID_MODES.has(p.washer_id_mode) ? p.washer_id_mode : "ground_id";
   p.washer_od_mode = WASHER_OD_MODES.has(p.washer_od_mode) ? p.washer_od_mode : "bias_od";
@@ -2312,7 +2318,7 @@ function applyWasherGeometry(p) {
 
   if (washerUsesEpoxy(p)) {
     p.ground_plate_inner_diameter_mm = clamp(p.ground_plate_inner_diameter_mm, minGroundId, maxGroundId);
-    const minHvOd = Math.max(MIN_HV_PLATE_OD_MM, p.ground_plate_inner_diameter_mm + 2 * MIN_RADIAL_OVERLAP_MM);
+    const minHvOd = minHvPlateOdForGeometry(p);
     const maxHvOd = p.tube_id_mm - 2 * tubeGapMin;
     p.hv_plate_od_mm = clamp(p.hv_plate_od_mm, minHvOd, maxHvOd);
     p.washer_id_mm = p.ground_plate_inner_diameter_mm;
@@ -2335,7 +2341,7 @@ function applyWasherGeometry(p) {
 
   p.washer_id_mm = Math.max(p.core_od_mm, p.washer_id_mm);
   p.washer_od_mm = Math.max(p.washer_id_mm + minWidthDiameter, p.washer_od_mm);
-  const minHvOd = Math.max(MIN_HV_PLATE_OD_MM, p.ground_plate_inner_diameter_mm + 2 * MIN_RADIAL_OVERLAP_MM);
+  const minHvOd = minHvPlateOdForGeometry(p);
   const maxHvOd = p.tube_id_mm - 2 * tubeGapMin;
   if (p.washer_od_mode === "bias_od") {
     p.hv_plate_od_mm = clamp(p.washer_od_mm, minHvOd, maxHvOd);
@@ -2373,7 +2379,7 @@ function syncDynamicRanges() {
   const epoxyGapMin = minimumSpacingForMaterial(epoxyMaterialPresets[params.epoxy_material], params.bias_voltage_v);
   const washerIdOffset = params.washer_id_mode === "ground_flat_id" ? 2 * edgeRadiusMm(params, "ground") : 0;
   const washerIdMin = params.core_od_mm + 2 * epoxyGapMin + washerIdOffset;
-  const washerIdMax = Math.max(washerIdMin, Math.min(params.washer_od_mm - 2 * MIN_WASHER_RADIAL_WIDTH_MM, params.tube_id_mm - 2 * epoxyGapMin - 2 * MIN_RADIAL_OVERLAP_MM + washerIdOffset));
+  const washerIdMax = Math.max(washerIdMin, Math.min(params.washer_od_mm - 2 * MIN_WASHER_RADIAL_WIDTH_MM, maxGroundIdForGeometry(params) + washerIdOffset));
   setRangeInputBounds("washer_id_mm", washerIdMin, washerIdMax, 0.1);
   const washerOdMin = params.washer_id_mm + 2 * MIN_WASHER_RADIAL_WIDTH_MM;
   const washerOdOffset = params.washer_od_mode === "bias_flat_od" ? 2 * edgeRadiusMm(params, "hv") : 0;

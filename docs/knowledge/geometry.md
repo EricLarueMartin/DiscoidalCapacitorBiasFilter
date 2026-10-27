@@ -50,6 +50,12 @@ The promoted reference defaults use a 2.2 mm core OD, 26 mm tube ID, 1.0 mm cont
 
 Bias and ground plate thickness controls allow values down to `0.0175 mm`, the nominal thickness of 1/2 oz copper foil. At this limit, rounded-edge radii derived as half the plate thickness become extremely small and peak-field results require correspondingly careful mesh convergence.
 
+### Plate-Size Limits
+
+Bias-plate OD has no fixed minimum and no required radial overlap with the ground plates. Its only lower limit is geometric: core OD + 2 x bias edge radius, so the rounded outer edge fits outside the core on both sides. With the 2.2 mm core and a 1.0 mm edge radius this is 4.2 mm. Bias plates smaller than the ground-plate ID (no overlap) are allowed; the analytic washer/overlap capacitance then goes to zero and only fringe coupling remains, so rely on the field solvers there. Ground-plate ID is limited to tube ID - 2 x ground edge radius so the ground annulus can hold its rounded inner edge. Distinct ceramic washers tied to both plates (`ground_id` / `bias_od` modes) still require a minimum washer radial width, which implies some overlap in those modes.
+
+The earlier fixed 12 mm minimum bias-plate OD and 1 mm minimum radial overlap were arbitrary UI limits with no documented basis and were removed on 2026-10-27.
+
 ## Dielectric Regions
 
 - High-permittivity dielectric is preferred between overlapping HV and ground plates.

@@ -254,9 +254,11 @@ def sanitized_parameters(raw_parameters: dict[str, Any]) -> dict[str, Any]:
         params.get("ground_plate_inner_diameter_mm"), params["core_od_mm"] + 0.02, 400.0, params["core_od_mm"] + 4.0
     )
     params["tube_id_mm"] = clamp_number(
-        params.get("tube_id_mm"), max(12.02, params["ground_plate_inner_diameter_mm"] + 2.02), 400.0, 24.0
+        params.get("tube_id_mm"), params["ground_plate_inner_diameter_mm"] + 0.02, 400.0, 24.0
     )
-    min_hv_plate_od_mm = max(12.0, params["ground_plate_inner_diameter_mm"] + 2.0)
+    # No fixed floor or bias/ground overlap rule. The full limit, core OD + 2 x bias
+    # edge radius, is applied in axisymmetric_model.normalize_parameters.
+    min_hv_plate_od_mm = params["core_od_mm"]
     params["hv_plate_od_mm"] = clamp_number(
         params.get("hv_plate_od_mm"), min_hv_plate_od_mm, params["tube_id_mm"] - 0.02, 20.0
     )
